@@ -20,6 +20,9 @@ import numpy as np
 MAX_CHECKPOINT_FILE_BYTES = 64 * 1024 * 1024
 MAX_CHECKPOINT_UNCOMPRESSED_BYTES = 128 * 1024 * 1024
 MAX_CHECKPOINT_METADATA_BYTES = 64 * 1024
+MAX_CHECKPOINT_METADATA_DEPTH = 32
+MAX_CHECKPOINT_METADATA_NODES = 10_000
+MAX_CHECKPOINT_METADATA_STRING = 4_096
 MAX_NPY_HEADER_BYTES = 10_000
 
 
@@ -343,6 +346,45 @@ def preflight_npz(
             pass
 
 
+def _validate_metadata_tree(value, *, depth=0, budget=None):
+    if budget is None:
+        budget = [0]
+    if depth > MAX_CHECKPOINT_METADATA_DEPTH:
+        raise CheckpointPreflightError("Profundidade excessiva nos metadados.")
+    budget[0] += 1
+    if budget[0] > MAX_CHECKPOINT_METADATA_NODES:
+        raise CheckpointPreflightError("Quantidade excessiva de valores nos metadados.")
+
+    if value is None or isinstance(value, (bool, int)):
+        if isinstance(value, int) and not isinstance(value, bool):
+            if value.bit_length() > 4096:
+                raise CheckpointPreflightError("Inteiro excessivo nos metadados.")
+        return
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise CheckpointPreflightError("Número não finito nos metadados.")
+        return
+    if isinstance(value, str):
+        if len(value) > MAX_CHECKPOINT_METADATA_STRING:
+            raise CheckpointPreflightError("Texto excessivo nos metadados.")
+        return
+    if isinstance(value, list):
+        if len(value) > MAX_CHECKPOINT_METADATA_NODES:
+            raise CheckpointPreflightError("Lista excessiva nos metadados.")
+        for item in value:
+            _validate_metadata_tree(item, depth=depth + 1, budget=budget)
+        return
+    if isinstance(value, dict):
+        if len(value) > MAX_CHECKPOINT_METADATA_NODES:
+            raise CheckpointPreflightError("Objeto excessivo nos metadados.")
+        for key, item in value.items():
+            if not isinstance(key, str) or len(key) > 256:
+                raise CheckpointPreflightError("Chave inválida nos metadados.")
+            _validate_metadata_tree(item, depth=depth + 1, budget=budget)
+        return
+    raise CheckpointPreflightError("Tipo de valor não permitido nos metadados.")
+
+
 def decode_metadata_array(array) -> dict:
     """Decode bounded UTF-8 JSON metadata with duplicate-key rejection."""
     if (
@@ -368,11 +410,24 @@ def decode_metadata_array(array) -> dict:
             f"Constante JSON não permitida: {value}"
         )
 
+    def bounded_integer(raw):
+        if len(raw) > 1_234:
+            raise CheckpointPreflightError("Inteiro excessivo nos metadados.")
+        return int(raw)
+
+    def finite_float(raw):
+        value = float(raw)
+        if not math.isfinite(value):
+            raise CheckpointPreflightError("Número não finito nos metadados.")
+        return value
+
     try:
         value = json.loads(
             array.tobytes().decode("utf-8"),
             object_pairs_hook=unique_pairs,
             parse_constant=reject_constant,
+            parse_int=bounded_integer,
+            parse_float=finite_float,
         )
     except CheckpointPreflightError:
         raise
@@ -385,4 +440,5 @@ def decode_metadata_array(array) -> dict:
         raise CheckpointPreflightError(
             "Raiz dos metadados precisa ser objeto."
         )
+    _validate_metadata_tree(value)
     return value
