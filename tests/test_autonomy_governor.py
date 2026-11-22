@@ -491,11 +491,10 @@ def test_screen_off_background_idle_gets_one_checkpointable_task_budget(tmp_path
     [
         (background_context(app_foreground=True), resource_snapshot(), "background_requires_mahoraga_app_not_foreground"),
         (background_context(screen_interactive=True), resource_snapshot(), "background_requires_screen_off"),
-        (background_context(charging=False), resource_snapshot(), "background_requires_confirmed_charging"),
-        (background_context(thermal_status="unknown"), resource_snapshot(), "background_thermal_state_not_cool_enough"),
-        (background_context(), resource_snapshot(percentage=20), "background_battery_unknown_or_below_minimum"),
-        (background_context(), resource_snapshot(ram_mb=1536), "background_memory_headroom_insufficient"),
-        (background_context(), resource_snapshot(free_storage_mb=1536), "background_storage_headroom_insufficient"),
+        (background_context(charging=False), resource_snapshot(charging="DISCHARGING", percentage=10), "background_battery_below_critical_minimum"),
+        (background_context(thermal_status="severe"), resource_snapshot(), "background_thermal_state_critical"),
+        (background_context(), resource_snapshot(ram_mb=256), "available_memory_below_emergency_floor"),
+        (background_context(), resource_snapshot(free_storage_mb=256), "free_storage_below_emergency_floor"),
     ],
 )
 def test_background_idle_fails_closed_when_any_required_condition_is_missing(
@@ -594,11 +593,10 @@ def test_background_companion_reduces_budget_for_light_thermal_state(tmp_path):
     [
         (background_context(app_foreground=True, screen_interactive=True), resource_snapshot(), "background_requires_mahoraga_app_not_foreground"),
         (background_context(screen_interactive=False), resource_snapshot(), "companion_mode_requires_interactive_screen"),
-        (background_context(charging=False, screen_interactive=True), resource_snapshot(), "background_requires_confirmed_charging"),
-        (background_context(screen_interactive=True), resource_snapshot(percentage=30), "background_battery_unknown_or_below_minimum"),
-        (background_context(screen_interactive=True, thermal_status="unknown"), resource_snapshot(), "background_thermal_state_not_cool_enough"),
-        (background_context(screen_interactive=True), resource_snapshot(ram_mb=1536), "background_memory_headroom_insufficient"),
-        (background_context(screen_interactive=True), resource_snapshot(free_storage_mb=1536), "background_storage_headroom_insufficient"),
+        (background_context(charging=False, screen_interactive=True), resource_snapshot(charging="DISCHARGING", percentage=10), "background_battery_below_critical_minimum"),
+        (background_context(screen_interactive=True, thermal_status="severe"), resource_snapshot(), "background_thermal_state_critical"),
+        (background_context(screen_interactive=True), resource_snapshot(ram_mb=256), "available_memory_below_emergency_floor"),
+        (background_context(screen_interactive=True), resource_snapshot(free_storage_mb=256), "free_storage_below_emergency_floor"),
     ],
 )
 def test_background_companion_fails_closed_when_a_required_condition_is_missing(
@@ -613,6 +611,55 @@ def test_background_companion_fails_closed_when_a_required_condition_is_missing(
     assert session["budget"]["max_task_seconds"] == 0
     assert reason in session["reasons"]
 
+
+
+
+
+def test_background_companion_can_run_on_battery_without_charging(tmp_path):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(charging=False, screen_interactive=True),
+        resource_snapshot(charging="DISCHARGING", percentage=75),
+        work_mode="background_companion",
+    )
+    assert session["status"] == "bounded"
+    assert session["budget"]["max_task_seconds"] == 8
+    assert session["budget"]["max_task_ram_mb"] == 64
+    assert "running_on_battery_with_adaptive_budget" in session["reasons"]
+
+
+@pytest.mark.parametrize("ram_mb,storage_mb", [(1536, 4096), (4096, 1536), (1536, 1536)])
+def test_two_gib_headroom_is_preferred_not_a_hard_background_gate(
+    tmp_path, ram_mb, storage_mb
+):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(screen_interactive=True, charging=False),
+        resource_snapshot(
+            charging="DISCHARGING", percentage=75,
+            ram_mb=ram_mb, free_storage_mb=storage_mb,
+        ),
+        work_mode="background_companion",
+    )
+    assert session["status"] == "bounded"
+    assert session["budget"]["max_task_seconds"] == 8
+    assert session["budget"]["max_task_ram_mb"] == 64
+    if ram_mb < 2048:
+        assert "memory_below_preferred_headroom" in session["reasons"]
+    if storage_mb < 2048:
+        assert "storage_below_preferred_headroom" in session["reasons"]
+
+
+def test_unknown_thermal_state_keeps_only_a_minimal_companion_budget(tmp_path):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(screen_interactive=True, thermal_status="unknown"),
+        resource_snapshot(),
+        work_mode="background_companion",
+    )
+    assert session["status"] == "bounded"
+    assert session["budget"]["max_task_seconds"] == 2
+    assert session["budget"]["max_task_ram_mb"] == 16
 
 
 def test_background_companion_requires_internal_and_checkpointable_work(tmp_path):

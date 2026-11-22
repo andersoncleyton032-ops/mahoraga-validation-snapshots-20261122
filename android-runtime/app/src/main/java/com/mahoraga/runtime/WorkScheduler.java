@@ -93,7 +93,7 @@ public final class WorkScheduler {
 
     private static Constraints buildConstraints() {
         return new Constraints.Builder()
-                .setRequiresCharging(true)
+                .setRequiresCharging(false)
                 .setRequiresBatteryNotLow(true)
                 .setRequiresStorageNotLow(true)
                 .setRequiredNetworkType(NetworkType.NOT_REQUIRED)

@@ -20,18 +20,18 @@ class AutonomyGovernorError(ValueError):
 
 class AutonomyGovernor:
     VERSION = "0.4.0"
-    MIN_MEMORY_MB = 1024
+    MIN_MEMORY_MB = 512
     PREFERRED_MEMORY_MB = 2048
-    MIN_STORAGE_MB = 1024
+    MIN_STORAGE_MB = 512
     PREFERRED_STORAGE_MB = 2048
     MAX_FOREGROUND_SECONDS = 5
     MAX_CHARGING_SECONDS = 20
     MAX_FOREGROUND_RAM_MB = 64
     MAX_CHARGING_RAM_MB = 256
-    MIN_BACKGROUND_BATTERY_PERCENT = 30
+    MIN_BACKGROUND_BATTERY_PERCENT = 15
     MAX_BACKGROUND_SECONDS = 20
     MAX_BACKGROUND_RAM_MB = 128
-    MIN_BACKGROUND_COMPANION_BATTERY_PERCENT = 40
+    MIN_BACKGROUND_COMPANION_BATTERY_PERCENT = 20
     MAX_BACKGROUND_COMPANION_SECONDS = 8
     MAX_BACKGROUND_COMPANION_RAM_MB = 64
     MAX_BATCH_TASKS = 1
@@ -261,14 +261,15 @@ class AutonomyGovernor:
 
         reasons = []
         if work_mode in {"background_idle", "background_companion"}:
+            hard_blocks = []
             if foreground is not False:
-                reasons.append(
+                hard_blocks.append(
                     "background_requires_mahoraga_app_not_foreground"
                     if foreground is True else "app_foreground_unknown"
                 )
             if work_mode == "background_idle":
                 if interactive is not False:
-                    reasons.append(
+                    hard_blocks.append(
                         "background_requires_screen_off"
                         if interactive is True else "screen_interactive_unknown"
                     )
@@ -278,7 +279,7 @@ class AutonomyGovernor:
                 success_mode = "background_idle"
             else:
                 if interactive is not True:
-                    reasons.append(
+                    hard_blocks.append(
                         "companion_mode_requires_interactive_screen"
                         if interactive is False else "screen_interactive_unknown"
                     )
@@ -287,21 +288,50 @@ class AutonomyGovernor:
                 max_ram_mb = self.MAX_BACKGROUND_COMPANION_RAM_MB
                 success_mode = "background_companion"
 
-            if charging is not True:
-                reasons.append(
-                    "background_requires_confirmed_charging"
-                    if charging is False else "charging_state_unknown"
-                )
-            if battery_level is None or battery_level < minimum_battery:
-                reasons.append("background_battery_unknown_or_below_minimum")
-            if thermal_status not in {"normal", "light"}:
-                reasons.append("background_thermal_state_not_cool_enough")
-            if ram_mb is None or ram_mb < self.PREFERRED_MEMORY_MB:
-                reasons.append("background_memory_headroom_insufficient")
-            if storage_mb is None or storage_mb < self.PREFERRED_STORAGE_MB:
-                reasons.append("background_storage_headroom_insufficient")
+            # Charging is a positive resource signal, not a universal prerequisite.
+            if battery_level is None:
+                if charging is not True:
+                    hard_blocks.append("background_battery_unknown")
+                else:
+                    max_seconds = min(max_seconds, 4)
+                    max_ram_mb = min(max_ram_mb, 32)
+                    reasons.append("battery_level_unknown_reduced_budget")
+            elif battery_level < minimum_battery and charging is not True:
+                hard_blocks.append("background_battery_below_critical_minimum")
+            elif battery_level < (40 if work_mode == "background_companion" else 30):
+                reasons.append("battery_below_preferred_headroom")
 
-            if reasons:
+            if thermal_status in {"severe", "critical", "emergency", "shutdown"}:
+                hard_blocks.append("background_thermal_state_critical")
+            elif thermal_status == "moderate":
+                max_seconds = min(max_seconds, 4 if work_mode == "background_companion" else 10)
+                max_ram_mb = min(max_ram_mb, 32 if work_mode == "background_companion" else 64)
+                reasons.append("thermal_moderate_reduced_budget")
+            elif thermal_status == "unknown":
+                max_seconds = min(max_seconds, 2)
+                max_ram_mb = min(max_ram_mb, 16)
+                reasons.append("thermal_unknown_minimal_budget")
+            elif thermal_status == "light":
+                max_seconds = min(max_seconds, 5 if work_mode == "background_companion" else 12)
+                max_ram_mb = min(max_ram_mb, 48 if work_mode == "background_companion" else 96)
+                reasons.append("thermal_light_reduced_budget")
+
+            if ram_mb is None:
+                hard_blocks.append("available_memory_unknown")
+            elif ram_mb < self.MIN_MEMORY_MB:
+                hard_blocks.append("available_memory_below_emergency_floor")
+            elif ram_mb < self.PREFERRED_MEMORY_MB:
+                reasons.append("memory_below_preferred_headroom")
+
+            if storage_mb is None:
+                hard_blocks.append("free_storage_unknown")
+            elif storage_mb < self.MIN_STORAGE_MB:
+                hard_blocks.append("free_storage_below_emergency_floor")
+            elif storage_mb < self.PREFERRED_STORAGE_MB:
+                reasons.append("storage_below_preferred_headroom")
+
+            if hard_blocks:
+                reasons.extend(hard_blocks)
                 mode = (
                     "background_companion_pause"
                     if work_mode == "background_companion"
@@ -311,12 +341,8 @@ class AutonomyGovernor:
                 max_ram_mb = 0
             else:
                 mode = success_mode
-                if work_mode == "background_companion" and thermal_status == "light":
-                    max_seconds = min(max_seconds, 5)
-                    max_ram_mb = min(max_ram_mb, 48)
-                if work_mode == "background_idle" and thermal_status == "light":
-                    max_seconds = min(max_seconds, 12)
-                    max_ram_mb = min(max_ram_mb, 96)
+                if charging is not True:
+                    reasons.append("running_on_battery_with_adaptive_budget")
         else:
             if foreground is None:
                 reasons.append("app_foreground_unknown")
@@ -428,8 +454,8 @@ class AutonomyGovernor:
                 "Charging may be derived from Termux:API/sysfs only when an explicit runtime value is absent.",
                 "Thermal status remains unknown unless a trusted runtime source supplies a normalized state.",
                 "This is a per-task budget, not a promise of sustained background execution.",
-                "Background idle work is one-shot, screen-off, charging-only and requires a checkpointable internal task.",
-                "Background companion work is one-shot, permits another app to remain foreground, requires the display interactive and charging, and uses a smaller budget.",
+                "Background idle work is one-shot, screen-off and requires a checkpointable internal task; charging improves headroom but is not mandatory.",
+                "Background companion work is one-shot, permits another app to remain foreground, requires an interactive display and uses a smaller adaptive budget.",
             ],
         }
         return self._issue_session(session)

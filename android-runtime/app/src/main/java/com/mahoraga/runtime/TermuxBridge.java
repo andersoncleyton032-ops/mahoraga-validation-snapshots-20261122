@@ -175,6 +175,15 @@ public final class TermuxBridge {
         }
     }
 
+    private static int parseOriginalLength(String value, int fallback) {
+        if (value == null) return fallback;
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException invalid) {
+            return Integer.MAX_VALUE;
+        }
+    }
+
     private static String safeError(String value) {
         if (value == null || value.trim().isEmpty()) return "termux_command_rejected";
         String normalized = value.replaceAll("[\\r\\n\\t]", " ").trim();
