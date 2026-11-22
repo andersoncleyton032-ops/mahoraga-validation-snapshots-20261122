@@ -23,13 +23,19 @@ The current core slice already includes `IntegratedCore`, `CognitiveFabric`, `Co
 - Cognitive capabilities should be recruited dynamically by context and objective, not exposed as manual modes or independent agents.
 - The digital evolution VM evolves bounded scalar programs. It does not rewrite Mahoraga's source code.
 
+## Durable experiment ledger
+
+The isolated snapshot now adds schema v6 tables to the canonical SQLite `KnowledgeStore`: `lab_experiments` and append-only `lab_experiment_events`. Creation and lifecycle transitions commit atomically; transitions use expected-version/state checks; payloads and event envelopes have SHA-256 checksums; payloads are bounded by depth, node count and byte limits. The supported lifecycle ends at `review_ready`, `rejected` or `quarantined`. There is no promotion state or executor in this ledger.
+
+On restart, records can be reloaded and the audit routine checks checksums, contiguous sequence numbers, version progression and allowed stage transitions. Checksums detect accidental or unsophisticated corruption; they are not cryptographic signatures against an attacker able to rewrite both data and hashes. Corrupt records fail closed and are reported; automatic repair is intentionally absent.
+
 ## Current boundary
-The lab coordinator consumes a caller-supplied backlog for one planning/admission cycle. It does not discover candidates, generate patches, create workspaces, execute tests, persist state or run as a background service. The lab governor keeps in-memory state; evidence references are caller-supplied and not authenticated.
+The lab coordinator consumes a caller-supplied backlog for one planning/admission cycle. It does not discover candidates, generate patches, create workspaces, execute tests or run as a background service. The lab governor keeps in-memory state; the new ledger persists experiment metadata and evidence references, but does not itself authenticate external CI evidence or verify artifacts.
 
 The integrated core modules in this snapshot are source code under test, not evidence that the full private runtime has been validated on Android or that all capabilities are enabled. The capability manifest entries remain disabled; the local model runtime remains disabled and remote access is disallowed.
 
 ## Required before unattended evolution
-- Durable, corruption-detecting experiment history and safe restart recovery integrated with the canonical store.
+- A bounded scheduler with explicit duty cycle, battery, thermal, memory and storage budgets.
 - Scheduler with explicit duty cycle, battery, thermal, memory and storage budgets.
 - Candidate discovery and hypothesis generation from reproducible evidence.
 - Isolated patch generation and execution with resource limits, rollback and no permission escalation.
