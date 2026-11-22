@@ -203,7 +203,7 @@ def test_record_event_once_rejects_idempotency_key_payload_conflict(tmp_path):
 
 
 
-def test_existing_schema_v3_database_upgrades_to_v4_without_data_loss(tmp_path):
+def test_existing_schema_v3_database_upgrades_to_v6_without_data_loss(tmp_path):
     db_path = tmp_path / "legacy-v3.sqlite3"
     connection = sqlite3.connect(db_path)
     connection.executescript(
@@ -261,10 +261,15 @@ def test_existing_schema_v3_database_upgrades_to_v4_without_data_loss(tmp_path):
             "SELECT name FROM sqlite_master "
             "WHERE type='table' AND name='event_sequences'"
         ).fetchone()
+        lab_table = db.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name='lab_experiments'"
+        ).fetchone()
 
-    assert versions == [1, 2, 3, 4, 5]
+    assert versions == [1, 2, 3, 4, 5, 6]
     assert idempotency_table is not None
     assert sequence_table is not None
+    assert lab_table is not None
     assert store.load_memories()["legacy-preserved"]["value"] == {"ok": True}
 
     event = store.record_event_once(
