@@ -1,25 +1,30 @@
-import json
-import os
-from datetime import datetime
+"""Backward-compatible memory API backed by the unified SQLite store."""
+from __future__ import annotations
 from pathlib import Path
+from .store import KnowledgeStore
 
-MEMORY_FILE = Path(__file__).resolve().parents[1] / "memory" / "data.json"
+_ROOT = Path(__file__).resolve().parent.parent
+_STORE: KnowledgeStore | None = None
 
-def save_memory(key, value):
-    os.makedirs(os.path.dirname(MEMORY_FILE), exist_ok=True)
 
-    data = load_memory()
-    data[key] = {
-        "value": value,
-        "updated_at": datetime.now().isoformat()
-    }
+def get_store() -> KnowledgeStore:
+    global _STORE
+    if _STORE is None:
+        _STORE = KnowledgeStore()
+        _STORE.import_legacy_file(_ROOT / "memory" / "data.json", "memory")
+        _STORE.import_legacy_file(_ROOT / "experiments" / "experiments.json", "experiments")
+    return _STORE
 
-    with open(MEMORY_FILE, "w", encoding="utf-8") as file:
-        json.dump(data, file, indent=4, ensure_ascii=False)
+
+def save_memory(key, value, metadata=None):
+    return get_store().save_memory(key, value, metadata)
+
 
 def load_memory():
-    if not os.path.exists(MEMORY_FILE):
-        return {}
+    return get_store().load_memories()
 
-    with open(MEMORY_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
+
+def record_learning(topic: str, learning, source: str = "internal"):
+    store = get_store()
+    store.save_memory(f"learning:{topic}", learning, {"source": source})
+    return store.record_event("learning.recorded", {"topic": topic, "source": source})
