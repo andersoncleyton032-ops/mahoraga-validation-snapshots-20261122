@@ -109,6 +109,17 @@ class AutonomousLabCycle:
 
         for candidate_id in selected_order:
             governance = metadata[candidate_id]
+            interest = next(item for item in interests if item["candidate_id"] == candidate_id)
+            dependencies = interest.get("dependencies", ())
+            missing_dependencies = [
+                dependency for dependency in dependencies if dependency not in admitted
+            ]
+            if missing_dependencies:
+                blocked.append({
+                    "candidate_id": candidate_id,
+                    "reason": "dependency_not_admitted:" + ",".join(missing_dependencies),
+                })
+                continue
             risk_class = governance.get("risk_class")
             if isinstance(risk_class, str) and risk_class in {"high", "critical"}:
                 blocked.append({
@@ -116,7 +127,6 @@ class AutonomousLabCycle:
                     "reason": "high_risk_requires_separate_review",
                 })
                 continue
-            interest = next(item for item in interests if item["candidate_id"] == candidate_id)
             try:
                 runtime_ms = interest["estimated_runtime_ms"]
                 if isinstance(runtime_ms, bool) or not isinstance(runtime_ms, int) or runtime_ms < 0:
