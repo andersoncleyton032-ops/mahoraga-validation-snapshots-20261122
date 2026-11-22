@@ -64,7 +64,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - The private `.github/workflows/physics-tests.yml` is not copied. The public repository's own `.github/workflows/snapshot-tests.yml` remains the validation workflow.
 - No device identifiers, SQLite databases, WAL/SHM files, model weights, checkpoints, datasets, secrets or local workspaces are included.
 - This snapshot contains Python contracts and mocked tests only. It does **not** contain an Android WorkManager Worker, a native Android app, or proof of real Android background execution.
-- The new candidate is pending CI. Do not claim it passed until a workflow run for the exact resulting public commit has completed with visible steps and logs.
+- At initial import the candidate was pending CI; its final validation status is recorded below.
 
 ### CI correction history for the 2026-11-22 candidate
 - First candidate head: `1803f91f7d9ad7fbc27410ff43df1968378f6bb4`.
@@ -73,3 +73,13 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Failures exposed stale test doubles missing the `work_mode` keyword, one queue fixture that discarded its Store handle, a missing `MemoryVersionConflict` test import, and event-count expectations that did not account for persisted background checkpoints.
 - Corrective candidate commit: `11218303a8ec8e39db96b698f1b8fe014f090c1a`.
 - The corrected candidate must receive a new CI run. The earlier failed run is retained as evidence and must not be relabeled as a pass.
+
+
+### Final candidate validation — 2026-11-22
+- Final validated public candidate: `6bd3a6e0d1050f857606bbef0185d171147e1b4d`.
+- Workflow run #318: `45081051619`, conclusion `success`.
+- Python 3.12: **908 passed, 1 skipped, 28 subtests passed**.
+- Python 3.14: **908 passed, 1 skipped, 28 subtests passed**.
+- Source compilation passed in both jobs.
+- The single skipped test requires a local language-training corpus that is intentionally not included in the public snapshot.
+- The run validates the curated Python integration only; it does not validate an Android Worker or the Realme device.
