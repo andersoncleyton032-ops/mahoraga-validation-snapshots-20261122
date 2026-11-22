@@ -76,6 +76,19 @@ def test_high_risk_candidates_are_not_auto_admitted():
     assert result["governor"]["candidates"] == []
 
 
+def test_dependent_candidate_is_blocked_when_dependency_is_not_admitted():
+    cycle = AutonomousLabCycle()
+    dependency = candidate("dependency-001", risk_class="high")
+    root = candidate("root-001")
+    root["interest"]["dependencies"] = ["dependency-001"]
+    result = run(cycle, [dependency, root])
+    assert result["status"] == "blocked"
+    assert result["admitted_candidate_ids"] == []
+    reasons = {item["candidate_id"]: item["reason"] for item in result["blocked_candidates"]}
+    assert reasons["dependency-001"] == "high_risk_requires_separate_review"
+    assert reasons["root-001"] == "dependency_not_admitted:dependency-001"
+
+
 def test_protected_core_paths_are_rejected_by_governance():
     cycle = AutonomousLabCycle()
     result = run(cycle, [candidate(change_scope="agent/main.py")])
