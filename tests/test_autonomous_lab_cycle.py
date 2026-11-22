@@ -24,7 +24,7 @@ def candidate(candidate_id="exp-001", **governance_overrides):
         "relevance": 0.9, "novelty": 0.4, "uncertainty": 0.7,
         "controllability": 0.9, "learning_progress": 0.8,
         "expected_transfer": 0.8, "noise_risk": 0.1,
-        "estimated_runtime_ms": 100, "estimated_ram_mb": 32,
+        "estimated_runtime_ms": 100, "estimated_ram_mb": 16,
     }
     governance = {
         "parent_digest": "a" * 64,
