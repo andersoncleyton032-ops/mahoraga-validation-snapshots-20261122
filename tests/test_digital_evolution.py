@@ -99,6 +99,45 @@ def test_extreme_integer_inputs_raise_domain_errors_not_overflow():
         DigitalEvolutionEngine.run_program((Instruction("PUSH_X"),), huge)
 
 
+def test_randomized_genomes_remain_inside_closed_vm_contract():
+    import random
+
+    rng = random.Random(20261122)
+    opcodes = sorted(DigitalEvolutionEngine.ALLOWED_OPCODES)
+    for _ in range(300):
+        length = rng.randint(1, 64)
+        genome = []
+        for _ in range(length):
+            op = rng.choice(opcodes)
+            if op == "PUSH_CONST":
+                genome.append(Instruction(op, rng.uniform(-1000.0, 1000.0)))
+            else:
+                genome.append(Instruction(op))
+        x = rng.uniform(-1_000_000.0, 1_000_000.0)
+        try:
+            result = DigitalEvolutionEngine.run_program(
+                genome, x, max_stack_depth=64, max_program_steps=64
+            )
+        except DigitalEvolutionError:
+            continue
+        assert math.isfinite(result)
+        assert abs(result) <= DigitalEvolutionEngine.MAX_ABS_OUTPUT
+
+
+def test_preflight_rejects_extreme_case_budget_before_population_work():
+    config = small_config(
+        population_size=128,
+        generations=200,
+        max_genome_length=32,
+        max_program_steps=32,
+        max_case_evaluations=1_000_000,
+    )
+    engine = DigitalEvolutionEngine(config)
+    huge_cases = [(float(i), float(i)) for i in range(512)]
+    with pytest.raises(DigitalEvolutionError, match="max_case_evaluations"):
+        engine.evolve(huge_cases, huge_cases)
+
+
 def test_vm_rejects_nonfinite_and_oversized_inputs():
     with pytest.raises(DigitalEvolutionError):
         DigitalEvolutionEngine.run_program((Instruction("PUSH_X"),), float("inf"))
