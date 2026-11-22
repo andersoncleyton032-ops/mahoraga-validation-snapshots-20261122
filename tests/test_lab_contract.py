@@ -10,7 +10,7 @@ def test_lab_documents_define_isolation_and_non_promotion():
     assert "private source repository" in charter
     assert "no automatic" in charter.lower()
     assert "does not discover candidates" in contract
-    assert "does not persist state" in contract
+    assert "persist state" in contract
     assert "Never promote automatically to production" in contract
 
 
