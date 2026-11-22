@@ -22,8 +22,9 @@ These results validate only the included source slice and fixtures. They do not 
 ### Candidates for a later, narrow private-core patch
 
 1. **Read-only diagnostic command allowlists** in `hardware_intelligence.py` and `deep_diagnostics.py`. Review against the exact target branch before porting; retain fixed command arguments, bounded output/timeouts and no shell interpolation.
-2. **KnowledgeStore schema-v6 ledger design**. Review migration compatibility against the exact target database schema first. The public implementation is a lab extension; do not apply it blindly to a private branch that may already have different migrations.
-3. **Ledger regression tests** for migration, transaction rollback, concurrency, corruption detection and replay. Port only tests that describe the actual target-branch contract.
+2. **Executive concurrency fixes**. The optional expected-latest-event check in `KnowledgeStore.record_event_once`, the explicit focus revision in `ExecutiveEngine.set_focus`, and the post-review adoption recheck close reproducible cross-process races. These are being staged in private Draft PR #145, stacked on PR #144; private CI is still unresolved.
+3. **KnowledgeStore schema-v6 ledger design**. Review migration compatibility against the exact target database schema first. The public implementation is a lab extension; do not apply it blindly to a private branch that may already have different migrations.
+4. **Ledger regression tests** for migration, transaction rollback, concurrency, corruption detection and replay. Port only tests that describe the actual target-branch contract.
 
 ### Keep lab-only until a separate architecture review
 
@@ -52,4 +53,4 @@ These are experiments, not production replacements for the existing `AutonomyGov
 
 ## Current recommendation
 
-Do not merge the public snapshot or the integrated architecture branch into private `main`. The next private-core activity should be a narrow, separately validated patch against the exact integrated architecture branch or the relevant PR head, after the branch's divergence and existing contracts are reconciled. Until that comparison is complete, keep development and adversarial experimentation in this public lab.
+Do not merge the public snapshot or the integrated architecture branch into private `main`. The narrow diagnostics and executive-concurrency changes are staged as Draft private PRs #144 and #145, not merged. The ledger remains lab-only until a separate schema review. Private CI is not yet conclusive because hosted jobs are failing before steps. Continue validating in this public lab; promote only the smallest independently reviewed patches once private CI can execute.
