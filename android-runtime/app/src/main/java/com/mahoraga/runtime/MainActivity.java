@@ -24,8 +24,9 @@ public final class MainActivity extends Activity {
                 "Mahoraga Android Bridge\n\n"
                 + "Agenda invocações curtas pelo WorkManager. Cada invocação "
                 + "pede ao Termux uma única tarefa local e checkpointable.\n\n"
-                + "Restrições: carregando, bateria não baixa, armazenamento não baixo. "
-                + "Sem permissão de Internet, microfone ou localização.\n\n"
+                + "A admissão é adaptativa: carregamento é opcional, 2 GiB de RAM/armazenamento "
+                + "são preferenciais e limites críticos são avaliados pelo Governor. "
+                + "O Android pode adiar execuções. Sem permissão INTERNET, microfone ou localização.\n\n"
                 + "Requisitos configurados manualmente: Termux >= 0.109, permissão "
                 + "RUN_COMMAND concedida a este app e allow-external-apps=true no Termux. "
                 + "Este app não altera essas configurações."
@@ -70,7 +71,7 @@ public final class MainActivity extends Activity {
         WorkScheduler.start(this);
         status.setText(
                 "\nAgendamento solicitado. O Android decide os horários reais; "
-                + "a primeira execução depende das restrições de carregamento e recursos."
+                + "a primeira execução depende da disponibilidade de recursos e das políticas do sistema."
         );
     }
 

@@ -91,7 +91,7 @@ public final class WorkScheduler {
                 .build();
     }
 
-    private static Constraints buildConstraints() {
+    static Constraints buildConstraints() {
         // Resource admission is dynamic in AutonomyGovernor. WorkManager only
         // requires no network; low battery/storage are not hard scheduling gates.
         return new Constraints.Builder()
