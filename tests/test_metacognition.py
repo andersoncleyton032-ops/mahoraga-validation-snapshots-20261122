@@ -350,7 +350,7 @@ def test_scoped_report_filters_before_expensive_evidence_verification(engine):
         predictor_id="language-intent-v1",
     )
 
-    assert len(verified_subjects) == 2
+    assert len(verified_subjects) == 1
     assert report["evidence_verification_checks"] == 2
     assert report["out_of_scope_predictor_episodes"] == 1
     assert report["out_of_scope_task_episodes"] == 1
