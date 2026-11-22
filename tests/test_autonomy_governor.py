@@ -619,7 +619,7 @@ def test_background_companion_can_run_on_battery_without_charging(tmp_path):
     governor = make_governor(tmp_path)
     session = governor.evaluate_session(
         background_context(charging=False, screen_interactive=True),
-        resource_snapshot(charging="DISCHARGING", percentage=75),
+        resource_snapshot=resource_snapshot(charging="DISCHARGING", percentage=75),
         work_mode="background_companion",
     )
     assert session["status"] == "bounded"
@@ -635,7 +635,7 @@ def test_two_gib_headroom_is_preferred_not_a_hard_background_gate(
     governor = make_governor(tmp_path)
     session = governor.evaluate_session(
         background_context(screen_interactive=True, charging=False),
-        resource_snapshot(
+        resource_snapshot=resource_snapshot(
             charging="DISCHARGING", percentage=75,
             ram_mb=ram_mb, free_storage_mb=storage_mb,
         ),
@@ -654,7 +654,7 @@ def test_unknown_thermal_state_keeps_only_a_minimal_companion_budget(tmp_path):
     governor = make_governor(tmp_path)
     session = governor.evaluate_session(
         background_context(screen_interactive=True, thermal_status="unknown"),
-        resource_snapshot(),
+        resource_snapshot=resource_snapshot(),
         work_mode="background_companion",
     )
     assert session["status"] == "bounded"
