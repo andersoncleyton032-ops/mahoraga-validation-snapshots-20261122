@@ -25,6 +25,7 @@ class FakeGovernor:
                 "android_changes_allowed": False,
                 "package_installation_allowed": False,
                 "project_writes_allowed": False,
+                "workspace_writes_allowed": False,
             },
         }
 
