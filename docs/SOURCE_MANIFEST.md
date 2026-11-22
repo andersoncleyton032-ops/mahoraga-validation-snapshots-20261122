@@ -65,3 +65,11 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - No device identifiers, SQLite databases, WAL/SHM files, model weights, checkpoints, datasets, secrets or local workspaces are included.
 - This snapshot contains Python contracts and mocked tests only. It does **not** contain an Android WorkManager Worker, a native Android app, or proof of real Android background execution.
 - The new candidate is pending CI. Do not claim it passed until a workflow run for the exact resulting public commit has completed with visible steps and logs.
+
+### CI correction history for the 2026-11-22 candidate
+- First candidate head: `1803f91f7d9ad7fbc27410ff43df1968378f6bb4`.
+- Public CI run: `45080821621`; Python 3.12 and 3.14 both compiled the source successfully, but the test step failed.
+- Observed result on Python 3.12: 901 passed, 7 failed, 1 skipped and 28 subtests passed.
+- Failures exposed stale test doubles missing the `work_mode` keyword, one queue fixture that discarded its Store handle, a missing `MemoryVersionConflict` test import, and event-count expectations that did not account for persisted background checkpoints.
+- Corrective candidate commit: `11218303a8ec8e39db96b698f1b8fe014f090c1a`.
+- The corrected candidate must receive a new CI run. The earlier failed run is retained as evidence and must not be relabeled as a pass.
