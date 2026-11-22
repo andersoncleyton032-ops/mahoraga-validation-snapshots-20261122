@@ -133,6 +133,17 @@ def test_heldout_test_data_cannot_change_selected_champion():
     assert normal["champion"]["test"]["mae"] != changed["champion"]["test"]["mae"]
 
 
+def test_case_evaluation_accounting_includes_behavior_descriptor_probes():
+    train, validation = simple_cases()
+    result = DigitalEvolutionEngine(small_config()).evolve(train, validation)
+    assert result["case_evaluations"] >= (
+        result["organisms_evaluated"] * (len(train) + len(validation))
+    )
+    assert result["case_evaluations"] <= (
+        result["organisms_evaluated"] * (len(train) + len(validation) + 2)
+    )
+
+
 def test_engine_preflights_case_evaluation_budget():
     train, validation = simple_cases()
     config = small_config(max_case_evaluations=10)
