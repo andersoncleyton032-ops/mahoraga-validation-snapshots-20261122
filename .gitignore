@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+
+# Arquivos temporarios do laboratorio
+sandbox/workspace/*
+sandbox/tests/*
+!sandbox/workspace/.gitkeep
+!sandbox/tests/.gitkeep
+
+# Local state must never be committed from the lab
+memory/data.json
+logs/activity.log

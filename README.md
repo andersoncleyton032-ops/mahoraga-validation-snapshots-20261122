@@ -1,20 +1,34 @@
-# Mahoraga — isolated validation snapshots
+# Mahoraga — Experimental Validation Lab
 
-This public repository is an isolated validation workspace for selected experimental components from the private `mahoraga-core` repository.
+This public repository is a **curated experimental workspace**, not a complete or automatically synchronized mirror of the private Mahoraga Core.
 
-The original repository remains private and is not modified by this snapshot workflow.
+## Purpose
+Stress-test selected ideas intended for Mahoraga: cognitive planning, simulated physiology, bounded digital evolution, adversarial validation and controlled self-improvement workflows.
 
-## Scope
+## What this snapshot represents
+- The small `agent/` console and utility subset was copied from private `mahoraga-core/main` at source commit `498fea2c52c374c8bb661d8ead42a5bf5c55be16`. It is a legacy/minimal baseline, **not the current integrated cognitive runtime**.
+- The cognitive interest, physiology and digital evolution experiments were imported from a separately validated snapshot of source PR #143, with validation fixes documented in the source manifest.
+- New lab-only governance and orchestration code is experimental. It is not a replacement for the private core's existing `AutonomyGovernor`, `Dharma`, `KnowledgeStore`, `IntegratedCore` or `CognitiveFabric`.
 
-Only explicitly selected source files and their focused tests will be copied here. This repository does not contain the complete Mahoraga project and does not validate full-system integration.
+## Separation and publication
+- The private source repository remains the protected reference.
+- Personal memory, activity logs, device-specific state, credentials, private operational reports and original Git history are excluded.
+- Persistent paths in this snapshot point inside this checkout, not `~/mahoraga`.
+- Candidate code scope is limited to `experiments/`, `tests/` and `docs/`; this does not prevent maintainers from separately reviewing lab infrastructure.
+- No candidate code is automatically executed, installed, merged or promoted into the private core.
+- New imports require a file-level privacy, provenance, dependency, license and test review.
 
-## Provenance
+## Start here
+- [Lab charter](docs/LAB_CHARTER.md)
+- [Source manifest](docs/SOURCE_MANIFEST.md)
+- [Autonomous evolution contract](docs/AUTONOMOUS_EVOLUTION_CONTRACT.md)
 
-- Source PR #142 head: `e895fadb89865a14be9a61115f9af243eb58d250`
-- Source PR #143 head: `520a3cae969845dc382b3031a10a8a71072bd322`
+## Experimental components
+- Cognitive interest selection and exploration planning.
+- Simulated digital physiology and resource-aware admission.
+- A closed virtual machine for bounded digital evolution.
+- An evidence-gated experimental candidate lifecycle.
+- A one-step lab coordinator joining planning and governance.
 
-Snapshot commits have new Git SHAs and do not preserve the source branch history.
-
-## Validation limits
-
-Passing these focused tests demonstrates only that the included tests pass against the included snapshot in the declared CI environments. It does not establish safety, general intelligence, full regression coverage, or integration with the private runtime.
+## Validation
+CI compiles included Python sources and runs the included tests on Python 3.12 and 3.14. Passing tests demonstrate only the tested contracts in this curated snapshot. They do not validate the private integrated runtime, Android/Termux behavior, persistent unattended autonomy or general intelligence.
