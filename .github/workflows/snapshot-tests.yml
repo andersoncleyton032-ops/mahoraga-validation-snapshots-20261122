@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mahoraga-snapshot-${{ github.ref }}
+  group: mahoraga-snapshot-${{ github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,11 +40,11 @@ jobs:
         python-version: ['3.12', '3.14']
     steps:
       - name: Check out snapshot without persisted credentials
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install test runner
