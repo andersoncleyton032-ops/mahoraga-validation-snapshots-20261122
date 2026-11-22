@@ -1,0 +1,44 @@
+name: Android Runtime Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "android-runtime/**"
+      - "agent/android_workmanager_wake.py"
+      - "agent/background_capabilities.py"
+      - "scripts/mahoraga_background_worker.py"
+      - "tests/test_android_workmanager_wake.py"
+      - "tests/test_background_capabilities.py"
+      - ".github/workflows/android-runtime-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.6.0
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Compile Android bridge and run unit tests
+        run: gradle -p android-runtime --no-daemon testDebugUnitTest assembleDebug

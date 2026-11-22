@@ -1,0 +1,26 @@
+package com.mahoraga.runtime;
+
+import org.junit.Test;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+public final class WorkPolicyTest {
+    @Test
+    public void acceptsOnlyBoundedNextWakeDelays() {
+        assertTrue(WorkPolicy.isValidNextDelay(60));
+        assertTrue(WorkPolicy.isValidNextDelay(900));
+        assertTrue(WorkPolicy.isValidNextDelay(3600));
+        assertFalse(WorkPolicy.isValidNextDelay(0));
+        assertFalse(WorkPolicy.isValidNextDelay(59));
+        assertFalse(WorkPolicy.isValidNextDelay(3601));
+    }
+
+    @Test
+    public void allowsImmediateOnlyForExplicitInitialSchedule() {
+        assertTrue(WorkPolicy.isValidInitialDelay(0));
+        assertTrue(WorkPolicy.isValidInitialDelay(60));
+        assertFalse(WorkPolicy.isValidInitialDelay(-1));
+        assertFalse(WorkPolicy.isValidInitialDelay(3601));
+    }
+}

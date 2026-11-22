@@ -83,3 +83,18 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Source compilation passed in both jobs.
 - The single skipped test requires a local language-training corpus that is intentionally not included in the public snapshot.
 - The run validates the curated Python integration only; it does not validate an Android Worker or the Realme device.
+
+### Final Python scheduler-contract validation — 2026-11-22
+- Candidate head: `b6c3b8b75061902a45b0cb6e0480cc0b7d83edb5`.
+- Workflow run #321: `45081641847`, conclusion `success`.
+- Python 3.12 and 3.14: **908 passed, 1 skipped, 28 subtests passed** in each environment.
+- The queue now returns a structured wake request and enforces a 60-second minimum delay between chained one-shot invocations; no immediate zero-delay worker loop.
+
+### Android WorkManager bridge source candidate — 2026-11-22
+- Private source branch: `implementation/android-workmanager-bridge-20261122`, source head `05d0702991705da1d8661c3b44d6180cc2a7032d`.
+- Private PR #158 is Draft and stacked on the background execution receipt hardening.
+- Included: `android-runtime/` Gradle app, WorkManager scheduler, serialized one-shot Worker, periodic 15-minute poll, bounded Termux RUN_COMMAND bridge, fixed wake receiver, Python wake adapter, one internal checkpointable inquiry capability, worker entry script and focused unit tests.
+- Public validation workflow: `.github/workflows/android-runtime-tests.yml`; it compiles with Android API 36, AGP 9.5.2, Gradle 9.6.0 and JDK 17, and runs the Android unit tests.
+- This Android candidate is **pending its first public Gradle/Android CI run**. No build or device result is claimed yet.
+- No device installation, permission grant, Termux property change, battery-setting change, Android system modification or network access has been performed.
+- The native bridge is designed for Termux package `com.termux`, Termux >= 0.109, explicit `RUN_COMMAND` permission and user-configured `allow-external-apps=true`. Those prerequisites remain unconfigured until a later user-authorized device stage.
