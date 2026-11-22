@@ -545,6 +545,7 @@ class CPUPathTracerBackend:
             "supported_materials": ["lambertian", "emissive"],
             "max_dimension": cls.MAX_DIMENSION,
             "max_pixels": cls.MAX_PIXELS,
+            "max_triangles": cls.MAX_TRIANGLES,
             "max_samples_per_pixel": cls.MAX_SAMPLES_PER_PIXEL,
             "max_depth": cls.MAX_DEPTH,
             "threads": 1,
