@@ -170,20 +170,44 @@ class ExecutiveEngine:
         return {"status": "updated", "goal": updated, "execution_performed": False}
 
     @_synchronized
-    def set_focus(self, goal_id: str | None, *, reason: str = "") -> dict:
+    def set_focus(
+        self,
+        goal_id: str | None,
+        *,
+        reason: str = "",
+        expected_revision: int | None = None,
+        compare_and_swap: bool = False,
+    ) -> dict:
+        """Set executive focus, optionally requiring an explicit CAS revision."""
         self._authorize("record_observation")
         if not isinstance(reason, str) or len(reason) > 500:
             raise ValueError("reason deve conter até 500 caracteres.")
+        if not isinstance(compare_and_swap, bool):
+            raise ValueError("compare_and_swap precisa ser booleano.")
+        if compare_and_swap:
+            if expected_revision is not None and (
+                isinstance(expected_revision, bool)
+                or not isinstance(expected_revision, int)
+                or expected_revision <= 0
+            ):
+                raise ValueError("expected_revision deve ser inteiro positivo ou None.")
+            expected_latest_id = expected_revision
+        else:
+            if expected_revision is not None:
+                raise ValueError("expected_revision exige compare_and_swap=True.")
+            previous = self.store.list_events(
+                limit=1, event_type=self.FOCUS_EVENT
+            )
+            expected_latest_id = int(previous[0]["id"]) if previous else None
+
         if goal_id is not None:
             if not isinstance(goal_id, str) or not goal_id.strip():
                 raise ValueError("goal_id inválido.")
             goal = self._goals().get(goal_id)
             if goal is None or goal.get("status") != "active":
                 raise ValueError("O foco só pode apontar para um objetivo ativo.")
-        previous = self.store.list_events(
-            limit=1, event_type=self.FOCUS_EVENT
-        )
-        revision = str(previous[0]["id"]) if previous else "initial"
+
+        revision = str(expected_latest_id) if expected_latest_id is not None else "initial"
         idempotency_key = f"executive.focus.revision:{revision}"
         try:
             recorded = self.store.record_event_once(
@@ -194,6 +218,8 @@ class ExecutiveEngine:
                     "reason": reason.strip(),
                     "execution_performed": False,
                 },
+                expected_latest_event_type=self.FOCUS_EVENT,
+                expected_latest_event_id=expected_latest_id,
             )
         except ValueError as exc:
             raise ValueError(
@@ -892,6 +918,18 @@ class ExecutiveEngine:
             None,
         )
         if candidate is None:
+            # Another process may have adopted the same candidate after our
+            # initial goal snapshot but before this fresh review completed.
+            for existing_goal in self._goals().values():
+                tags = existing_goal.get("tags", [])
+                if isinstance(tags, list) and adoption_tag in tags:
+                    return {
+                        "status": "initiative_already_adopted",
+                        "candidate_id": candidate_id,
+                        "goal": existing_goal,
+                        "execution_performed": False,
+                        "tool_dispatch_performed": False,
+                    }
             raise ValueError(
                 "Iniciativa não encontrada na revisão atual; nenhuma meta foi criada."
             )
