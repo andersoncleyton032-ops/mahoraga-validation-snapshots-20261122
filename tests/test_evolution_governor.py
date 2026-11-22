@@ -85,6 +85,28 @@ def test_review_requires_independent_review_reference():
         governor.transition("candidate-1", CandidateStage.REVIEW_READY, evidence_ref="ci:run")
 
 
+@pytest.mark.parametrize(
+    "scope",
+    [
+        "agent/main.py",
+        "memory/data.json",
+        ".github/workflows/ci.yml",
+        "../agent/main.py",
+        "experiments/../../agent/main.py",
+        "/tmp/candidate.py",
+        "experiments\\\\candidate.py",
+    ],
+)
+def test_candidate_scope_cannot_escape_experimental_directories(scope):
+    with pytest.raises(EvolutionGovernanceError):
+        register(EvolutionGovernor(), change_scope=scope)
+
+
+def test_unhashable_risk_class_is_rejected_as_domain_error():
+    with pytest.raises(EvolutionGovernanceError):
+        register(EvolutionGovernor(), risk_class=[])
+
+
 def test_candidate_identifiers_and_digests_are_validated():
     governor = EvolutionGovernor()
     with pytest.raises(EvolutionGovernanceError):
