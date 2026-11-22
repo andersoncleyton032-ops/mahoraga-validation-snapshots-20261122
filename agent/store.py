@@ -1222,7 +1222,7 @@ class KnowledgeStore:
             actual_record_digest = self._lab_record_digest(
                 row["experiment_id"], row["schema_version"], row["stage"],
                 row["version"], row["parent_digest"], row["candidate_digest"],
-                row["payload_json"],
+                row["payload_json"], row["created_at"], row["updated_at"],
             )
             if actual_record_digest != row["payload_sha256"]:
                 raise sqlite3.DatabaseError("Checksum do registro do experimento inválido.")
