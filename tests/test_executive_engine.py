@@ -629,11 +629,10 @@ def test_goal_transition_review_replays_only_explicit_unverified_associations(tm
     engine, store = make_engine(tmp_path)
     previous = engine.create_goal("Objetivo anterior", "Primeira direção")["goal"]
     next_goal = engine.create_goal("Novo objetivo", "Direção seguinte")["goal"]
-    episode_id = store.record_observation(
+    episode_id = store.record_event(
         "learning_episode",
-        "Experiência explicitamente associada às duas metas",
-        {"kind": "test_fixture"},
-        "test",
+        {"kind": "test_fixture", "description": "Experiência associada às duas metas"},
+        severity="info",
     )
     previous_event_id = _goal_event_id(store, previous["goal_id"])
     next_event_id = _goal_event_id(store, next_goal["goal_id"])
