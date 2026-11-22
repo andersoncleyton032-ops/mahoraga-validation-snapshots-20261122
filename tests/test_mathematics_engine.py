@@ -252,13 +252,19 @@ def test_linear_system_solver_supports_overdetermined_unique_system(engine):
     ["x + y = 1", "x*y = 2"],
     ["x + y = 1", "1/x = 2"],
     ["x + y = 1", "x**2 = 2"],
-    ["x + y = 1", "x + z = 3"],
     ["x + y = 1", "x = "],
     ["x + y"],
 ])
 def test_linear_system_solver_rejects_invalid_or_non_linear_systems(engine, equations):
     with pytest.raises(MathematicsEngineError):
         engine.solve_linear_system(equations)
+
+
+def test_linear_system_solver_reports_valid_underdetermined_system(engine):
+    result = engine.solve_linear_system(["x + y = 1", "x + z = 3"])
+    assert result["status"] == "underdetermined"
+    assert result["solution"] is None
+    assert result["verified"] is None
 
 
 def test_linear_system_solver_validates_variable_contract_and_limits(engine):
