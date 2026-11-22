@@ -45,7 +45,7 @@ def test_memory_graph_relations_are_idempotent_unverified_and_event_backed(tmp_p
     assert related["neighbors"][0]["event_id"] == second
     assert related["neighbors"][0]["epistemic_state"] == "candidate_unverified"
     assert store.counts()["events"] == before_tables["events"] + 1
-    assert store.SCHEMA_VERSION == 5
+    assert store.SCHEMA_VERSION == 6
     assert store.count_events("memory.relation.proposed") == 1
 
 
