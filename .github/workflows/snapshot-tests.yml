@@ -48,4 +48,4 @@ jobs:
       - name: Compile included Python sources
         run: python -m compileall -q agent experiments tests
       - name: Run all included focused tests
-        run: python -m pytest -q tests/
+        run: python -m pytest -q -ra tests/
