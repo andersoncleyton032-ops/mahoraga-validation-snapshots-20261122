@@ -1234,21 +1234,22 @@ class KnowledgeStore:
             ).fetchone()
             sequence = int(event_row["seq"]) + 1
             next_version = int(row["version"]) + 1
-            event_payload = {
-                "experiment_id": experiment_id,
-                "version": next_version,
-                "evidence": evidence,
-                "candidate_digest": candidate_digest,
-            }
-            event_json = self._lab_payload_json(event_payload)
-            event_digest = self._lab_event_digest(
-                sequence, "transition", expected_stage, new_stage, event_json, now,
-            )
             next_candidate_digest = candidate_digest or row["candidate_digest"]
             next_record_digest = self._lab_record_digest(
                 experiment_id, int(row["schema_version"]), new_stage, next_version,
                 row["parent_digest"], next_candidate_digest, row["payload_json"],
                 row["created_at"], now,
+            )
+            event_payload = {
+                "experiment_id": experiment_id,
+                "version": next_version,
+                "evidence": evidence,
+                "candidate_digest": candidate_digest,
+                "record_sha256": next_record_digest,
+            }
+            event_json = self._lab_payload_json(event_payload)
+            event_digest = self._lab_event_digest(
+                sequence, "transition", expected_stage, new_stage, event_json, now,
             )
             db.execute(
                 """INSERT INTO lab_experiment_events(
@@ -1357,6 +1358,9 @@ class KnowledgeStore:
                 if not history:
                     raise sqlite3.DatabaseError("Histórico do experimento está vazio.")
                 previous_stage = None
+                replay_candidate_digest = None
+                replay_payload_json = self._lab_payload_json(current["payload"])
+                expected_record_digest = None
                 for sequence, event in enumerate(history, 1):
                     payload = event["payload"]
                     if payload.get("version") != sequence:
@@ -1379,19 +1383,21 @@ class KnowledgeStore:
                             or event["to_stage"] not in self.LAB_EXPERIMENT_TRANSITIONS.get(previous_stage, set())
                         ):
                             raise sqlite3.DatabaseError("Transição no histórico é inválida.")
+                        if payload.get("candidate_digest") is not None:
+                            replay_candidate_digest = payload["candidate_digest"]
+                    expected_record_digest = self._lab_record_digest(
+                        experiment_id, current["schema_version"], event["to_stage"],
+                        sequence, current["parent_digest"], replay_candidate_digest,
+                        replay_payload_json, current["created_at"], event["created_at"],
+                    )
+                    if payload.get("record_sha256") != expected_record_digest:
+                        raise sqlite3.DatabaseError("Digest do snapshot não confere com o evento.")
                     previous_stage = event["to_stage"]
-                latest_candidate_digest = next(
-                    (
-                        event["payload"].get("candidate_digest")
-                        for event in reversed(history)
-                        if event["payload"].get("candidate_digest") is not None
-                    ),
-                    None,
-                )
                 if (
                     history[-1]["to_stage"] != current["stage"]
                     or history[-1]["payload"]["version"] != current["version"]
-                    or latest_candidate_digest != current["candidate_digest"]
+                    or expected_record_digest != current["record_sha256"]
+                    or replay_candidate_digest != current["candidate_digest"]
                 ):
                     raise sqlite3.DatabaseError("Estado atual diverge do último evento.")
                 valid.append(experiment_id)
