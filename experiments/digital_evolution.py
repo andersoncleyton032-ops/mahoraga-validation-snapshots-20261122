@@ -33,7 +33,10 @@ class Instruction:
         if self.op == "PUSH_CONST":
             if isinstance(self.value, bool) or not isinstance(self.value, (int, float)):
                 raise DigitalEvolutionError("PUSH_CONST exige constante numérica.")
-            value = float(self.value)
+            try:
+                value = float(self.value)
+            except (OverflowError, TypeError, ValueError) as exc:
+                raise DigitalEvolutionError("Constante numérica inválida.") from exc
             if not math.isfinite(value) or abs(value) > 1000.0:
                 raise DigitalEvolutionError("Constante fora do limite permitido.")
             object.__setattr__(self, "value", value)
@@ -122,12 +125,20 @@ class EvolutionConfig:
         ):
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 raise DigitalEvolutionError(f"{name} deve estar entre 0 e 1.")
-            if not math.isfinite(float(value)) or not 0.0 <= float(value) <= 1.0:
+            try:
+                number = float(value)
+            except (OverflowError, TypeError, ValueError) as exc:
+                raise DigitalEvolutionError(f"{name} deve estar entre 0 e 1.") from exc
+            if not math.isfinite(number) or not 0.0 <= number <= 1.0:
                 raise DigitalEvolutionError(f"{name} deve estar entre 0 e 1.")
         if (isinstance(self.complexity_penalty, bool)
-                or not isinstance(self.complexity_penalty, (int, float))
-                or not math.isfinite(float(self.complexity_penalty))
-                or not 0.0 <= float(self.complexity_penalty) <= 1.0):
+                or not isinstance(self.complexity_penalty, (int, float))):
+            raise DigitalEvolutionError("complexity_penalty inválida.")
+        try:
+            complexity_penalty = float(self.complexity_penalty)
+        except (OverflowError, TypeError, ValueError) as exc:
+            raise DigitalEvolutionError("complexity_penalty inválida.") from exc
+        if not math.isfinite(complexity_penalty) or not 0.0 <= complexity_penalty <= 1.0:
             raise DigitalEvolutionError("complexity_penalty inválida.")
 
 
@@ -204,7 +215,12 @@ class DigitalEvolutionEngine:
             for item in pair:
                 if isinstance(item, bool) or not isinstance(item, (int, float)):
                     raise DigitalEvolutionError(f"{field}[{index}] contém valor não numérico.")
-                number = float(item)
+                try:
+                    number = float(item)
+                except (OverflowError, TypeError, ValueError) as exc:
+                    raise DigitalEvolutionError(
+                        f"{field}[{index}] contém valor numérico fora do limite."
+                    ) from exc
                 if not math.isfinite(number):
                     raise DigitalEvolutionError(f"{field}[{index}] contém valor não finito.")
                 if abs(number) > DigitalEvolutionEngine.MAX_ABS_INPUT:
@@ -243,7 +259,10 @@ class DigitalEvolutionEngine:
         )
         if isinstance(x, bool) or not isinstance(x, (int, float)):
             raise DigitalEvolutionError("Entrada x inválida.")
-        x_value = float(x)
+        try:
+            x_value = float(x)
+        except (OverflowError, TypeError, ValueError) as exc:
+            raise DigitalEvolutionError("Entrada x fora do limite.") from exc
         if not math.isfinite(x_value) or abs(x_value) > DigitalEvolutionEngine.MAX_ABS_INPUT:
             raise DigitalEvolutionError("Entrada x fora do limite.")
         if (isinstance(max_stack_depth, bool) or not isinstance(max_stack_depth, int)
