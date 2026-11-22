@@ -1057,6 +1057,35 @@ class KnowledgeStore:
             raise ValueError("experiment_id inválido.")
         return experiment_id
 
+    @staticmethod
+    def _lab_record_digest(
+        experiment_id: str, schema_version: int, stage: str, version: int,
+        parent_digest: str | None, candidate_digest: str | None,
+        payload_json: str,
+    ) -> str:
+        envelope = json.dumps({
+            "experiment_id": experiment_id,
+            "schema_version": schema_version,
+            "stage": stage,
+            "version": version,
+            "parent_digest": parent_digest,
+            "candidate_digest": candidate_digest,
+            "payload_json": payload_json,
+        }, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        return hashlib.sha256(envelope.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _lab_event_digest(
+        sequence: int, event_type: str, from_stage: str | None,
+        to_stage: str, payload_json: str, created_at: str,
+    ) -> str:
+        envelope = json.dumps({
+            "sequence": sequence, "event_type": event_type,
+            "from_stage": from_stage, "to_stage": to_stage,
+            "payload_json": payload_json, "created_at": created_at,
+        }, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        return hashlib.sha256(envelope.encode("utf-8")).hexdigest()
+
     def create_lab_experiment(
         self, experiment_id: str, payload: dict, *,
         parent_digest: str | None = None,
@@ -1074,8 +1103,11 @@ class KnowledgeStore:
             raise ValueError("Novo experimento precisa iniciar em proposed.")
         clean_payload["stage"] = "proposed"
         payload_json = self._lab_payload_json(clean_payload)
-        digest = self._lab_digest(payload_json)
         now = utc_now()
+        digest = self._lab_record_digest(
+            experiment_id, self.LAB_EXPERIMENT_SCHEMA_VERSION, "proposed", 1,
+            parent_digest, None, payload_json,
+        )
         event_payload = {
             "experiment_id": experiment_id,
             "version": 1,
@@ -1084,7 +1116,9 @@ class KnowledgeStore:
             "parent_digest": parent_digest,
         }
         event_json = self._lab_payload_json(event_payload)
-        event_digest = self._lab_digest(event_json)
+        event_digest = self._lab_event_digest(
+            1, "created", None, "proposed", event_json, now,
+        )
         with self._transaction() as db:
             db.execute(
                 """INSERT INTO lab_experiments(
@@ -1167,7 +1201,14 @@ class KnowledgeStore:
                 "candidate_digest": candidate_digest,
             }
             event_json = self._lab_payload_json(event_payload)
-            event_digest = self._lab_digest(event_json)
+            event_digest = self._lab_event_digest(
+                sequence, "transition", expected_stage, new_stage, event_json, now,
+            )
+            next_candidate_digest = candidate_digest or row["candidate_digest"]
+            next_record_digest = self._lab_record_digest(
+                experiment_id, int(row["schema_version"]), new_stage, next_version,
+                row["parent_digest"], next_candidate_digest, row["payload_json"],
+            )
             db.execute(
                 """INSERT INTO lab_experiment_events(
                     experiment_id,sequence,event_type,from_stage,to_stage,
@@ -1178,10 +1219,13 @@ class KnowledgeStore:
             )
             db.execute(
                 """UPDATE lab_experiments SET stage=?,version=?,candidate_digest=?,
-                    updated_at=? WHERE experiment_id=? AND version=? AND stage=?""",
-                (new_stage, next_version, candidate_digest or row["candidate_digest"],
+                    payload_sha256=?,updated_at=?
+                    WHERE experiment_id=? AND version=? AND stage=?""",
+                (new_stage, next_version, next_candidate_digest, next_record_digest,
                  now, experiment_id, expected_version, expected_stage),
             )
+            if db.execute("SELECT changes()").fetchone()[0] != 1:
+                raise ValueError("Conflito de versão durante a transição do experimento.")
         return {
             "experiment_id": experiment_id, "stage": new_stage,
             "version": next_version, "candidate_digest": candidate_digest,
@@ -1197,8 +1241,12 @@ class KnowledgeStore:
             ).fetchone()
         if row is None:
             return None
-        if self._lab_digest(row["payload_json"]) != row["payload_sha256"]:
-            raise sqlite3.DatabaseError("Checksum do payload do experimento inválido.")
+        if self._lab_record_digest(
+            row["experiment_id"], row["schema_version"], row["stage"],
+            row["version"], row["parent_digest"], row["candidate_digest"],
+            row["payload_json"],
+        ) != row["payload_sha256"]:
+            raise sqlite3.DatabaseError("Checksum do registro do experimento inválido.")
         return {
             "experiment_id": row["experiment_id"],
             "schema_version": row["schema_version"], "stage": row["stage"],
@@ -1230,7 +1278,10 @@ class KnowledgeStore:
         for expected_sequence, row in enumerate(rows, 1):
             if row["sequence"] != expected_sequence:
                 raise sqlite3.DatabaseError("Sequência do histórico de experimento contém lacuna.")
-            if self._lab_digest(row["payload_json"]) != row["payload_sha256"]:
+            if self._lab_event_digest(
+                row["sequence"], row["event_type"], row["from_stage"],
+                row["to_stage"], row["payload_json"], row["created_at"],
+            ) != row["payload_sha256"]:
                 raise sqlite3.DatabaseError("Checksum do histórico de experimento inválido.")
             history.append({
                 "sequence": row["sequence"], "event_type": row["event_type"],
