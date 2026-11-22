@@ -1144,6 +1144,34 @@ class KnowledgeStore:
             "created_at": now, "updated_at": now,
         }
 
+    def create_lab_experiment_once(
+        self, experiment_id: str, payload: dict, *,
+        parent_digest: str | None = None,
+    ) -> dict:
+        """Idempotently create a cycle-scoped experiment, rejecting ID reuse."""
+        experiment_id = self._lab_validate_id(experiment_id)
+        normalized_payload = dict(payload) if isinstance(payload, dict) else payload
+        if isinstance(normalized_payload, dict):
+            normalized_payload["stage"] = "proposed"
+        expected_json = self._lab_payload_json(normalized_payload)
+        try:
+            created = self.create_lab_experiment(
+                experiment_id, normalized_payload, parent_digest=parent_digest,
+            )
+            return {"created": True, "record": self.get_lab_experiment(experiment_id)}
+        except sqlite3.IntegrityError:
+            existing = self.get_lab_experiment(experiment_id)
+            if existing is None:
+                raise
+            if (
+                self._lab_payload_json(existing["payload"]) != expected_json
+                or existing["parent_digest"] != parent_digest
+            ):
+                raise ValueError(
+                    "experiment_id já foi usado com conteúdo ou linhagem diferentes."
+                )
+            return {"created": False, "record": existing}
+
     def transition_lab_experiment(
         self, experiment_id: str, *, expected_version: int,
         expected_stage: str, new_stage: str, evidence: dict,
