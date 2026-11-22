@@ -111,7 +111,7 @@ class EvolutionGovernor:
         if not isinstance(parent_digest, str) or not self._DIGEST_RE.fullmatch(parent_digest):
             raise EvolutionGovernanceError("parent_digest must be a SHA-256 hex digest")
         change_scope = self._nonempty(change_scope, "change_scope")
-        if ("\\\\" in change_scope or "\\x00" in change_scope
+        if ("\\" in change_scope or "\x00" in change_scope
                 or change_scope.startswith("/")):
             raise EvolutionGovernanceError("change_scope must be a relative lab path")
         scope_parts = change_scope.split("/")
