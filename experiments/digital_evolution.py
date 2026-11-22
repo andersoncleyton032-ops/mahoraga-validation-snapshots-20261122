@@ -455,6 +455,7 @@ class DigitalEvolutionEngine:
             selection_score=round(score, 12),
             operation_count=len(organism.genome) * (
                 len(train_cases) + len(validation_cases)
+                + (2 if valid else 0)
             ),
             behavior_cell=descriptor,
             valid=valid,
@@ -537,9 +538,12 @@ class DigitalEvolutionEngine:
         validation = self._parse_cases(validation_cases, "validation_cases")
         test = self._parse_cases(test_cases, "test_cases") if test_cases is not None else ()
 
+        # Each unique valid genome also runs two endpoint probes for its
+        # behavioral descriptor. Preflight reserves the worst-case two probes
+        # per organism; runtime reporting counts probes actually performed.
         case_evaluation_budget = (
             self.config.population_size * (self.config.generations + 1)
-            * (len(train) + len(validation))
+            * (len(train) + len(validation) + 2)
             + len(test)
         )
         if case_evaluation_budget > self.config.max_case_evaluations:
@@ -564,7 +568,10 @@ class DigitalEvolutionEngine:
                 if result is None:
                     result = self._evaluate(organism, train, validation)
                     cache[digest] = result
-                    evaluated_count += len(train) + len(validation)
+                    evaluated_count += (
+                        len(train) + len(validation)
+                        + (2 if result.valid else 0)
+                    )
                 else:
                     # Preserve this organism's individual lineage while reusing
                     # the deterministic phenotype metrics for an identical genome.
