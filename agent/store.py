@@ -1061,7 +1061,7 @@ class KnowledgeStore:
     def _lab_record_digest(
         experiment_id: str, schema_version: int, stage: str, version: int,
         parent_digest: str | None, candidate_digest: str | None,
-        payload_json: str,
+        payload_json: str, created_at: str, updated_at: str,
     ) -> str:
         envelope = json.dumps({
             "experiment_id": experiment_id,
@@ -1071,6 +1071,8 @@ class KnowledgeStore:
             "parent_digest": parent_digest,
             "candidate_digest": candidate_digest,
             "payload_json": payload_json,
+            "created_at": created_at,
+            "updated_at": updated_at,
         }, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         return hashlib.sha256(envelope.encode("utf-8")).hexdigest()
 
@@ -1108,13 +1110,13 @@ class KnowledgeStore:
         now = utc_now()
         digest = self._lab_record_digest(
             experiment_id, self.LAB_EXPERIMENT_SCHEMA_VERSION, "proposed", 1,
-            parent_digest, None, payload_json,
+            parent_digest, None, payload_json, now, now,
         )
         event_payload = {
             "experiment_id": experiment_id,
             "version": 1,
             "stage": "proposed",
-            "payload_sha256": digest,
+            "record_sha256": digest,
             "parent_digest": parent_digest,
         }
         event_json = self._lab_payload_json(event_payload)
@@ -1140,7 +1142,7 @@ class KnowledgeStore:
             )
         return {
             "experiment_id": experiment_id, "stage": "proposed", "version": 1,
-            "payload_sha256": digest, "parent_digest": parent_digest,
+            "record_sha256": digest, "parent_digest": parent_digest,
             "created_at": now, "updated_at": now,
         }
 
@@ -1246,6 +1248,7 @@ class KnowledgeStore:
             next_record_digest = self._lab_record_digest(
                 experiment_id, int(row["schema_version"]), new_stage, next_version,
                 row["parent_digest"], next_candidate_digest, row["payload_json"],
+                row["created_at"], now,
             )
             db.execute(
                 """INSERT INTO lab_experiment_events(
@@ -1266,7 +1269,7 @@ class KnowledgeStore:
                 raise ValueError("Conflito de versão durante a transição do experimento.")
         return {
             "experiment_id": experiment_id, "stage": new_stage,
-            "version": next_version, "candidate_digest": candidate_digest,
+            "version": next_version, "candidate_digest": next_candidate_digest,
             "updated_at": now,
         }
 
@@ -1282,7 +1285,7 @@ class KnowledgeStore:
         if self._lab_record_digest(
             row["experiment_id"], row["schema_version"], row["stage"],
             row["version"], row["parent_digest"], row["candidate_digest"],
-            row["payload_json"],
+            row["payload_json"], row["created_at"], row["updated_at"],
         ) != row["payload_sha256"]:
             raise sqlite3.DatabaseError("Checksum do registro do experimento inválido.")
         payload = json.loads(row["payload_json"])
@@ -1294,7 +1297,7 @@ class KnowledgeStore:
             "version": row["version"], "parent_digest": row["parent_digest"],
             "candidate_digest": row["candidate_digest"],
             "payload": payload,
-            "payload_sha256": row["payload_sha256"],
+            "record_sha256": row["payload_sha256"],
             "created_at": row["created_at"], "updated_at": row["updated_at"],
         }
 
@@ -1331,7 +1334,7 @@ class KnowledgeStore:
                 "sequence": row["sequence"], "event_type": row["event_type"],
                 "from_stage": row["from_stage"], "to_stage": row["to_stage"],
                 "payload": payload,
-                "payload_sha256": row["payload_sha256"], "created_at": row["created_at"],
+                "event_sha256": row["payload_sha256"], "created_at": row["created_at"],
             })
         return history
 
@@ -1392,7 +1395,7 @@ class KnowledgeStore:
                 ):
                     raise sqlite3.DatabaseError("Estado atual diverge do último evento.")
                 valid.append(experiment_id)
-            except (sqlite3.DatabaseError, ValueError, KeyError) as exc:
+            except (sqlite3.DatabaseError, ValueError, KeyError, TypeError, AttributeError) as exc:
                 invalid.append({"experiment_id": experiment_id, "reason": str(exc)})
         return {
             "checked": len(ids), "valid": valid, "invalid": invalid,
