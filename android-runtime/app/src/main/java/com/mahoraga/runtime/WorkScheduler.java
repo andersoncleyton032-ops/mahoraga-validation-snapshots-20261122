@@ -92,10 +92,9 @@ public final class WorkScheduler {
     }
 
     private static Constraints buildConstraints() {
+        // Resource admission is dynamic in AutonomyGovernor. WorkManager only
+        // requires no network; low battery/storage are not hard scheduling gates.
         return new Constraints.Builder()
-                .setRequiresCharging(false)
-                .setRequiresBatteryNotLow(true)
-                .setRequiresStorageNotLow(true)
                 .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
                 .build();
     }

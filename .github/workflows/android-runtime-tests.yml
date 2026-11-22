@@ -7,9 +7,11 @@ on:
       - "android-runtime/**"
       - "agent/android_workmanager_wake.py"
       - "agent/background_capabilities.py"
+      - "agent/autonomy_governor.py"
       - "scripts/mahoraga_background_worker.py"
       - "tests/test_android_workmanager_wake.py"
       - "tests/test_background_capabilities.py"
+      - "tests/test_autonomy_governor.py"
       - ".github/workflows/android-runtime-tests.yml"
   workflow_dispatch:
 
