@@ -38,7 +38,7 @@ class TestEvidenceVerifier:
         )
 
 
-class TestApprovalVerifier:
+class ApprovalVerifierFixture:
     def __init__(self):
         self.used = set()
 
@@ -61,7 +61,7 @@ def make_core(tmp_path, dharma=None):
         dharma=dharma,
     )
     core.cognitive.evidence_verifier = TestEvidenceVerifier()
-    core.cognitive.approval_verifier = TestApprovalVerifier()
+    core.cognitive.approval_verifier = ApprovalVerifierFixture()
     return core, store
 
 
