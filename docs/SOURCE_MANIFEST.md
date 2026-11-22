@@ -17,7 +17,7 @@ Selected modules copied from the integrated architecture snapshot include:
 - language and runtime: `language_engine.py`, `linguistic_analysis.py`, `language_lexicon.py`, `model_runtime.py`, `command_center.py`;
 - bounded supporting modules: graph algorithms, neural core/training/checkpoint preflight, CPU path tracer, image-generation orchestration, Blender bridge/intelligence client, device and diagnostic facades, telemetry and installation registry.
 
-Selected tests cover composition, shared-store invariants, fabric signaling, governance, memory, language, neural checkpoint handling, perception, capability metadata, retrieval, resource boundaries, ledger migration, corruption detection, crash atomicity and replay. Test fixtures are synthetic; the device-specific `RMX5070` fixture value was replaced with `test-device`.
+Selected tests cover composition, shared-store invariants, fabric signaling, governance, memory, language, neural checkpoint handling, perception, capability metadata, retrieval, resource boundaries, ledger migration, corruption detection, crash atomicity and replay. Test fixtures are synthetic; device-specific fixture values were replaced with generic test identifiers.
 
 ## Experimental modules
 The cognitive interest selector, exploration cycle, digital physiology and bounded digital-evolution VM come from the validated experimental snapshot of source PR #143. The imported snapshot contains validation fixes and is not byte-identical to the original PR. Lab-only `EvolutionGovernor`, `AutonomousLabCycle` and `PersistentAutonomousLabCycle` were added in this public workspace; they are not private-core production modules. `agent/store.py` includes a lab-only schema-v6 append-only experiment ledger and corresponding migration.
