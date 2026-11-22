@@ -10,7 +10,7 @@ def observation(**overrides):
         "energy_drain": 0.1, "cooling": 0.4, "recharge": 0.1,
         "task_load": 0.2, "unresolved_uncertainty": 0.7,
         "expected_learning_progress": 0.8, "noise_risk": 0.1,
-        "source": "synthetic-test",
+        "source": "simulated",
     }
     values.update(overrides)
     return ResourceObservation(**values)
