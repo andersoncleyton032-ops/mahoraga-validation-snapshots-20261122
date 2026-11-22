@@ -55,12 +55,17 @@ def _adopt_initiative_in_process(db_path, candidate_id, barrier):
     }
 
 
-def _set_focus_in_process(db_path, goal_id, barrier):
+def _set_focus_in_process(db_path, goal_id, barrier, expected_revision):
     store = KnowledgeStore(db_path)
     engine = ExecutiveEngine(FakeCognitive(store))
     barrier.wait(timeout=30)
     try:
-        result = engine.set_focus(goal_id, reason="concurrent focus test")
+        result = engine.set_focus(
+            goal_id,
+            reason="concurrent focus test",
+            expected_revision=expected_revision,
+            compare_and_swap=True,
+        )
         return {"status": result["status"], "goal_id": result["goal_id"]}
     except ValueError as exc:
         return {"status": "rejected", "error": str(exc)}
@@ -500,6 +505,10 @@ def test_focus_update_is_compare_and_swap_across_processes(tmp_path):
     engine.transition_goal(first["goal_id"], "active")
     engine.transition_goal(second["goal_id"], "active")
 
+    previous_focus = store.list_events(
+        limit=1, event_type=engine.FOCUS_EVENT
+    )
+    expected_revision = int(previous_focus[0]["id"]) if previous_focus else None
     context = get_context("spawn")
     with context.Manager() as manager:
         barrier = manager.Barrier(2)
@@ -510,6 +519,7 @@ def test_focus_update_is_compare_and_swap_across_processes(tmp_path):
                     str(db_path),
                     goal_id,
                     barrier,
+                    expected_revision,
                 )
                 for goal_id in (first["goal_id"], second["goal_id"])
             ]
