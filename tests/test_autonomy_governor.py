@@ -113,7 +113,7 @@ def test_severe_thermal_or_low_resources_pause_autonomous_work(tmp_path):
     )
     low_memory = governor.evaluate_session(
         interactive_context(),
-        resource_snapshot=resource_snapshot(ram_mb=512),
+        resource_snapshot=resource_snapshot(ram_mb=256),
     )
     low_storage = governor.evaluate_session(
         interactive_context(),
