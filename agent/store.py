@@ -1098,6 +1098,8 @@ class KnowledgeStore:
             or any(char not in "0123456789abcdef" for char in parent_digest)
         ):
             raise ValueError("parent_digest precisa ser SHA-256 hexadecimal.")
+        if not isinstance(payload, dict):
+            raise ValueError("Payload do experimento precisa ser um objeto JSON.")
         clean_payload = dict(payload)
         if "stage" in clean_payload and clean_payload["stage"] != "proposed":
             raise ValueError("Novo experimento precisa iniciar em proposed.")
@@ -1151,7 +1153,11 @@ class KnowledgeStore:
         experiment_id = self._lab_validate_id(experiment_id)
         if isinstance(expected_version, bool) or not isinstance(expected_version, int) or expected_version < 1:
             raise ValueError("expected_version precisa ser inteiro positivo.")
-        if expected_stage not in self.LAB_EXPERIMENT_STAGES or new_stage not in self.LAB_EXPERIMENT_STAGES:
+        if (
+            not isinstance(expected_stage, str) or not isinstance(new_stage, str)
+            or expected_stage not in self.LAB_EXPERIMENT_STAGES
+            or new_stage not in self.LAB_EXPERIMENT_STAGES
+        ):
             raise ValueError("Estado de experimento desconhecido.")
         if new_stage not in self.LAB_EXPERIMENT_TRANSITIONS[expected_stage]:
             raise ValueError("Transição de estado não permitida.")
@@ -1496,6 +1502,7 @@ class KnowledgeStore:
         tables = (
             "memories", "events", "observations", "experiments",
             "tools", "self_models", "installations",
+            "lab_experiments", "lab_experiment_events",
         )
         with self._reader() as db:
             result = {
