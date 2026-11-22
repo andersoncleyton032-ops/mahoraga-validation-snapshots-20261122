@@ -7,7 +7,7 @@ This public repository is a **curated, sanitized validation snapshot** of select
 - Selected integration, regression, resource-boundary and adversarial tests for those modules.
 - Non-sensitive capability, identity, model-runtime and neural-stack configuration. All capability entries remain disabled; local model runtime remains disabled and remote access is disallowed.
 - Cognitive interest selection, simulated physiology and bounded digital-evolution experiments from the validated experiment snapshot.
-- Lab-only candidate-governance prototypes for comparison, not production integration.
+- Lab-only candidate-governance prototypes and a replay-safe persistent lab-cycle wrapper. The wrapper records planning/admission decisions in the canonical SQLite store but does not execute candidate code or promote changes.
 
 ## What is deliberately not copied
 - Private continuity records, audit logs, work-session history or internal operational reports.
@@ -20,7 +20,7 @@ This public repository is a **curated, sanitized validation snapshot** of select
 See [Source Manifest](docs/SOURCE_MANIFEST.md) and [Publication Policy](docs/PUBLICATION_POLICY.md).
 
 ## Architecture boundary
-The private core's existing `AutonomyGovernor`, `Dharma`, `KnowledgeStore`, `IntegratedCore` and `CognitiveFabric` remain the reference architecture. Lab-only `EvolutionGovernor` and `AutonomousLabCycle` are experiments to compare against those components, not replacements.
+The private core's existing `AutonomyGovernor`, `Dharma`, `KnowledgeStore`, `IntegratedCore` and `CognitiveFabric` remain the reference architecture. Lab-only `EvolutionGovernor`, `AutonomousLabCycle` and `PersistentAutonomousLabCycle` are experiments to compare against those components, not replacements. The persistent wrapper stores cycle-scoped candidate records in the lab's schema-v6 SQLite ledger.
 
 ## Validation
 CI compiles included Python sources and runs the included tests on Python 3.12 and 3.14. Tests on this public snapshot do not prove Android/Termux/Realme behavior, continuous background execution, unattended code evolution, general intelligence or production readiness.
