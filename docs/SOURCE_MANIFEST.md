@@ -1,35 +1,40 @@
 # Source and provenance manifest
 
+## Source snapshots
 - Private source repository: `andersoncleyton032-ops/mahoraga-core`
-- Source `main` snapshot: `498fea2c52c374c8bb661d8ead42a5bf5c55be16`
+- Integrated architecture source commit: `7ed5cd893753f069ab8b33849e2bc98c22734132`
+- Earlier source `main` snapshot: `498fea2c52c374c8bb661d8ead42a5bf5c55be16`
+- Original source PR #142 head: `e895fadb89865a14be9a61115f9af243eb58d250`
 - Original source PR #143 head: `520a3cae969845dc382b3031a10a8a71072bd322`
 - Validated experimental snapshot PR #2 head at import: `e5d4ab21548df65fb589c5c645276c4dfaa3a1bd`
 
-## Scope warning
-The private repository has a substantially newer integrated architecture on research/integration branches. This public snapshot deliberately does **not** copy that entire architecture. The small `agent/` baseline below is not the current production/core architecture and should not be used as its representation.
+## Current integrated-core slice
+Selected modules copied from the integrated architecture snapshot include:
+- composition and coordination: `integration_core.py`, `cognitive_fabric.py`, `cognitive_engine.py`, `executive_engine.py`;
+- canonical state and governance: `store.py`, `memory.py`, `autonomy_governor.py`, `dharma.py`;
+- cognition and learning: `knowledge_engine.py`, `reasoning_engine.py`, `mathematics_engine.py`, `adaptive_learning.py`, `prototype_plasticity.py`, `metacognition.py`, `memory_graph.py`, `conversation_engine.py`;
+- self-model, perception and capabilities: `identity_engine.py`, `introspection.py`, `hardware_intelligence.py`, `perception_engine.py`, `capability_manifest.py`, `capability_adapters.py`, `research_orchestrator.py`, `tool_intelligence.py`;
+- language and runtime: `language_engine.py`, `linguistic_analysis.py`, `language_lexicon.py`, `model_runtime.py`, `command_center.py`;
+- bounded supporting modules: graph algorithms, neural core/training/checkpoint preflight, CPU path tracer, image-generation orchestration, Blender bridge/intelligence client, device and diagnostic facades, telemetry and installation registry.
 
-## Curated source files
-Core files copied from private `main`: `agent/actions.py`, `agent/device_core.py`, `agent/dharma.py`, `agent/lab.py`, `agent/main.py`, `agent/memory.py`, `agent/physics.py`, `tests/test_dharma.py`, `tests/test_physics.py`, and `.gitignore`.
+Selected tests cover composition, shared-store invariants, fabric signaling, governance, memory, language, neural checkpoint handling, perception, capability metadata, retrieval, and resource boundaries. Test fixtures are synthetic; the device-specific `RMX5070` fixture value was replaced with `test-device`.
 
-Lab-only adaptations and fixes:
-- package-relative imports in `agent/main.py`;
-- default persistence paths in `agent/actions.py`, `agent/lab.py` and `agent/memory.py` point inside this checkout rather than `~/mahoraga`;
-- missing `os` imports in the memory and experiment-log modules were found by behavioral tests and fixed in this snapshot;
-- the physics simulation received a maximum-step budget and numeric-domain checks;
-- path-isolation, persistence and adversarial regression tests were added.
+## Experimental modules
+The cognitive interest selector, exploration cycle, digital physiology and bounded digital-evolution VM come from the validated experimental snapshot of source PR #143. The imported snapshot contains validation fixes and is not byte-identical to the original PR. Lab-only `EvolutionGovernor` and `AutonomousLabCycle` were added in this public workspace; they are not private-core production modules.
 
-The four cognitive/physiology/evolution modules and their focused tests were imported from validated snapshot PR #2. They include validation-only fixes and are not byte-identical to source PR #143.
-
-New lab-only components:
-- `experiments/evolution_governor.py`: bounded candidate lifecycle; lexical scope is limited to `experiments/`, `tests/` and `docs/`. It records state and caller-supplied evidence; it does not execute or authenticate evidence.
-- `experiments/autonomous_lab_cycle.py`: one-step integration of simulated physiology, interest selection and the lab-only governor; planning/admission only.
-- corresponding tests cover quotas, dependency admission, path constraints and non-execution declarations.
+## Lab-only adaptations and retained hardening
+- `agent/actions.py` remains the checkout-scoped lab version; the current private branch's version was not copied because it defaults to `~/mahoraga`.
+- `agent/physics.py` retains the lab's bounded-step and numeric-domain hardening rather than importing the older unbounded source version.
+- `agent/memory.py` now uses the current shared SQLite `KnowledgeStore` API.
+- CI installs NumPy for neural/vector tests and compiles all included Python sources.
 
 ## Deliberately excluded
-- `memory/data.json`: project/user memory contents.
-- `logs/activity.log`: operational activity history.
-- `agent/physics.py.pre_*`: historical backups remain only in the private source repository.
-- Original Git history and commit metadata: provenance is recorded here, not by importing private history.
-- Private continuity records, audit logs, local databases, device reports, credentials and user-specific files.
+- `memory/data.json`, `logs/activity.log`, SQLite databases and WAL/SHM files.
+- Private continuity, audit, decision, session and handoff records.
+- Device-specific identifiers and local hardware reports.
+- Neural weights, model checkpoints, datasets, local artifacts and temporary workspaces.
+- `agent/blender_python_executor.py`, `agent/blender_server_v2.py` and `agent/mahoraga_blender_addon_v2.py`; these include the high-risk execution path and are not needed for the current composition tests.
+- `agent/physics.py.pre_*` historical backups.
+- Original Git history and commit metadata.
 
-This is a curated experimental baseline, not proof that all private branches or files have been copied. Further imports require inspection for personal data, credentials, operational state, side effects, dependencies and license compatibility.
+This is a reviewed allowlist, not a full mirror. Future imports require file-level provenance, privacy, dependency, license, side-effect and test review.
