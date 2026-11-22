@@ -90,11 +90,16 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Python 3.12 and 3.14: **908 passed, 1 skipped, 28 subtests passed** in each environment.
 - The queue now returns a structured wake request and enforces a 60-second minimum delay between chained one-shot invocations; no immediate zero-delay worker loop.
 
-### Android WorkManager bridge source candidate — 2026-11-22
-- Private source branch: `implementation/android-workmanager-bridge-20261122`, source head `05d0702991705da1d8661c3b44d6180cc2a7032d`.
-- Private PR #158 is Draft and stacked on the background execution receipt hardening.
-- Included: `android-runtime/` Gradle app, WorkManager scheduler, serialized one-shot Worker, periodic 15-minute poll, bounded Termux RUN_COMMAND bridge, fixed wake receiver, Python wake adapter, one internal checkpointable inquiry capability, worker entry script and focused unit tests.
-- Public validation workflow: `.github/workflows/android-runtime-tests.yml`; it compiles with Android API 36, AGP 9.5.2, Gradle 9.6.0 and JDK 17, and runs the Android unit tests.
-- This Android candidate is **pending its first public Gradle/Android CI run**. No build or device result is claimed yet.
+### Android WorkManager bridge validation — 2026-11-22
+- Private source branch: `implementation/android-workmanager-bridge-20261122`, source head `c3fa81984ce9f271851e4750288fc96d362353fc`.
+- Private PR #158 remains Draft, stacked on PR #157's background execution receipt hardening.
+- Public validation snapshot head: `df527b43c38f63ac5b1106f70744d67820ba81fa`.
+- Python workflow run #331: `45083947847`, conclusion `success`; Python 3.12 and 3.14 each report **918 passed, 1 skipped, 28 subtests passed**.
+- Android workflow run #9: `45083947828`, conclusion `success`; `compileDebugJavaWithJavac`, `testDebugUnitTest` and `assembleDebug` completed with **BUILD SUCCESSFUL**.
+- The preceding Android run #8 failed only because the new test method had been placed outside its Java class; the test source was corrected and run #9 passed.
+- WorkManager uses a persistent 15-minute periodic poll plus serialized one-shot work. It does not hard-require charging, battery-not-low or storage-not-low; the Python Governor applies adaptive admission. 2 GiB RAM/storage are preferred headroom; 512 MiB are emergency floors.
+- The bridge uses Termux RUN_COMMAND >= 0.109, a result PendingIntent and a fixed Python entry point. Manual prerequisites remain: grant `com.termux.permission.RUN_COMMAND` to the bridge app and set `allow-external-apps=true` in Termux.
+- Official Termux contract: https://github.com/termux/termux-app/wiki/RUN_COMMAND-Intent
+- Android 12+ foreground-service background-start restrictions remain a runtime risk because Termux RUN_COMMAND promotes its service to foreground. Official Android guidance: https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start
+- The CI validates Python integration and Android compilation/unit tests only. It does **not** validate Termux IPC from a background WorkManager invocation, OEM scheduling, Android Doze behavior or the Realme 14 5G.
 - No device installation, permission grant, Termux property change, battery-setting change, Android system modification or network access has been performed.
-- The native bridge is designed for Termux package `com.termux`, Termux >= 0.109, explicit `RUN_COMMAND` permission and user-configured `allow-external-apps=true`. Those prerequisites remain unconfigured until a later user-authorized device stage.
