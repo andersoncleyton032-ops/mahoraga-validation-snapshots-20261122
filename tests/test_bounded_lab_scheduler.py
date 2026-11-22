@@ -130,10 +130,12 @@ def test_scheduler_enforces_peak_memory_and_evaluation_budgets(tmp_path):
 
 
 def test_scheduler_validates_round_count_ids_and_declared_estimates(tmp_path):
-    policy = LabSchedulerPolicy(max_rounds=1)
+    policy = LabSchedulerPolicy(max_rounds=2)
     lab, _ = scheduler(tmp_path, policy)
     with pytest.raises(LabSchedulerError, match="Quantidade"):
-        lab.run_batch([round_request("one"), round_request("two")])
+        lab.run_batch([
+            round_request("one"), round_request("two"), round_request("three")
+        ])
     with pytest.raises(LabSchedulerError, match="duplicado"):
         lab.run_batch([round_request("same"), round_request("same")])
     with pytest.raises(LabSchedulerError, match="estimated_runtime_ms"):
