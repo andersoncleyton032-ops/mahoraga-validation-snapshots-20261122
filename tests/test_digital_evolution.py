@@ -45,6 +45,18 @@ def test_virtual_machine_executes_a_small_genome_deterministically():
     assert DigitalEvolutionEngine.run_program(genome, -2.0) == -3.0
 
 
+@pytest.mark.parametrize(
+    ("instruction", "expected"),
+    [
+        (Instruction("PUSH_X"), {"op": "PUSH_X"}),
+        (Instruction("ADD"), {"op": "ADD"}),
+        (Instruction("PUSH_CONST", 2.0), {"op": "PUSH_CONST", "value": 2.0}),
+    ],
+)
+def test_instruction_serialization_is_canonical(instruction, expected):
+    assert instruction.to_dict() == expected
+
+
 def test_virtual_machine_uses_protected_division():
     genome = (
         Instruction("PUSH_X"),
