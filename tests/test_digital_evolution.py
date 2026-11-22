@@ -85,6 +85,20 @@ def test_vm_rejects_unsafe_invalid_or_underflowing_genomes(genome):
             DigitalEvolutionEngine.normalize_genome(genome)
 
 
+def test_extreme_integer_inputs_raise_domain_errors_not_overflow():
+    huge = 10**1000
+    with pytest.raises(DigitalEvolutionError):
+        Instruction("PUSH_CONST", huge)
+    with pytest.raises(DigitalEvolutionError):
+        EvolutionConfig(mutation_rate=huge)
+    with pytest.raises(DigitalEvolutionError):
+        EvolutionConfig(complexity_penalty=huge)
+    with pytest.raises(DigitalEvolutionError):
+        DigitalEvolutionEngine._parse_cases([(huge, 1.0)], "train_cases")
+    with pytest.raises(DigitalEvolutionError):
+        DigitalEvolutionEngine.run_program((Instruction("PUSH_X"),), huge)
+
+
 def test_vm_rejects_nonfinite_and_oversized_inputs():
     with pytest.raises(DigitalEvolutionError):
         DigitalEvolutionEngine.run_program((Instruction("PUSH_X"),), float("inf"))
