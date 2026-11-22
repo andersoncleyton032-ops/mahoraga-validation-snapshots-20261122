@@ -83,6 +83,7 @@ def test_review_ready_requires_independent_review_reference(tmp_path):
         evidence={"independent_review_ref": "review:independent-001"},
     )
     assert result["stage"] == "review_ready"
+    assert store.audit_lab_experiments()["invalid"] == []
     assert "promoted" not in store.LAB_EXPERIMENT_STAGES
 
 
