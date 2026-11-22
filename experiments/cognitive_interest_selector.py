@@ -89,15 +89,10 @@ class CognitiveInterestSelector:
     def _unit(value: Any, field: str) -> float:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise InterestSelectionError(f"{field} deve ser número entre 0 e 1.")
-        try:
-            number = float(value)
-        except (OverflowError, TypeError, ValueError) as exc:
-            raise InterestSelectionError(
-                f"{field} deve ser finito e estar entre 0 e 1."
-            ) from exc
-        if not math.isfinite(number) or not 0.0 <= number <= 1.0:
+        value = float(value)
+        if not math.isfinite(value) or not 0.0 <= value <= 1.0:
             raise InterestSelectionError(f"{field} deve ser número finito entre 0 e 1.")
-        return number
+        return value
 
     @staticmethod
     def _bounded_int(value: Any, field: str, maximum: int) -> int:
