@@ -241,7 +241,11 @@ def test_integrated_request_can_include_read_only_experience_replay(tmp_path):
     assert result["experience_review"]["result"]["replayed_episode_count"] == 1
     assert result["experience_review"]["result"]["review_complete"] is True
     assert result["experience_review"]["result"]["window_truncated"] is False
-    assert result["pipeline"][4]["stage"] == "experience_replay"
+    experience_stage = next(
+        item for item in result["pipeline"]
+        if item["stage"] == "experience_replay"
+    )
+    assert experience_stage["status"] == "reviewed"
     assert result["side_effects"]["learning_persisted"] is False
     assert store.counts() == before
 
@@ -608,6 +612,10 @@ def test_measured_learning_progress_flows_into_executive_initiative_ranking(tmp_
             predictor_id="latency-model-v1",
             confidence=0.9,
             validation_evidence=[f"fixture-report-{index}"],
+            evidence_attestation={
+                "nonce": f"latency-model-v1-{index}",
+                "source_id": f"independent-fixture-{index % 3}",
+            },
             validated=True,
             context={"device": "fixture"},
         )
@@ -664,6 +672,10 @@ def test_progress_is_not_averaged_across_distinct_predictors(tmp_path):
             predictor_id="model-a",
             confidence=0.9,
             validation_evidence=[f"evidence-a-{index}"],
+            evidence_attestation={
+                "nonce": f"model-a-{index}",
+                "source_id": f"source-a-{index}",
+            },
             validated=True,
             context={"device": "fixture"},
         )
@@ -680,6 +692,10 @@ def test_progress_is_not_averaged_across_distinct_predictors(tmp_path):
             predictor_id="model-b",
             confidence=0.9,
             validation_evidence=[f"evidence-b-{index}"],
+            evidence_attestation={
+                "nonce": f"model-b-{index}",
+                "source_id": f"source-b-{index}",
+            },
             validated=True,
             context={"device": "fixture"},
         )
