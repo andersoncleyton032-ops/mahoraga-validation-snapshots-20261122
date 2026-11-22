@@ -14,14 +14,17 @@ An isolated, progressively expanded laboratory for testing candidate capabilitie
 2. Simulated autonomy: planning, memory policies, curiosity, goal selection, self-evaluation, resource scheduling and recovery.
 3. Adversarial experiments: malformed inputs, resource exhaustion, interrupted cycles, corrupted state, dependency cycles, stale evidence and hostile filesystem layouts.
 4. Hardware simulations: mocked Android, battery, thermal, memory, storage and process observations.
-5. Evolution experiments: candidate generation/evaluation in closed sandboxes. The governance layer never executes candidate code or promotes it.
+5. Evolution experiments: the target design is candidate generation/evaluation in closed sandboxes. A real candidate-code sandbox is not implemented in this snapshot; the governance layer does not execute candidate code or promote it.
 
 ## Lifecycle
 `PROPOSED -> TRIAGED -> SANDBOXED -> TESTED -> REVIEW_READY`
-Candidates may instead become `REJECTED` or `QUARANTINED`. There is no automatic `PROMOTED` state.
+Candidates may instead become `REJECTED` or `QUARANTINED`. These are ledger/governance metadata states; the `SANDBOXED` label does not mean an OS/process sandbox currently exists. There is no automatic `PROMOTED` state.
 
-## Autonomous work allowed
-The system may identify reproducible gaps, form bounded hypotheses, create isolated candidates, run tests under quotas, compare against baselines, retain evidence and recommend the next experiment.
+## Target autonomous work — not yet implemented
+The intended system should identify reproducible gaps, form bounded hypotheses, create isolated candidates, run tests under quotas, compare against baselines, retain evidence and recommend the next experiment. These are design goals, not claims about the current snapshot.
+
+## Current implementation boundary
+The current code plans/admit candidates from a caller-supplied backlog, persists decisions in the canonical store, and can process a finite batch under caller-declared resource estimates and observations. It does not discover candidates, generate patches, create sandboxes, execute candidate code or tests, observe Android hardware itself, or run continuously in the background.
 
 It may not modify the private source repository, merge/deploy candidates, access personal files or credentials, use external accounts/network, install packages, change Android permissions, disable safety controls, erase backups or expand its authority.
 
