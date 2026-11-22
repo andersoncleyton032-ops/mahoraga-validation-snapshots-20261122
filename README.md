@@ -17,7 +17,7 @@ This public repository is a **curated, sanitized validation snapshot** of select
 - The original `agent/actions.py` from the current private branch because its default path targets `~/mahoraga`; this lab retains a checkout-scoped version instead.
 - The private repository's entire source tree, branches and PR history.
 
-See [Source Manifest](docs/SOURCE_MANIFEST.md) and [Publication Policy](docs/PUBLICATION_POLICY.md).
+See [Source Manifest](docs/SOURCE_MANIFEST.md), [Publication Policy](docs/PUBLICATION_POLICY.md) and [Core Transfer Gate](docs/CORE_TRANSFER_GATE.md).
 
 ## Architecture boundary
 The private core's existing `AutonomyGovernor`, `Dharma`, `KnowledgeStore`, `IntegratedCore` and `CognitiveFabric` remain the reference architecture. Lab-only `EvolutionGovernor`, `AutonomousLabCycle` and `PersistentAutonomousLabCycle` are experiments to compare against those components, not replacements. The persistent wrapper stores cycle-scoped candidate records in the lab's schema-v6 SQLite ledger.
