@@ -397,41 +397,53 @@ class DigitalEvolutionEngine:
         )
 
     @staticmethod
-    def _error(
+    def _error_with_count(
         genome: Genome, cases: tuple[tuple[float, float], ...],
         stack_limit: int, program_steps: int = 64,
-    ) -> float:
+    ) -> tuple[float, int]:
         total = 0.0
+        evaluations = 0
         for x_value, expected in cases:
+            evaluations += 1
             try:
                 actual = DigitalEvolutionEngine.run_program(
                     genome, x_value, max_stack_depth=stack_limit,
                     max_program_steps=program_steps,
                 )
             except (DigitalEvolutionError, OverflowError, ValueError):
-                return DigitalEvolutionEngine.INVALID_ERROR
+                return DigitalEvolutionEngine.INVALID_ERROR, evaluations
             difference = abs(actual - expected)
             if not math.isfinite(difference):
-                return DigitalEvolutionEngine.INVALID_ERROR
+                return DigitalEvolutionEngine.INVALID_ERROR, evaluations
             total += min(difference, DigitalEvolutionEngine.INVALID_ERROR)
-        return total / len(cases)
+        return total / len(cases), evaluations
 
-    def _behavior_cell(
+    @staticmethod
+    def _error(
+        genome: Genome, cases: tuple[tuple[float, float], ...],
+        stack_limit: int, program_steps: int = 64,
+    ) -> float:
+        return DigitalEvolutionEngine._error_with_count(
+            genome, cases, stack_limit, program_steps
+        )[0]
+
+    def _behavior_cell_with_count(
         self, genome: Genome, train_cases: tuple[tuple[float, float], ...]
-    ) -> tuple[int, int] | None:
+    ) -> tuple[tuple[int, int] | None, int]:
         x_values = [item[0] for item in train_cases]
         probes = (min(x_values), max(x_values))
-        try:
-            outputs = [
-                self.run_program(
+        outputs = []
+        evaluations = 0
+        for x in probes:
+            evaluations += 1
+            try:
+                outputs.append(self.run_program(
                     genome, x,
                     max_stack_depth=self.config.max_stack_depth,
                     max_program_steps=self.config.max_program_steps,
-                )
-                for x in probes
-            ]
-        except DigitalEvolutionError:
-            return None
+                ))
+            except (DigitalEvolutionError, OverflowError, ValueError):
+                return None, evaluations
         bins = []
         for value in outputs:
             clipped = min(self.DESCRIPTOR_MAX, max(self.DESCRIPTOR_MIN, value))
@@ -439,7 +451,12 @@ class DigitalEvolutionEngine:
                 self.DESCRIPTOR_MAX - self.DESCRIPTOR_MIN
             )
             bins.append(min(self.DESCRIPTOR_BINS - 1, int(ratio * self.DESCRIPTOR_BINS)))
-        return bins[0], bins[1]
+        return (bins[0], bins[1]), evaluations
+
+    def _behavior_cell(
+        self, genome: Genome, train_cases: tuple[tuple[float, float], ...]
+    ) -> tuple[int, int] | None:
+        return self._behavior_cell_with_count(genome, train_cases)[0]
 
     def _evaluate(
         self,
@@ -447,11 +464,11 @@ class DigitalEvolutionEngine:
         train_cases: tuple[tuple[float, float], ...],
         validation_cases: tuple[tuple[float, float], ...],
     ) -> ProgramEvaluation:
-        train_mae = self._error(
+        train_mae, train_evaluations = self._error_with_count(
             organism.genome, train_cases, self.config.max_stack_depth,
             self.config.max_program_steps,
         )
-        validation_mae = self._error(
+        validation_mae, validation_evaluations = self._error_with_count(
             organism.genome, validation_cases, self.config.max_stack_depth,
             self.config.max_program_steps,
         )
@@ -466,7 +483,12 @@ class DigitalEvolutionEngine:
             score = 1.0 / (1.0 + validation_mae + penalty)
         else:
             score = 0.0
-        descriptor = self._behavior_cell(organism.genome, train_cases) if valid else None
+        if valid:
+            descriptor, behavior_evaluations = self._behavior_cell_with_count(
+                organism.genome, train_cases
+            )
+        else:
+            descriptor, behavior_evaluations = None, 0
         return ProgramEvaluation(
             organism=organism,
             train_mae=train_mae,
@@ -474,8 +496,9 @@ class DigitalEvolutionEngine:
             selection_score=round(score, 12),
             operation_count=len(organism.genome) * (
                 len(train_cases) + len(validation_cases)
-                + (2 if valid else 0)
+                + behavior_evaluations
             ),
+            case_evaluations=train_evaluations + validation_evaluations + behavior_evaluations,
             behavior_cell=descriptor,
             valid=valid,
         )
@@ -587,10 +610,7 @@ class DigitalEvolutionEngine:
                 if result is None:
                     result = self._evaluate(organism, train, validation)
                     cache[digest] = result
-                    evaluated_count += (
-                        len(train) + len(validation)
-                        + (2 if result.valid else 0)
-                    )
+                    evaluated_count += result.case_evaluations
                 else:
                     # Preserve this organism's individual lineage while reusing
                     # the deterministic phenotype metrics for an identical genome.
@@ -600,6 +620,7 @@ class DigitalEvolutionEngine:
                         validation_mae=result.validation_mae,
                         selection_score=result.selection_score,
                         operation_count=result.operation_count,
+                        case_evaluations=result.case_evaluations,
                         behavior_cell=result.behavior_cell,
                         valid=result.valid,
                     )
@@ -663,7 +684,7 @@ class DigitalEvolutionEngine:
         champion = best_overall
         heldout = None
         if test:
-            test_mae = self._error(
+            test_mae, test_evaluations = self._error_with_count(
                 champion.organism.genome, test, self.config.max_stack_depth,
                 self.config.max_program_steps,
             )
@@ -707,7 +728,7 @@ class DigitalEvolutionEngine:
             "generations_completed": self.config.generations,
             "population_size": self.config.population_size,
             "organisms_evaluated": len(cache),
-            "case_evaluations": evaluated_count + len(test),
+            "case_evaluations": evaluated_count + (test_evaluations if test else 0),
             "archive": {
                 "algorithm": "bounded_map_elites_8x8",
                 "filled_cells": len(archive),
