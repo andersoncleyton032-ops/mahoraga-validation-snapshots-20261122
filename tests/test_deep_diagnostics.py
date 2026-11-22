@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from agent.deep_diagnostics import HardwareDeepDiagnostics
@@ -20,6 +21,14 @@ class TestHardwareDeepDiagnostics(unittest.TestCase):
             self.assertIn("thermal", report)
             self.assertIn("gpu", report)
             self.assertIn("shizuku", report)
+
+    def test_diagnostic_runner_rejects_arbitrary_subprocess_commands(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            diag = HardwareDeepDiagnostics(tmp)
+            with patch("agent.deep_diagnostics.subprocess.run") as run:
+                result = diag._run(["sh", "-c", "id"])
+            self.assertEqual(result["status"], "command_not_allowlisted")
+            run.assert_not_called()
 
     def test_shizuku_command_allowlist(self):
         with tempfile.TemporaryDirectory() as tmp:
