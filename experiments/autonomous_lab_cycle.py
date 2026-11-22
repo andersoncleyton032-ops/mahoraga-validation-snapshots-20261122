@@ -109,7 +109,8 @@ class AutonomousLabCycle:
 
         for candidate_id in selected_order:
             governance = metadata[candidate_id]
-            if governance["risk_class"] in {"high", "critical"}:
+            risk_class = governance.get("risk_class")
+            if isinstance(risk_class, str) and risk_class in {"high", "critical"}:
                 blocked.append({
                     "candidate_id": candidate_id,
                     "reason": "high_risk_requires_separate_review",
