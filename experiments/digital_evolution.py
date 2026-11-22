@@ -149,6 +149,7 @@ class ProgramEvaluation:
     validation_mae: float
     selection_score: float
     operation_count: int
+    case_evaluations: int
     behavior_cell: tuple[int, int] | None
     valid: bool
 
@@ -164,6 +165,7 @@ class ProgramEvaluation:
             "validation_mae": self.validation_mae if self.valid else None,
             "selection_score": self.selection_score,
             "operation_count": self.operation_count,
+            "case_evaluations": self.case_evaluations,
             "behavior_cell": list(self.behavior_cell) if self.behavior_cell else None,
             "valid": self.valid,
         }
