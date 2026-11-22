@@ -41,7 +41,7 @@ def test_capability_catalog_migration_is_registered(tmp_path):
             "WHERE type='table' AND name='capabilities'"
         ).fetchone()
 
-    assert versions == [1, 2, 3, 4, 5]
+    assert versions == [1, 2, 3, 4, 5, 6]
     assert table is not None
 
 
