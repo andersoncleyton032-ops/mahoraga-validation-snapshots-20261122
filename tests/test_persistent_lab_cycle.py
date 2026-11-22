@@ -2,7 +2,10 @@ from agent.store import KnowledgeStore
 from experiments.cognitive_interest_selector import InterestBudget
 from experiments.digital_physiology import DigitalPhysiologyState, ResourceObservation
 from experiments.autonomous_lab_cycle import AutonomousLabCycle
-from experiments.persistent_lab_cycle import PersistentAutonomousLabCycle
+from experiments.persistent_lab_cycle import (
+    PersistentAutonomousLabCycle,
+    PersistentAutonomousLabCycleError,
+)
 
 
 def observation(**overrides):
@@ -164,3 +167,27 @@ def test_persistent_cycle_recovers_after_record_creation_before_admission_transi
     assert record["stage"] == "triaged"
     assert record["version"] == 2
     assert len(store.get_lab_experiment_history(experiment_id)) == 2
+
+
+def test_persistent_cycle_refuses_to_continue_when_existing_ledger_is_corrupt(tmp_path):
+    store = KnowledgeStore(tmp_path / "cycle-corrupt-ledger.sqlite3")
+    store.create_lab_experiment("corrupt-existing", {"hypothesis": "tamper test"})
+    with store._transaction() as db:
+        db.execute(
+            "UPDATE lab_experiments SET stage='tested' "
+            "WHERE experiment_id='corrupt-existing'"
+        )
+
+    lab = PersistentAutonomousLabCycle(store)
+    try:
+        run(lab, [candidate()], cycle_id="must-not-start")
+    except PersistentAutonomousLabCycleError as exc:
+        assert "registros inválidos" in str(exc)
+    else:
+        raise AssertionError("A corrupt ledger must block new cycles")
+
+    with store._reader() as db:
+        count = db.execute(
+            "SELECT COUNT(*) FROM lab_experiments"
+        ).fetchone()[0]
+    assert count == 1
