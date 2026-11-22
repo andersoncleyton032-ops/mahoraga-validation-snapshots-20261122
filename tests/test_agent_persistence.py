@@ -55,7 +55,7 @@ def test_activity_log_writes_only_to_configured_lab_path(tmp_path, monkeypatch, 
 
     saved = target.read_text(encoding="utf-8")
     assert "isolated persistence test" in saved
-    assert saved.endswith("\\n")
+    assert saved.endswith("\n")
     assert "Atividade registrada" in capsys.readouterr().out
 
 
