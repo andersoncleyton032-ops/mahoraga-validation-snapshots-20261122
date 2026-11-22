@@ -163,4 +163,4 @@ def test_exploration_plan_cannot_authorize_network_or_external_effects(tmp_path)
     )
 
     assert decision["allowed"] is False
-    assert decision["permit"]["execution_performed"] is False
+    assert decision["permit"] is None
