@@ -113,9 +113,9 @@ def test_strained_state_raises_utility_bar_and_abstains_on_low_value_candidate()
     )
     healthy = cycle.plan(
         state=DigitalPhysiologyState(),
-        observation=sample_observation(),
+        observation=sample_observation(unresolved_uncertainty=1.0, expected_learning_progress=1.0, noise_risk=0.0),
         candidates=[candidate],
-        base_budget=InterestBudget(1000, 128),
+        base_budget=InterestBudget(10000, 1024),
         minimum_score=0.05,
     )
     strained = cycle.plan(
@@ -131,9 +131,12 @@ def test_strained_state_raises_utility_bar_and_abstains_on_low_value_candidate()
             cpu_load=0.2, thermal_pressure=0.9,
             energy_drain=0.0, cooling=0.2,
             task_load=0.2,
+            unresolved_uncertainty=1.0,
+            expected_learning_progress=1.0,
+            noise_risk=0.0,
         ),
         candidates=[candidate],
-        base_budget=InterestBudget(1000, 128),
+        base_budget=InterestBudget(10000, 1024),
         minimum_score=0.05,
     )
 
