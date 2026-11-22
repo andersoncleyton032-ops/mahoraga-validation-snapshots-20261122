@@ -8,9 +8,14 @@
 ## Curated source files
 Core files copied from private `main`: `agent/actions.py`, `agent/device_core.py`, `agent/dharma.py`, `agent/lab.py`, `agent/main.py`, `agent/memory.py`, `agent/physics.py`, `tests/test_dharma.py`, `tests/test_physics.py`, and `.gitignore`.
 
-Lab-only adaptations: package-relative imports in `agent/main.py); default persistence paths in `agent/actions.py`, `agent/lab.py` and `agent/memory.py` now point inside this checkout rather than `~/mahoraga`. Added package initialization and path-isolation tests.
+Lab-only adaptations: package-relative imports in `agent/main.py`; default persistence paths in `agent/actions.py`, `agent/lab.py` and `agent/memory.py` point inside this checkout rather than `~/mahoraga`. Added package initialization and path-isolation tests.
 
-The four `experiments/*.py` modules and their focused tests were imported from the validated snapshot PR #2 branch. They include validation-only fixes and are not byte-identical to source PR #143.
+The four cognitive/physiology/evolution modules and their focused tests were imported from validated snapshot PR #2. They include validation-only fixes and are not byte-identical to source PR #143.
+
+New lab-only components:
+- `experiments/evolution_governor.py`: bounded evidence-gated candidate lifecycle.
+- `experiments/autonomous_lab_cycle.py`: one-step integration of physiology, interest selection and governance; planning/admission only.
+- `tests/test_evolution_governor.py` and `tests/test_autonomous_lab_cycle.py`: governance and orchestration contracts.
 
 ## Deliberately excluded
 - `memory/data.json`: project/user memory contents.
