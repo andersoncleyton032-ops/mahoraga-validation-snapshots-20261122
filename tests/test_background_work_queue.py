@@ -179,7 +179,7 @@ def test_scheduler_executes_one_item_per_invocation_and_schedules_next(tmp_path)
     assert first["work_mode"] == "background_idle"
     assert len(orchestrator.calls) == 1
     assert orchestrator.calls[0][1]["work_mode"] == "background_idle"
-    assert wake.delays == [0]
+    assert wake.delays == [60]
     assert queue.summary()["queued"] == 1
 
     second = scheduler.run_once({
@@ -189,7 +189,7 @@ def test_scheduler_executes_one_item_per_invocation_and_schedules_next(tmp_path)
     })
     assert second["status"] == "completed"
     assert len(orchestrator.calls) == 2
-    assert wake.delays == [0]
+    assert wake.delays == [60]
     assert queue.summary()["active_items"] == 0
 
 

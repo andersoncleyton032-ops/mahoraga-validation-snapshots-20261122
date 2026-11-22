@@ -525,6 +525,7 @@ class BackgroundWorkScheduler:
     """Execute at most one queued task per platform-triggered invocation."""
 
     VERSION = "0.1.0"
+    MIN_NEXT_TASK_DELAY_SECONDS = 60
 
     def __init__(self, queue: PersistentBackgroundWorkQueue, orchestrator, worker_id: str, wake_adapter=None):
         if not isinstance(queue, PersistentBackgroundWorkQueue):
@@ -620,7 +621,7 @@ class BackgroundWorkScheduler:
                     "status": rejected["status"],
                     "task_id": item["task_id"],
                     "execution_performed": False,
-                    "wake_schedule": self._schedule_next(0),
+                    "wake_schedule": self._schedule_next(self.MIN_NEXT_TASK_DELAY_SECONDS),
                 }
             expected = (
                 capability.get("risk") == item["risk"]
@@ -637,7 +638,7 @@ class BackgroundWorkScheduler:
                     "status": rejected["status"],
                     "task_id": item["task_id"],
                     "execution_performed": False,
-                    "wake_schedule": self._schedule_next(0),
+                    "wake_schedule": self._schedule_next(self.MIN_NEXT_TASK_DELAY_SECONDS),
                 }
 
         status_reader = getattr(self.orchestrator, "task_execution_status", None)
@@ -650,7 +651,7 @@ class BackgroundWorkScheduler:
                 "status": "completed_reconciled",
                 "task_id": item["task_id"],
                 "execution_performed": False,
-                "wake_schedule": self._schedule_next(0),
+                "wake_schedule": self._schedule_next(self.MIN_NEXT_TASK_DELAY_SECONDS),
             }
 
         task = {
