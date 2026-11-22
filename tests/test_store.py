@@ -441,3 +441,34 @@ def test_event_metadata_listing_never_returns_payloads(tmp_path):
             store.list_event_metadata(limit=invalid)
     with pytest.raises(ValueError):
         store.list_event_metadata(event_type=" ")
+
+
+def test_record_event_once_can_compare_and_swap_latest_event_revision(tmp_path):
+    store = KnowledgeStore(tmp_path / "event-cas.sqlite3")
+    initial_id = store.record_event("executive.focus", {"goal_id": None})
+
+    updated = store.record_event_once(
+        "executive.focus",
+        "focus-revision-1",
+        {"goal_id": "goal-a"},
+        expected_latest_event_type="executive.focus",
+        expected_latest_event_id=initial_id,
+    )
+    assert updated["created"] is True
+
+    with pytest.raises(ValueError, match="Revisão do evento alterada"):
+        store.record_event_once(
+            "executive.focus",
+            "focus-stale-revision",
+            {"goal_id": "goal-b"},
+            expected_latest_event_type="executive.focus",
+            expected_latest_event_id=initial_id,
+        )
+    with pytest.raises(ValueError, match="Revisão do evento alterada"):
+        store.record_event_once(
+            "executive.focus",
+            "focus-initial-stale",
+            {"goal_id": "goal-c"},
+            expected_latest_event_type="executive.focus",
+            expected_latest_event_id=None,
+        )
