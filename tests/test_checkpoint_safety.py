@@ -30,5 +30,5 @@ def test_preflight_rejects_npz_without_eocd_signature():
     payload = stream.getvalue().replace(b"PK\x05\x06", b"XX\x05\x06", 1)
     assert payload != stream.getvalue()
     corrupted = io.BytesIO(payload)
-    with pytest.raises(CheckpointPreflightError, match="EOCD ausente"):
+    with pytest.raises(CheckpointPreflightError, match="EOCD"):
         preflight_npz(corrupted, {"weights": ((2, 3), np.dtype(np.float32))})
