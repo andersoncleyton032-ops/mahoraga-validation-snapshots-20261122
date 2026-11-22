@@ -1183,9 +1183,13 @@ class KnowledgeStore:
             ).fetchone()
             if row is None:
                 raise KeyError(experiment_id)
-            actual_payload_digest = self._lab_digest(row["payload_json"])
-            if actual_payload_digest != row["payload_sha256"]:
-                raise sqlite3.DatabaseError("Checksum do payload do experimento inválido.")
+            actual_record_digest = self._lab_record_digest(
+                row["experiment_id"], row["schema_version"], row["stage"],
+                row["version"], row["parent_digest"], row["candidate_digest"],
+                row["payload_json"],
+            )
+            if actual_record_digest != row["payload_sha256"]:
+                raise sqlite3.DatabaseError("Checksum do registro do experimento inválido.")
             if row["version"] != expected_version or row["stage"] != expected_stage:
                 raise ValueError("Conflito de versão/estado; recarregue antes de transicionar.")
             event_row = db.execute(
@@ -1298,21 +1302,41 @@ class KnowledgeStore:
         with self._reader() as db:
             ids = [row["experiment_id"] for row in db.execute(
                 "SELECT experiment_id FROM lab_experiments ORDER BY created_at LIMIT ?",
-                (limit,),
+                (limit + 1,),
             ).fetchall()]
+        truncated = len(ids) > limit
+        ids = ids[:limit]
         valid, invalid = [], []
         for experiment_id in ids:
             try:
                 current = self.get_lab_experiment(experiment_id)
                 history = self.get_lab_experiment_history(experiment_id)
-                if not history or history[-1]["to_stage"] != current["stage"] or history[-1]["payload"]["version"] != current["version"]:
+                if not history:
+                    raise sqlite3.DatabaseError("Histórico do experimento está vazio.")
+                previous_stage = None
+                for sequence, event in enumerate(history, 1):
+                    payload = event["payload"]
+                    if payload.get("version") != sequence:
+                        raise sqlite3.DatabaseError("Versão do histórico não é sequencial.")
+                    if sequence == 1:
+                        if event["event_type"] != "created" or event["from_stage"] is not None or event["to_stage"] != "proposed":
+                            raise sqlite3.DatabaseError("Evento inicial do experimento é inválido.")
+                    else:
+                        if (
+                            event["event_type"] != "transition"
+                            or event["from_stage"] != previous_stage
+                            or event["to_stage"] not in self.LAB_EXPERIMENT_TRANSITIONS.get(previous_stage, set())
+                        ):
+                            raise sqlite3.DatabaseError("Transição no histórico é inválida.")
+                    previous_stage = event["to_stage"]
+                if history[-1]["to_stage"] != current["stage"] or history[-1]["payload"]["version"] != current["version"]:
                     raise sqlite3.DatabaseError("Estado atual diverge do último evento.")
                 valid.append(experiment_id)
             except (sqlite3.DatabaseError, ValueError, KeyError) as exc:
                 invalid.append({"experiment_id": experiment_id, "reason": str(exc)})
         return {
             "checked": len(ids), "valid": valid, "invalid": invalid,
-            "truncated": len(ids) == limit,
+            "truncated": truncated,
         }
 
     def record_experiment(self, hypothesis: str, method: str, result: str, conclusion: str,
