@@ -1,20 +1,28 @@
-# Mahoraga — isolated validation snapshots
+# Mahoraga — Experimental Validation Lab
 
-This public repository is an isolated validation workspace for selected experimental components from the private `mahoraga-core` repository.
+This public repository is a **curated experimental copy**, not a complete mirror of the private Mahoraga source repository.
 
-The original repository remains private and is not modified by this snapshot workflow.
+## Purpose
+Use this lab to stress-test ideas intended for Mahoraga: cognitive planning, simulated physiology, bounded digital evolution, adversarial validation, and controlled self-improvement workflows.
 
-## Scope
+## Safety and provenance
+- The private source repository remains the protected reference.
+- Personal memory files, activity logs, device-specific data, credentials, and original Git history are deliberately excluded.
+- Lab persistence defaults to this checkout, not `~/mahoraga`.
+- Candidate changes are confined to `experiments/`, `tests/`, and `docs/`.
+- No automatic execution or promotion into the production core is provided.
 
-Only explicitly selected source files and their focused tests will be copied here. This repository does not contain the complete Mahoraga project and does not validate full-system integration.
+## Start here
+- [Lab charter](docs/LAB_CHARTER.md)
+- [Source manifest](docs/SOURCE_MANIFEST.md)
+- [Autonomous evolution contract](docs/AUTONOMOUS_EVOLUTION_CONTRACT.md)
 
-## Provenance
+## Current experimental components
+- Cognitive interest selection and exploration planning.
+- Simulated digital physiology and resource-aware admission.
+- A closed virtual machine for bounded digital evolution.
+- An evidence-gated evolution governor.
+- A one-step autonomous lab coordinator joining planning and governance.
 
-- Source PR #142 head: `e895fadb89865a14be9a61115f9af243eb58d250`
-- Source PR #143 head: `520a3cae969845dc382b3031a10a8a71072bd322`
-
-Snapshot commits have new Git SHAs and do not preserve the source branch history.
-
-## Validation limits
-
-Passing these focused tests demonstrates only that the included tests pass against the included snapshot in the declared CI environments. It does not establish safety, general intelligence, full regression coverage, or integration with the private runtime.
+## Validation
+CI runs the focused test suite on Python 3.12 and 3.14. Passing tests demonstrate only the tested contracts; they do not establish full-system integration, persistent autonomy, or general intelligence.
