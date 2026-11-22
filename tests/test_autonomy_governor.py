@@ -440,3 +440,194 @@ def test_governor_uses_live_hardware_runtime_context_when_none_supplied(tmp_path
     assert session["status"] == "bounded"
     assert session["mode"] == "foreground_charging"
     assert session["runtime_context"]["source"] == "test_fixture"
+
+
+
+def background_context(**updates):
+    data = {
+        "app_foreground": False,
+        "screen_interactive": False,
+        "charging": True,
+        "thermal_status": "normal",
+        "source": "test_fixture",
+        "status": "available",
+    }
+    data.update(updates)
+    return data
+
+
+def test_screen_off_background_idle_gets_one_checkpointable_task_budget(tmp_path):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(),
+        resource_snapshot=resource_snapshot(),
+        work_mode="background_idle",
+    )
+
+    assert session["status"] == "bounded"
+    assert session["mode"] == "background_idle"
+    assert session["budget"]["max_task_seconds"] == 20
+    assert session["budget"]["max_task_ram_mb"] == 128
+    assert session["budget"]["max_concurrent_tasks"] == 1
+    assert session["budget"]["continuous_loop_allowed"] is False
+    assert session["budget"]["workspace_writes_allowed"] is False
+
+    result = governor.evaluate_work(session, {
+        "task_id": "nightly-internal-analysis",
+        "risk": "local_compute",
+        "estimated_seconds": 10,
+        "estimated_ram_mb": 96,
+        "internal_only": True,
+        "checkpointable": True,
+    })
+    assert result["allowed"] is True
+    assert result["permit"]["execution_mode"] == "background_idle"
+    assert result["permit"]["checkpoint_required"] is True
+    assert result["permit"]["continuous_loop"] is False
+
+
+@pytest.mark.parametrize(
+    "context,resources,reason",
+    [
+        (background_context(app_foreground=True), resource_snapshot(), "background_requires_mahoraga_app_not_foreground"),
+        (background_context(screen_interactive=True), resource_snapshot(), "background_requires_screen_off"),
+        (background_context(charging=False), resource_snapshot(), "background_requires_confirmed_charging"),
+        (background_context(thermal_status="unknown"), resource_snapshot(), "background_thermal_state_not_cool_enough"),
+        (background_context(), resource_snapshot(percentage=20), "background_battery_unknown_or_below_minimum"),
+        (background_context(), resource_snapshot(ram_mb=1536), "background_memory_headroom_insufficient"),
+        (background_context(), resource_snapshot(free_storage_mb=1536), "background_storage_headroom_insufficient"),
+    ],
+)
+def test_background_idle_fails_closed_when_any_required_condition_is_missing(
+    tmp_path, context, resources, reason
+):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        context, resource_snapshot=resources, work_mode="background_idle"
+    )
+    assert session["status"] == "paused"
+    assert session["mode"] == "background_idle_pause"
+    assert session["budget"]["max_task_seconds"] == 0
+    assert reason in session["reasons"]
+
+
+def test_background_idle_requires_internal_and_checkpointable_work(tmp_path):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(),
+        resource_snapshot=resource_snapshot(),
+        work_mode="background_idle",
+    )
+    missing_checkpoint = governor.evaluate_work(session, {
+        "risk": "local_compute",
+        "estimated_seconds": 1,
+        "estimated_ram_mb": 16,
+        "internal_only": True,
+    })
+    assert missing_checkpoint["allowed"] is False
+    assert missing_checkpoint["reason"] == "background_task_must_be_checkpointable"
+
+
+def test_background_idle_does_not_allow_workspace_or_project_writes(tmp_path):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(),
+        resource_snapshot=resource_snapshot(),
+        work_mode="background_idle",
+    )
+    result = governor.evaluate_work(session, {
+        "risk": "local_compute",
+        "estimated_seconds": 1,
+        "estimated_ram_mb": 16,
+        "internal_only": True,
+        "checkpointable": True,
+        "writes_workspace": True,
+    })
+    assert result["allowed"] is False
+    assert result["reason"] == "work_exceeds_initial_autonomy_scope"
+
+
+
+def test_background_companion_allows_chat_in_foreground_with_smaller_budget(tmp_path):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(screen_interactive=True),
+        resource_snapshot=resource_snapshot(),
+        work_mode="background_companion",
+    )
+
+    assert session["status"] == "bounded"
+    assert session["mode"] == "background_companion"
+    assert session["budget"]["max_task_seconds"] == 8
+    assert session["budget"]["max_task_ram_mb"] == 64
+    assert session["budget"]["max_concurrent_tasks"] == 1
+    assert session["budget"]["continuous_loop_allowed"] is False
+
+    permit = governor.evaluate_work(session, {
+        "task_id": "companion-chat-internal-work",
+        "risk": "local_compute",
+        "estimated_seconds": 6,
+        "estimated_ram_mb": 48,
+        "internal_only": True,
+        "checkpointable": True,
+    })
+    assert permit["allowed"] is True
+    assert permit["permit"]["execution_mode"] == "background_companion"
+    assert permit["permit"]["checkpoint_required"] is True
+
+
+def test_background_companion_reduces_budget_for_light_thermal_state(tmp_path):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(screen_interactive=True, thermal_status="light"),
+        resource_snapshot=resource_snapshot(),
+        work_mode="background_companion",
+    )
+
+    assert session["status"] == "bounded"
+    assert session["budget"]["max_task_seconds"] == 5
+    assert session["budget"]["max_task_ram_mb"] == 48
+
+
+@pytest.mark.parametrize(
+    "context,resources,reason",
+    [
+        (background_context(app_foreground=True, screen_interactive=True), resource_snapshot(), "background_requires_mahoraga_app_not_foreground"),
+        (background_context(screen_interactive=False), resource_snapshot(), "companion_mode_requires_interactive_screen"),
+        (background_context(charging=False, screen_interactive=True), resource_snapshot(), "background_requires_confirmed_charging"),
+        (background_context(screen_interactive=True), resource_snapshot(percentage=30), "background_battery_unknown_or_below_minimum"),
+        (background_context(screen_interactive=True, thermal_status="unknown"), resource_snapshot(), "background_thermal_state_not_cool_enough"),
+        (background_context(screen_interactive=True), resource_snapshot(ram_mb=1536), "background_memory_headroom_insufficient"),
+        (background_context(screen_interactive=True), resource_snapshot(free_storage_mb=1536), "background_storage_headroom_insufficient"),
+    ],
+)
+def test_background_companion_fails_closed_when_a_required_condition_is_missing(
+    tmp_path, context, resources, reason
+):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        context, resource_snapshot=resources, work_mode="background_companion"
+    )
+    assert session["status"] == "paused"
+    assert session["mode"] == "background_companion_pause"
+    assert session["budget"]["max_task_seconds"] == 0
+    assert reason in session["reasons"]
+
+
+
+def test_background_companion_requires_internal_and_checkpointable_work(tmp_path):
+    governor = make_governor(tmp_path)
+    session = governor.evaluate_session(
+        background_context(screen_interactive=True),
+        resource_snapshot=resource_snapshot(),
+        work_mode="background_companion",
+    )
+    missing_checkpoint = governor.evaluate_work(session, {
+        "risk": "local_compute",
+        "estimated_seconds": 1,
+        "estimated_ram_mb": 16,
+        "internal_only": True,
+    })
+
+    assert missing_checkpoint["allowed"] is False
+    assert missing_checkpoint["reason"] == "background_task_must_be_checkpointable"

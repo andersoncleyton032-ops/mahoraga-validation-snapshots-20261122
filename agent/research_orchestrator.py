@@ -5,7 +5,9 @@ from __future__ import annotations
 from threading import Lock
 from time import perf_counter, time_ns
 from typing import Any
+import hashlib
 import inspect
+import json
 import math
 import re
 import time
@@ -15,14 +17,32 @@ class ExecutionDeadlineExceeded(TimeoutError):
     """A cooperative capability deadline was reached."""
 
 
-class ExecutionContext:
-    """Cooperative per-task budget; it does not forcibly terminate Python code."""
+class ExecutionCheckpointError(RuntimeError):
+    """A background task failed to persist a valid recovery checkpoint."""
 
-    def __init__(self, max_runtime_seconds: float, max_memory_mb: float):
+
+class ExecutionContext:
+    """Cooperative budget plus bounded, durable task checkpoint support."""
+
+    MAX_CHECKPOINT_BYTES = 16_384
+
+    def __init__(
+        self,
+        max_runtime_seconds: float,
+        max_memory_mb: float,
+        *,
+        resume_state: dict | None = None,
+        checkpoint_callback=None,
+        require_checkpoint: bool = False,
+    ):
         self.started_at = time.monotonic()
         self.deadline = self.started_at + max_runtime_seconds
         self.max_runtime_seconds = float(max_runtime_seconds)
         self.max_memory_mb = float(max_memory_mb)
+        self.resume_state = resume_state
+        self._checkpoint_callback = checkpoint_callback
+        self.require_checkpoint = require_checkpoint
+        self.checkpoint_count = 0
 
     def remaining_seconds(self) -> float:
         return max(0.0, self.deadline - time.monotonic())
@@ -33,9 +53,32 @@ class ExecutionContext:
                 "O prazo cooperativo desta capacidade foi excedido."
             )
 
+    def checkpoint(self, state: dict) -> dict:
+        """Persist a small JSON checkpoint for safe resumption by task ID."""
+        self.check()
+        if not isinstance(state, dict):
+            raise ExecutionCheckpointError("Checkpoint precisa ser um objeto JSON.")
+        try:
+            encoded = json.dumps(
+                state, ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            ).encode("utf-8")
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise ExecutionCheckpointError("Checkpoint não é JSON válido.") from exc
+        if len(encoded) > self.MAX_CHECKPOINT_BYTES:
+            raise ExecutionCheckpointError("Checkpoint excede 16384 bytes.")
+        if not callable(self._checkpoint_callback):
+            raise ExecutionCheckpointError("Persistência de checkpoint indisponível.")
+        result = self._checkpoint_callback(state)
+        self.check()
+        self.checkpoint_count += 1
+        return result
+
 
 class ResearchOrchestrator:
-    VERSION = "0.3.0"
+    VERSION = "0.4.0"
+    CHECKPOINT_EVENT = "orchestrator.task.checkpoint"
+    MAX_CHECKPOINT_HISTORY = 1000
     MAX_WORKERS = 1
     MAX_TASKS_PER_BATCH = 1
     MAX_CAPABILITY_SECONDS = 20.0
@@ -116,6 +159,7 @@ class ResearchOrchestrator:
         description: str,
         estimated_runtime_seconds: float | None = None,
         estimated_ram_mb: float | None = None,
+        checkpointable: bool = False,
     ) -> dict:
         """Register a trusted internal function for controlled research use.
 
@@ -134,6 +178,8 @@ class ResearchOrchestrator:
 
         if not callable(function):
             raise ValueError("A capacidade precisa fornecer uma função.")
+        if not isinstance(checkpointable, bool):
+            raise ValueError("checkpointable precisa ser booleano.")
 
         if inspect.iscoroutinefunction(function):
             raise ValueError("Funções assíncronas não são aceitas nesta versão.")
@@ -252,6 +298,7 @@ class ResearchOrchestrator:
                     "metadata": {
                         "binding_type": "explicit_trusted_runtime_registration",
                         "callable_name": getattr(function, "__name__", None),
+                        "checkpointable": checkpointable,
                     },
                 }
                 self.store.upsert_capability(capability_id, definition)
@@ -262,6 +309,7 @@ class ResearchOrchestrator:
                 "description": description.strip(),
                 "estimated_runtime_seconds": float(estimated_runtime_seconds),
                 "estimated_ram_mb": float(estimated_ram_mb),
+                "checkpointable": checkpointable,
             }
 
         return {
@@ -270,6 +318,22 @@ class ResearchOrchestrator:
             "description": description.strip(),
             "registered": True,
         }
+
+    def capability_descriptor(self, capability_id: str) -> dict | None:
+        """Expose only registered capability limits for queue descriptor validation."""
+        if not isinstance(capability_id, str) or not capability_id.strip():
+            raise ValueError("capability_id inválido.")
+        with self._registry_lock:
+            capability = self._capabilities.get(capability_id.strip())
+            if capability is None:
+                return None
+            return {
+                "id": capability_id.strip(),
+                "risk": capability["risk"],
+                "estimated_runtime_seconds": capability["estimated_runtime_seconds"],
+                "estimated_ram_mb": capability["estimated_ram_mb"],
+                "checkpointable": capability["checkpointable"],
+            }
 
     def _validate_task(self, task: dict) -> dict:
         if not isinstance(task, dict):
@@ -291,8 +355,12 @@ class ResearchOrchestrator:
         if "execution_context" in kwargs:
             raise ValueError("execution_context é fornecido exclusivamente pelo Orchestrator.")
 
-        if not isinstance(task_id, str) or not task_id.strip():
-            raise ValueError("Toda tarefa precisa de um ID.")
+        if (
+            not isinstance(task_id, str)
+            or not task_id.strip()
+            or len(task_id) > 160
+        ):
+            raise ValueError("Toda tarefa precisa de um ID válido de até 160 caracteres.")
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Toda tarefa precisa de um nome.")
         if not isinstance(capability_id, str) or not capability_id.strip():
@@ -343,6 +411,7 @@ class ResearchOrchestrator:
             "description": capability["description"],
             "estimated_runtime_seconds": capability["estimated_runtime_seconds"],
             "estimated_ram_mb": capability["estimated_ram_mb"],
+            "checkpointable": capability["checkpointable"],
         }
 
     @staticmethod
@@ -356,6 +425,10 @@ class ResearchOrchestrator:
                 execution_context=execution_context,
             )
             execution_context.check()
+            if execution_context.require_checkpoint and execution_context.checkpoint_count < 1:
+                raise ExecutionCheckpointError(
+                    "Tarefa background terminou sem persistir checkpoint nesta execução."
+                )
             return {
                 "id": task["id"],
                 "name": task["name"],
@@ -382,6 +455,79 @@ class ResearchOrchestrator:
                 },
                 "deadline_enforcement": "cooperative",
             }
+
+    def _checkpoint_sequence_key(self, task_id: str) -> str:
+        digest = hashlib.sha256(task_id.encode("utf-8")).hexdigest()
+        return f"orchestrator.task.checkpoint:{digest}"
+
+    def _load_task_checkpoint(self, task_id: str, capability_id: str) -> dict:
+        total = self.store.count_events(self.CHECKPOINT_EVENT)
+        events = self.store.list_events(
+            limit=self.MAX_CHECKPOINT_HISTORY,
+            event_type=self.CHECKPOINT_EVENT,
+        )
+        if total > len(events):
+            raise RuntimeError(
+                "Histórico de checkpoints excede a janela verificável; retomada bloqueada."
+            )
+        for event in events:
+            payload = event.get("payload")
+            if not isinstance(payload, dict) or payload.get("task_id") != task_id:
+                continue
+            state = payload.get("state")
+            sequence = payload.get("sequence")
+            if (
+                not isinstance(state, dict)
+                or payload.get("task_capability") != capability_id
+                or isinstance(sequence, bool)
+                or not isinstance(sequence, int)
+                or sequence < 1
+            ):
+                raise RuntimeError("Checkpoint persistido inválido ou incompatível; retomada bloqueada.")
+            try:
+                encoded = json.dumps(
+                    state, ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"), allow_nan=False,
+                ).encode("utf-8")
+            except (TypeError, ValueError, RecursionError) as exc:
+                raise RuntimeError("Checkpoint persistido não é JSON válido.") from exc
+            if len(encoded) > ExecutionContext.MAX_CHECKPOINT_BYTES:
+                raise RuntimeError("Checkpoint persistido excede o limite; retomada bloqueada.")
+            return {"sequence": sequence, "state": state, "event_id": event.get("id")}
+        return {"sequence": 0, "state": None, "event_id": None}
+
+    @staticmethod
+    def _task_completion_event_type(task_id: str) -> str:
+        digest = hashlib.sha256(task_id.encode("utf-8")).hexdigest()
+        return f"orchestrator.task.completed.{digest}"
+
+    def _mark_task_completed(self, task_id: str) -> None:
+        event_type = self._task_completion_event_type(task_id)
+        self.store.record_event_once(
+            event_type,
+            "completed",
+            {"task_id": task_id, "status": "completed"},
+        )
+
+    def _task_already_completed(self, task_id: str) -> bool:
+        event_type = self._task_completion_event_type(task_id)
+        events = self.store.list_events(limit=1, event_type=event_type)
+        if not events:
+            return False
+        payload = events[0].get("payload")
+        if (
+            not isinstance(payload, dict)
+            or payload.get("task_id") != task_id
+            or payload.get("status") != "completed"
+        ):
+            raise RuntimeError("Registro de conclusão incompatível; reexecução bloqueada.")
+        return True
+
+    def task_execution_status(self, task_id: str) -> str:
+        """Return a conservative durable status for scheduler crash reconciliation."""
+        if not isinstance(task_id, str) or not task_id.strip() or len(task_id) > 160:
+            raise ValueError("task_id inválido.")
+        return "completed" if self._task_already_completed(task_id.strip()) else "not_completed"
 
     def _record(self, event_type: str, payload: dict,
                 severity: str = "info") -> None:
@@ -437,6 +583,7 @@ class ResearchOrchestrator:
             "android_changes_allowed",
             "package_installation_allowed",
             "project_writes_allowed",
+            "workspace_writes_allowed",
         ):
             if budget.get(flag) is not False:
                 raise PermissionError(
@@ -448,7 +595,8 @@ class ResearchOrchestrator:
         }
 
     def _validate_governor_permit(
-        self, permit: dict, task: dict, budget: dict
+        self, permit: dict, task: dict, budget: dict,
+        work_mode: str = "foreground",
     ) -> tuple[float, float]:
         if not isinstance(permit, dict):
             raise PermissionError("AutonomyGovernor retornou autorização inválida.")
@@ -462,6 +610,11 @@ class ResearchOrchestrator:
             raise PermissionError("Autorização permite efeitos colaterais não previstos.")
         if permit.get("execution_performed") is not False:
             raise PermissionError("Governor não pode declarar execução antecipadamente.")
+        if work_mode in {"background_idle", "background_companion"}:
+            if permit.get("execution_mode") != work_mode:
+                raise PermissionError("Permit não está vinculado ao modo background solicitado.")
+            if permit.get("checkpoint_required") is not True:
+                raise PermissionError("Trabalho background exige checkpoint obrigatório.")
 
         max_seconds = self._bounded_number(
             permit.get("max_runtime_seconds"),
@@ -490,16 +643,21 @@ class ResearchOrchestrator:
         *,
         runtime_context: dict | None = None,
         resource_snapshot: dict | None = None,
+        work_mode: str = "foreground",
     ) -> dict[str, Any]:
-        """Compatibility entry point for one Governor-admitted task.
+        """Run one Governor-admitted task in foreground, companion or idle mode.
 
-        Parallel execution is intentionally disabled until the Governor can
-        issue and enforce independent permits for concurrent tasks. Deadlines
-        are cooperative: capability code must call execution_context.check()
-        inside long-running loops. RAM is admission-only, not an OS hard limit.
+        Background modes are one-shot and require a declared checkpointable
+        capability. Durable checkpoints seed a later invocation after process
+        interruption; this method does not create an Android scheduler or
+        promise wakeups. Deadlines are cooperative and RAM is admission-only.
         """
         if self.autonomy is None:
             raise RuntimeError("AutonomyGovernor obrigatório; execução bloqueada.")
+        if not isinstance(work_mode, str) or work_mode not in {
+            "foreground", "background_idle", "background_companion"
+        }:
+            raise ValueError("work_mode inválido.")
 
         self._authorize()
         if not isinstance(tasks, list):
@@ -536,17 +694,34 @@ class ResearchOrchestrator:
             raise PermissionError(
                 "Contexto Android ausente; execução permanece bloqueada."
             )
-        if (
-            runtime_context.get("app_foreground") is not True
+        if work_mode == "foreground":
+            if (
+                runtime_context.get("app_foreground") is not True
+                or runtime_context.get("screen_interactive") is not True
+            ):
+                raise PermissionError(
+                    "O modo foreground exige o Mahoraga em primeiro plano e tela interativa."
+                )
+        elif work_mode == "background_idle":
+            if (
+                runtime_context.get("app_foreground") is not False
+                or runtime_context.get("screen_interactive") is not False
+            ):
+                raise PermissionError(
+                    "O modo background_idle exige app em segundo plano e tela apagada."
+                )
+        elif (
+            runtime_context.get("app_foreground") is not False
             or runtime_context.get("screen_interactive") is not True
         ):
             raise PermissionError(
-                "O Mahoraga precisa estar comprovadamente em primeiro plano, com tela interativa."
+                "O modo background_companion exige Mahoraga em segundo plano e tela interativa."
             )
 
         session = self.autonomy.evaluate_session(
             runtime_context,
             resource_snapshot=resource_snapshot,
+            work_mode=work_mode,
         )
         budget = self._validate_governor_session(session)
 
@@ -564,6 +739,9 @@ class ResearchOrchestrator:
             "captures_sensitive_data": False,
             "persistent_external_change": False,
             "requires_audio_output": False,
+            "internal_only": work_mode in {"background_idle", "background_companion"},
+            "checkpointable": task["checkpointable"],
+            "writes_workspace": False,
         }
         admission = self.autonomy.evaluate_work(session, work_request)
         if not isinstance(admission, dict) or admission.get("allowed") is not True:
@@ -576,12 +754,41 @@ class ResearchOrchestrator:
 
         permit = admission.get("permit")
         permitted_seconds, permitted_memory = self._validate_governor_permit(
-            permit, task, budget
+            permit, task, budget, work_mode=work_mode
         )
+
+        checkpoint = (
+            self._load_task_checkpoint(task["id"], task["capability"])
+            if work_mode in {"background_idle", "background_companion"}
+            else {"sequence": 0, "state": None, "event_id": None}
+        )
+        if work_mode in {"background_idle", "background_companion"} and self._task_already_completed(task["id"]):
+            raise RuntimeError("Tarefa já concluída; reutilização do ID bloqueada.")
+
+        checkpoint_sequence = [checkpoint["sequence"]]
+
+        def persist_checkpoint(state: dict) -> dict:
+            committed = self.store.record_versioned_event(
+                self.CHECKPOINT_EVENT,
+                self._checkpoint_sequence_key(task["id"]),
+                checkpoint_sequence[0],
+                {
+                    "task_id": task["id"],
+                    "state": state,
+                    "task_capability": task["capability"],
+                    "execution_mode": work_mode,
+                },
+                sequence_field="sequence",
+            )
+            checkpoint_sequence[0] = committed["sequence"]
+            return committed
 
         execution_context = ExecutionContext(
             permitted_seconds,
             permitted_memory,
+            resume_state=checkpoint["state"],
+            checkpoint_callback=persist_checkpoint,
+            require_checkpoint=work_mode in {"background_idle", "background_companion"},
         )
         if not self._run_lock.acquire(blocking=False):
             raise RuntimeError("Já existe uma tarefa em execução.")
@@ -598,10 +805,14 @@ class ResearchOrchestrator:
                         "max_runtime_seconds": permitted_seconds,
                         "max_memory_mb": permitted_memory,
                         "risk": permit["risk"],
+                        "execution_mode": session.get("mode"),
+                        "checkpoint_required": work_mode in {"background_idle", "background_companion"},
                     },
                 },
             )
             outcome = self._execute(task, execution_context)
+            if work_mode in {"background_idle", "background_companion"} and outcome["status"] == "completed":
+                self._mark_task_completed(task["id"])
             completed = int(outcome["status"] == "completed")
             failed = 1 - completed
             status = "completed" if completed else "failed"
@@ -643,6 +854,8 @@ class ResearchOrchestrator:
                     "mode": session.get("mode"),
                     "status": session.get("status"),
                     "budget": session.get("budget"),
+                    "checkpoint_required": work_mode in {"background_idle", "background_companion"},
+                    "checkpoint_sequence": checkpoint_sequence[0],
                 },
                 "execution_performed": True,
                 "deadline_enforcement": "cooperative",

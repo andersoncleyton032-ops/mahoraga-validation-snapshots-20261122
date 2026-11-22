@@ -38,3 +38,30 @@ The cognitive interest selector, exploration cycle, digital physiology and bound
 - Original Git history and commit metadata.
 
 This is a reviewed allowlist, not a full mirror. Future imports require file-level provenance, privacy, dependency, license, side-effect and test review.
+
+## 2026-11-22 — persistent lifecycle, background queue and Companion candidate
+
+### Private source lineage
+- Private source repository: `andersoncleyton032-ops/mahoraga-core`.
+- Integrated source ancestor: `7ed5cd893753f069ab8b33849e2bc98c22734132`.
+- Stacked implementation source: `implementation/background-companion-mode-20261122`, head `87aed75ca0b24ca358c969fcae2245cf4b6a84f8`.
+- Receipt-hardening source: `fix/background-execution-receipts-20261122`, head `f4fc3d8e4fd41695117f23f5f2dc490cf5137a07`.
+- Private PR #157 is a draft stacked on the Companion branch; it is not merged.
+
+### Included source and tests
+- `agent/autonomy_governor.py`: foreground, screen-off idle and interactive Companion budgets.
+- `agent/background_work_queue.py`: persistent queue, leases, retries, one-shot scheduler and strict completion-receipt validation.
+- `agent/executive_engine.py`: three-way merge preserving the public lab's compare-and-swap focus and race-hardening additions while importing bounded internal inquiry goals.
+- `agent/research_orchestrator.py`: persistent lifecycle/checkpoint integration and checkpoint sequence in the execution receipt.
+- `agent/store.py`: three-way merge preserving the public lab-only schema-v6 experiment ledger while adding atomic memory/event CAS and versioned event operations.
+- `experiments/persistent_digital_lifecycle.py`.
+- Focused tests: autonomy governor, background queue, executive engine, persistent lifecycle, research orchestrator and Store.
+
+### Merge and publication notes
+- Public-only Store ledger code and its tests are retained; two focused CAS tests were added from the private source test suite.
+- Public-only executive focus/race-hardening changes are retained; private internal-inquiry additions are merged without replacing those changes.
+- Private continuity, audit and session records are not copied.
+- The private `.github/workflows/physics-tests.yml` is not copied. The public repository's own `.github/workflows/snapshot-tests.yml` remains the validation workflow.
+- No device identifiers, SQLite databases, WAL/SHM files, model weights, checkpoints, datasets, secrets or local workspaces are included.
+- This snapshot contains Python contracts and mocked tests only. It does **not** contain an Android WorkManager Worker, a native Android app, or proof of real Android background execution.
+- The new candidate is pending CI. Do not claim it passed until a workflow run for the exact resulting public commit has completed with visible steps and logs.

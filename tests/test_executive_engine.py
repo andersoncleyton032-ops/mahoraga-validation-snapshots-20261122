@@ -55,6 +55,34 @@ def _adopt_initiative_in_process(db_path, candidate_id, barrier):
     }
 
 
+def _adopt_internal_inquiry_in_process(db_path, candidate_id, barrier):
+    store = KnowledgeStore(db_path)
+    engine = ExecutiveEngine(FakeCognitive(store))
+    engine.review_initiatives = lambda: {
+        "status": "reviewed",
+        "candidates": [{
+            "candidate_id": candidate_id,
+            "kind": "self_inquiry",
+            "source": "operational_self_model",
+            "title": "Investigate one unresolved internal question",
+            "description": "Validate one open operational question.",
+            "priority": "normal",
+            "evidence": {
+                "basis": "introspection.open_questions",
+                "epistemic_state": "open_question_not_conclusion",
+            },
+            "status": "candidate_requires_human_review",
+        }],
+    }
+    barrier.wait(timeout=30)
+    result = engine.adopt_next_internal_inquiry()
+    return {
+        "status": result["status"],
+        "goal_created": result["goal_created"],
+        "candidate_id": candidate_id,
+    }
+
+
 def _set_focus_in_process(db_path, goal_id, barrier, expected_revision):
     store = KnowledgeStore(db_path)
     engine = ExecutiveEngine(FakeCognitive(store))
@@ -830,3 +858,149 @@ def test_incomplete_experience_replay_is_not_promoted_to_initiative(
     assert result["experience_replay_history"]["candidate_proposals_suppressed"] is True
     assert result["sources"]["experience_replay"] == "reviewed_history_incomplete"
 
+
+
+
+def test_autonomous_internal_inquiry_creates_only_planned_goal_without_tool_dispatch(tmp_path):
+    engine, store = make_engine(tmp_path)
+    configure_initiative_sources(engine)
+
+    adopted = engine.adopt_next_internal_inquiry()
+
+    assert adopted["status"] == "autonomous_internal_inquiry_adopted"
+    assert adopted["goal_created"] is True
+    assert adopted["goal_status"] == "planned"
+    assert adopted["autonomy_scope"] == "internal_only"
+    assert adopted["external_effects_allowed"] is False
+    assert adopted["execution_performed"] is False
+    assert adopted["tool_dispatch_performed"] is False
+    assert adopted["goal"]["goal_type"] == "internal_inquiry"
+    assert adopted["goal"]["epistemic_state"] == "open_question"
+    assert "autonomous_internal_inquiry" in adopted["goal"]["tags"]
+    assert len(store.list_events(event_type=engine.GOAL_EVENT)) == 1
+
+    repeated = engine.adopt_next_internal_inquiry()
+    assert repeated["status"] == "no_new_safe_internal_inquiry"
+    assert repeated["goal_created"] is False
+    assert len(store.list_events(event_type=engine.GOAL_EVENT)) == 1
+
+
+def test_autonomous_internal_inquiry_adopts_at_most_one_candidate_per_call(tmp_path):
+    engine, store = make_engine(tmp_path)
+    configure_initiative_sources(engine)
+    store.record_observation(
+        "self_inquiry",
+        "Quais checkpoints sobrevivem a uma interrupção abrupta?",
+        {"status": "open_question"},
+        "test",
+    )
+
+    first = engine.adopt_next_internal_inquiry()
+    second = engine.adopt_next_internal_inquiry()
+
+    assert first["goal_created"] is True
+    assert second["goal_created"] is True
+    assert first["candidate_id"] != second["candidate_id"]
+    assert first["goal"]["status"] == "planned"
+    assert second["goal"]["status"] == "planned"
+    assert len(store.list_events(event_type=engine.GOAL_EVENT)) == 2
+    assert engine.snapshot()["goal_count"] == 2
+
+
+def test_autonomous_internal_inquiry_rejects_untrusted_candidate_sources(tmp_path):
+    engine, store = make_engine(tmp_path)
+    engine.review_initiatives = lambda: {
+        "status": "reviewed",
+        "candidates": [{
+            "candidate_id": "inquiry:" + "a" * 24,
+            "kind": "experience_pattern",
+            "source": "adaptive_learning",
+            "title": "Alterar estratégia",
+            "description": "Aplicar padrão observado.",
+            "priority": "high",
+            "evidence": {
+                "epistemic_state": "open_question_not_conclusion",
+                "source_independence_verified": False,
+            },
+            "status": "candidate_requires_human_review",
+        }],
+    }
+
+    result = engine.adopt_next_internal_inquiry()
+
+    assert result["status"] == "no_new_safe_internal_inquiry"
+    assert result["goal_created"] is False
+    assert store.list_events(event_type=engine.GOAL_EVENT) == []
+
+
+def test_autonomous_internal_inquiry_respects_active_goal_capacity(tmp_path):
+    engine, store = make_engine(tmp_path)
+    configure_initiative_sources(engine)
+    for index in range(engine.MAX_AUTONOMOUS_INTERNAL_GOALS):
+        engine.create_goal(
+            f"Internal goal {index}",
+            "Already occupies autonomous internal goal capacity.",
+            tags=["autonomous_internal_inquiry"],
+        )
+
+    result = engine.adopt_next_internal_inquiry()
+
+    assert result["status"] == "autonomous_internal_goal_capacity_reached"
+    assert result["goal_created"] is False
+    assert engine.snapshot()["goal_count"] == engine.MAX_AUTONOMOUS_INTERNAL_GOALS
+    assert store.count_events(event_type=engine.GOAL_EVENT) == engine.MAX_AUTONOMOUS_INTERNAL_GOALS
+
+
+def test_executive_policy_exposes_narrow_autonomous_internal_inquiry_scope(tmp_path):
+    engine, _ = make_engine(tmp_path)
+    configure_initiative_sources(engine)
+    snapshot = engine.snapshot()
+    review = engine.review_initiatives()
+
+    assert snapshot["working_memory_policy"]["automatic_internal_inquiry_goal_creation"] is True
+    assert snapshot["working_memory_policy"]["automatic_internal_goal_scope"] == "planned_internal_only"
+    assert review["initiative_policy"]["automatic_goal_creation"] is False
+    policy = review["initiative_policy"]["autonomous_internal_inquiry_adoption"]
+    assert policy["enabled"] is True
+    assert policy["max_active_goals"] == 3
+    assert policy["max_new_goals_per_call"] == 1
+    assert policy["cross_process_capacity_reservation"] is True
+    assert policy["reservation_ttl_seconds"] == 300
+    assert policy["external_effects_allowed"] is False
+
+
+
+def test_autonomous_internal_goal_capacity_is_atomic_across_processes(tmp_path):
+    db_path = tmp_path / "executive-autonomous-capacity.sqlite3"
+    store = KnowledgeStore(db_path)
+    engine = ExecutiveEngine(FakeCognitive(store))
+    for index in range(2):
+        engine.create_goal(
+            f"Existing internal goal {index}",
+            "Occupies one autonomous inquiry slot.",
+            tags=["autonomous_internal_inquiry"],
+        )
+
+    context = get_context("spawn")
+    with context.Manager() as manager:
+        barrier = manager.Barrier(2)
+        with ProcessPoolExecutor(max_workers=2, mp_context=context) as executor:
+            futures = [
+                executor.submit(
+                    _adopt_internal_inquiry_in_process,
+                    str(db_path),
+                    "inquiry:" + character * 24,
+                    barrier,
+                )
+                for character in ("a", "b")
+            ]
+            results = [future.result(timeout=45) for future in futures]
+
+    assert sum(item["goal_created"] is True for item in results) == 1
+    assert sum(item["status"] == "autonomous_internal_inquiry_adopted" for item in results) == 1
+    assert sum(item["status"] == "autonomous_internal_goal_capacity_reached" for item in results) == 1
+    assert engine.snapshot()["goal_count"] == 3
+    assert store.count_events(event_type=engine.GOAL_EVENT) == 3
+    capacity = store.get_memory(engine.AUTONOMOUS_INTERNAL_CAPACITY_KEY)["value"]
+    assert capacity["revision"] == 1
+    assert len(capacity["pending"]) == 1

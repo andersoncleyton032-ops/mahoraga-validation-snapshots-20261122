@@ -38,6 +38,28 @@ def _confidence(value: Any) -> float | None:
     return number
 
 
+class EventSequenceConflict(RuntimeError):
+    """Raised when a versioned event append is based on a stale sequence."""
+
+    def __init__(self, expected: int, actual: int):
+        self.expected = expected
+        self.actual = actual
+        super().__init__(
+            f"Conflito de sequência: esperado {expected}, estado atual {actual}."
+        )
+
+
+class MemoryVersionConflict(RuntimeError):
+    """Raised when a compare-and-set memory update uses a stale revision."""
+
+    def __init__(self, expected: int, actual: int):
+        self.expected = expected
+        self.actual = actual
+        super().__init__(
+            f"Conflito de revisão da memória: esperado {expected}, atual {actual}."
+        )
+
+
 class KnowledgeStore:
     SCHEMA_VERSION = 6
 
@@ -586,6 +608,123 @@ class KnowledgeStore:
             "metadata": json.loads(row["metadata_json"]),
         }
 
+    def compare_and_set_memory_with_event(
+        self,
+        key: str,
+        expected_revision: int,
+        value: dict,
+        event_type: str,
+        event_payload: dict,
+        *,
+        metadata: dict | None = None,
+        revision_field: str = "revision",
+        severity: str = "info",
+    ) -> dict:
+        """Atomically update one versioned memory value and append its audit event.
+
+        The revision check, memory update and event insertion share one SQLite
+        write transaction. A failed event insert cannot leave an unaudited
+        queue/state mutation behind.
+        """
+        if not isinstance(key, str) or not key.strip() or len(key) > 200:
+            raise ValueError("A chave da memória deve conter de 1 a 200 caracteres.")
+        if (
+            isinstance(expected_revision, bool)
+            or not isinstance(expected_revision, int)
+            or expected_revision < 0
+        ):
+            raise ValueError("expected_revision deve ser inteiro não negativo.")
+        if not isinstance(value, dict) or not isinstance(event_payload, dict):
+            raise ValueError("value e event_payload precisam ser dicionários.")
+        if metadata is not None and not isinstance(metadata, dict):
+            raise ValueError("metadata precisa ser um dicionário ou None.")
+        if not isinstance(event_type, str) or not event_type.strip() or len(event_type) > 120:
+            raise ValueError("Tipo de evento inválido.")
+        if not isinstance(severity, str) or not severity.strip() or len(severity) > 20:
+            raise ValueError("severity inválida.")
+        if (
+            not isinstance(revision_field, str)
+            or not revision_field
+            or len(revision_field) > 80
+            or not revision_field.replace("_", "").isalnum()
+        ):
+            raise ValueError("revision_field inválido.")
+        if revision_field in value or revision_field in event_payload:
+            raise ValueError("A revisão é atribuída exclusivamente pelo KnowledgeStore.")
+
+        normalized_key = key.strip()
+        normalized_type = event_type.strip()
+        normalized_severity = severity.strip()
+        now = utc_now()
+        new_value = dict(value)
+        audit_payload = dict(event_payload)
+
+        with self._transaction() as db:
+            row = db.execute(
+                "SELECT value_json,created_at FROM memories WHERE key=?",
+                (normalized_key,),
+            ).fetchone()
+            if row is None:
+                current_revision = 0
+                created_at = now
+            else:
+                try:
+                    current_value = json.loads(row["value_json"])
+                except (TypeError, ValueError) as exc:
+                    raise MemoryVersionConflict(expected_revision, -1) from exc
+                if not isinstance(current_value, dict):
+                    raise MemoryVersionConflict(expected_revision, -1)
+                current_revision = current_value.get(revision_field, 0)
+                if (
+                    isinstance(current_revision, bool)
+                    or not isinstance(current_revision, int)
+                    or current_revision < 0
+                ):
+                    raise MemoryVersionConflict(expected_revision, -1)
+                created_at = row["created_at"]
+
+            if current_revision != expected_revision:
+                raise MemoryVersionConflict(expected_revision, current_revision)
+
+            next_revision = current_revision + 1
+            new_value[revision_field] = next_revision
+            audit_payload[revision_field] = next_revision
+            value_json = _json(new_value)
+            metadata_json = _json(metadata or {})
+            event_json = _json(audit_payload)
+
+            if row is None:
+                db.execute(
+                    """INSERT INTO memories(
+                        key,value_json,metadata_json,created_at,updated_at
+                    ) VALUES(?,?,?,?,?)""",
+                    (
+                        normalized_key,
+                        value_json,
+                        metadata_json,
+                        created_at,
+                        now,
+                    ),
+                )
+            else:
+                db.execute(
+                    """UPDATE memories
+                    SET value_json=?,metadata_json=?,updated_at=?
+                    WHERE key=?""",
+                    (value_json, metadata_json, now, normalized_key),
+                )
+
+            cursor = db.execute(
+                "INSERT INTO events(event_type,severity,payload_json,created_at) VALUES(?,?,?,?)",
+                (normalized_type, normalized_severity, event_json, now),
+            )
+            return {
+                "revision": next_revision,
+                "event_id": int(cursor.lastrowid),
+                "created_at": created_at,
+                "updated_at": now,
+            }
+
     def record_event_once(
         self,
         event_type: str,
@@ -697,6 +836,89 @@ class KnowledgeStore:
             cursor = db.execute("INSERT INTO events(event_type,severity,payload_json,created_at) VALUES(?,?,?,?)",
                                 (event_type, severity, _json(payload or {}), utc_now()))
             return int(cursor.lastrowid)
+
+    def record_versioned_event(
+        self,
+        event_type: str,
+        sequence_key: str,
+        expected_sequence: int,
+        payload: dict | None = None,
+        *,
+        sequence_field: str = "sequence",
+        severity: str = "info",
+    ) -> dict:
+        """Atomically compare a stream version and append its next event.
+
+        The expected sequence is checked under the same BEGIN IMMEDIATE
+        transaction that allocates the next sequence and inserts the event.
+        Independent processes sharing this SQLite store cannot publish two
+        successors from the same base version.
+        """
+        if not isinstance(event_type, str) or not event_type.strip() or len(event_type) > 120:
+            raise ValueError("Tipo de evento inválido.")
+        if not isinstance(sequence_key, str) or not sequence_key.strip() or len(sequence_key) > 200:
+            raise ValueError("sequence_key deve conter de 1 a 200 caracteres.")
+        if (
+            isinstance(expected_sequence, bool)
+            or not isinstance(expected_sequence, int)
+            or expected_sequence < 0
+        ):
+            raise ValueError("expected_sequence deve ser inteiro não negativo.")
+        if (
+            not isinstance(sequence_field, str)
+            or not sequence_field
+            or len(sequence_field) > 80
+            or not sequence_field.replace("_", "").isalnum()
+        ):
+            raise ValueError("sequence_field inválido.")
+        if not isinstance(severity, str) or not severity.strip() or len(severity) > 20:
+            raise ValueError("severity inválida.")
+        if payload is not None and not isinstance(payload, dict):
+            raise ValueError("payload deve ser um dicionário ou None.")
+
+        event_payload = dict(payload or {})
+        if sequence_field in event_payload:
+            raise ValueError("payload não pode definir o campo de sequência.")
+        normalized_key = sequence_key.strip()
+        normalized_type = event_type.strip()
+        normalized_severity = severity.strip()
+
+        # Fail before acquiring the write lock if the caller supplied data
+        # that cannot be represented in the canonical JSON event format.
+        _json(event_payload)
+        with self._transaction() as db:
+            row = db.execute(
+                "SELECT current_value FROM event_sequences WHERE sequence_key=?",
+                (normalized_key,),
+            ).fetchone()
+            current = int(row["current_value"]) if row else 0
+            if current != expected_sequence:
+                raise EventSequenceConflict(expected_sequence, current)
+
+            next_value = current + 1
+            now = utc_now()
+            if row is None:
+                db.execute(
+                    "INSERT INTO event_sequences(sequence_key,current_value,updated_at) VALUES(?,?,?)",
+                    (normalized_key, next_value, now),
+                )
+            else:
+                db.execute(
+                    "UPDATE event_sequences SET current_value=?,updated_at=? WHERE sequence_key=?",
+                    (next_value, now, normalized_key),
+                )
+
+            event_payload[sequence_field] = next_value
+            cursor = db.execute(
+                "INSERT INTO events(event_type,severity,payload_json,created_at) VALUES(?,?,?,?)",
+                (normalized_type, normalized_severity, _json(event_payload), now),
+            )
+            return {
+                "event_id": int(cursor.lastrowid),
+                "sequence": next_value,
+                "sequence_key": normalized_key,
+                "previous_sequence": current,
+            }
 
     def record_sequenced_event(
         self,

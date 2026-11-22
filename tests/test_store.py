@@ -472,3 +472,59 @@ def test_record_event_once_can_compare_and_swap_latest_event_revision(tmp_path):
             expected_latest_event_type="executive.focus",
             expected_latest_event_id=None,
         )
+
+
+def test_compare_and_set_memory_with_event_is_atomic_and_versioned(tmp_path):
+    store = KnowledgeStore(tmp_path / "store.sqlite3")
+    first = store.compare_and_set_memory_with_event(
+        "test.versioned_memory",
+        0,
+        {"schema": "test.versioned_memory", "value": "first"},
+        "test.versioned_memory.updated",
+        {"operation": "create"},
+    )
+
+    assert first["revision"] == 1
+    entry = store.get_memory("test.versioned_memory")
+    assert entry["value"]["revision"] == 1
+    assert entry["value"]["value"] == "first"
+    assert store.count_events("test.versioned_memory.updated") == 1
+
+    with pytest.raises(MemoryVersionConflict):
+        store.compare_and_set_memory_with_event(
+            "test.versioned_memory",
+            0,
+            {"schema": "test.versioned_memory", "value": "stale"},
+            "test.versioned_memory.updated",
+            {"operation": "stale"},
+        )
+
+    current = store.get_memory("test.versioned_memory")
+    assert current["value"]["revision"] == 1
+    assert current["value"]["value"] == "first"
+    assert store.count_events("test.versioned_memory.updated") == 1
+
+
+def test_compare_and_set_memory_event_failure_rolls_back_memory_update(tmp_path):
+    store = KnowledgeStore(tmp_path / "store.sqlite3")
+    store.compare_and_set_memory_with_event(
+        "test.atomic_memory",
+        0,
+        {"schema": "test.atomic_memory", "value": 1},
+        "test.atomic_memory.updated",
+        {"operation": "create"},
+    )
+
+    with pytest.raises(ValueError):
+        store.compare_and_set_memory_with_event(
+            "test.atomic_memory",
+            1,
+            {"schema": "test.atomic_memory", "value": 2},
+            "test.atomic_memory.updated",
+            {"operation": "invalid", "nan": float("nan")},
+        )
+
+    current = store.get_memory("test.atomic_memory")
+    assert current["value"]["revision"] == 1
+    assert current["value"]["value"] == 1
+    assert store.count_events("test.atomic_memory.updated") == 1

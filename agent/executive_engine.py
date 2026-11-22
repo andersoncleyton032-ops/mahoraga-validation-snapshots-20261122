@@ -8,10 +8,12 @@ from __future__ import annotations
 import re
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from threading import RLock
 from typing import Any
+
+from agent.store import MemoryVersionConflict
 
 
 def _now() -> str:
@@ -28,11 +30,20 @@ def _synchronized(method):
 
 
 class ExecutiveEngine:
-    VERSION = "0.1.0"
+    VERSION = "0.2.0"
     GOAL_EVENT = "executive.goal.snapshot"
     FOCUS_EVENT = "executive.focus.changed"
     MAX_GOALS = 200
     MAX_HISTORY = 30
+    MAX_AUTONOMOUS_INTERNAL_GOALS = 3
+    MAX_AUTONOMOUS_INTERNAL_ADOPTIONS_PER_CALL = 1
+    AUTONOMOUS_INTERNAL_CAPACITY_KEY = "executive.autonomous_internal_inquiry_capacity.v1"
+    AUTONOMOUS_INTERNAL_CAPACITY_EVENT = "executive.autonomous_internal_inquiry.capacity"
+    AUTONOMOUS_INTERNAL_RESERVATION_SECONDS = 300
+    AUTONOMOUS_INTERNAL_SOURCES = {
+        ("self_inquiry", "persisted_self_inquiry"),
+        ("self_inquiry", "operational_self_model"),
+    }
     PRIORITIES = {"low": 1, "normal": 2, "high": 3, "critical": 4}
     TRANSITIONS = {
         "planned": {"active", "cancelled"},
@@ -436,6 +447,7 @@ class ExecutiveEngine:
             "goal_state_modified": False,
             "automatic_learning_consolidation": False,
             "automatic_tool_dispatch": False,
+            "autonomous_internal_inquiry_goal_creation": True,
             "execution_performed": False,
         }
 
@@ -481,6 +493,8 @@ class ExecutiveEngine:
                 "bounded_goal_history": self.MAX_HISTORY,
                 "automatic_tool_dispatch": False,
                 "automatic_goal_completion": False,
+                "automatic_internal_inquiry_goal_creation": True,
+                "automatic_internal_goal_scope": "planned_internal_only",
             },
             "execution_performed": False,
         }
@@ -877,6 +891,19 @@ class ExecutiveEngine:
                 "automatic_result_truth_selection": False,
                 "automatic_conflict_resolution": False,
                 "human_approval_required_for_adoption": True,
+                "autonomous_internal_inquiry_adoption": {
+                    "enabled": True,
+                    "allowed_sources": [
+                        "persisted_self_inquiry",
+                        "operational_self_model",
+                    ],
+                    "max_active_goals": self.MAX_AUTONOMOUS_INTERNAL_GOALS,
+                    "max_new_goals_per_call": self.MAX_AUTONOMOUS_INTERNAL_ADOPTIONS_PER_CALL,
+                    "cross_process_capacity_reservation": True,
+                    "reservation_ttl_seconds": self.AUTONOMOUS_INTERNAL_RESERVATION_SECONDS,
+                    "goal_status": "planned",
+                    "external_effects_allowed": False,
+                },
                 "evidence_independence_verified": False,
             },
             "execution_performed": False,
@@ -996,6 +1023,363 @@ class ExecutiveEngine:
             "goal": goal,
             "execution_performed": False,
             "tool_dispatch_performed": False,
+        }
+
+    def _reserve_autonomous_internal_inquiry_slot(self, candidate_id: str) -> dict:
+        """Reserve one of the bounded internal-goal slots with cross-process CAS."""
+        for _ in range(3):
+            now = datetime.now(timezone.utc)
+            entry = self.store.get_memory(self.AUTONOMOUS_INTERNAL_CAPACITY_KEY)
+            if entry is None:
+                revision = 0
+                pending = {}
+            else:
+                value = entry.get("value") if isinstance(entry, dict) else None
+                if (
+                    not isinstance(value, dict)
+                    or value.get("schema") != "mahoraga.autonomous_internal_inquiry_capacity"
+                    or isinstance(value.get("schema_version"), bool)
+                    or value.get("schema_version") != 1
+                    or isinstance(value.get("revision"), bool)
+                    or not isinstance(value.get("revision"), int)
+                    or value.get("revision") < 1
+                    or not isinstance(value.get("pending"), dict)
+                ):
+                    raise RuntimeError("Registro de capacidade autônoma inválido; adoção bloqueada.")
+                revision = value["revision"]
+                pending = dict(value["pending"])
+
+            goals = self._goals()
+            known_candidate_ids = set()
+            active_goal_count = 0
+            active_statuses = {"planned", "active", "blocked", "suspended"}
+            prefix = "autonomous_internal_inquiry:"
+            for goal in goals.values():
+                tags = goal.get("tags", [])
+                if not isinstance(tags, list) or "autonomous_internal_inquiry" not in tags:
+                    continue
+                for tag in tags:
+                    if isinstance(tag, str) and tag.startswith(prefix):
+                        candidate_tag_id = tag[len(prefix):]
+                        known_candidate_ids.add(candidate_tag_id)
+                if isinstance(goal.get("status"), str) and goal["status"] in active_statuses:
+                    active_goal_count += 1
+
+            for reserved_id, reservation in list(pending.items()):
+                if not isinstance(reservation, dict):
+                    raise RuntimeError("Reserva de capacidade corrompida; adoção bloqueada.")
+                if reserved_id in known_candidate_ids:
+                    pending.pop(reserved_id, None)
+                    continue
+                expires_at = reservation.get("expires_at")
+                if not isinstance(expires_at, str):
+                    raise RuntimeError("Expiração de reserva inválida; adoção bloqueada.")
+                try:
+                    expiry = datetime.fromisoformat(expires_at)
+                except ValueError as exc:
+                    raise RuntimeError("Expiração de reserva inválida; adoção bloqueada.") from exc
+                if expiry.tzinfo is None or expiry.utcoffset() is None or expiry <= now:
+                    pending.pop(reserved_id, None)
+
+            if candidate_id in known_candidate_ids:
+                return {
+                    "status": "already_adopted",
+                    "active_count": active_goal_count,
+                    "pending_count": len(pending),
+                    "remaining_capacity": max(
+                        0, self.MAX_AUTONOMOUS_INTERNAL_GOALS - active_goal_count - len(pending)
+                    ),
+                }
+            if candidate_id in pending:
+                return {
+                    "status": "already_reserved",
+                    "active_count": active_goal_count,
+                    "pending_count": len(pending),
+                    "remaining_capacity": max(
+                        0, self.MAX_AUTONOMOUS_INTERNAL_GOALS - active_goal_count - len(pending)
+                    ),
+                }
+            if active_goal_count + len(pending) >= self.MAX_AUTONOMOUS_INTERNAL_GOALS:
+                return {
+                    "status": "capacity_reached",
+                    "active_count": active_goal_count,
+                    "pending_count": len(pending),
+                    "remaining_capacity": 0,
+                }
+
+            expiry = now + timedelta(seconds=self.AUTONOMOUS_INTERNAL_RESERVATION_SECONDS)
+            pending[candidate_id] = {
+                "reserved_at": now.isoformat(timespec="microseconds"),
+                "expires_at": expiry.isoformat(timespec="microseconds"),
+            }
+            value = {
+                "schema": "mahoraga.autonomous_internal_inquiry_capacity",
+                "schema_version": 1,
+                "pending": pending,
+            }
+            try:
+                committed = self.store.compare_and_set_memory_with_event(
+                    self.AUTONOMOUS_INTERNAL_CAPACITY_KEY,
+                    revision,
+                    value,
+                    self.AUTONOMOUS_INTERNAL_CAPACITY_EVENT,
+                    {
+                        "operation": "slot_reserved",
+                        "candidate_id": candidate_id,
+                        "expires_at": expiry.isoformat(timespec="microseconds"),
+                    },
+                    metadata={"kind": "autonomous_internal_inquiry_capacity"},
+                )
+            except MemoryVersionConflict:
+                continue
+            return {
+                "status": "reserved",
+                "revision": committed["revision"],
+                "active_count": active_goal_count,
+                "pending_count": len(pending),
+                "remaining_capacity": max(
+                    0, self.MAX_AUTONOMOUS_INTERNAL_GOALS - active_goal_count - len(pending)
+                ),
+            }
+        raise RuntimeError("Contenção concorrente na reserva de objetivos; tente em outra invocação.")
+
+    @_synchronized
+    def adopt_next_internal_inquiry(self) -> dict:
+        """Adopt one persisted open question as a planned internal goal.
+
+        This narrow autonomous path does not adopt external-result disputes,
+        capability changes, strategy updates or tool actions. It creates an
+        investigation objective only; execution still needs a Governor permit.
+        """
+        self._authorize("record_observation")
+        review = self.review_initiatives()
+        if not isinstance(review, dict) or review.get("status") != "reviewed":
+            return {
+                "status": "initiative_review_unavailable",
+                "goal_created": False,
+                "execution_performed": False,
+                "tool_dispatch_performed": False,
+            }
+
+        goals = self._goals()
+        adoption_prefix = "autonomous_internal_inquiry:"
+        if len(goals) >= self.MAX_GOALS:
+            return {
+                "status": "executive_goal_capacity_reached",
+                "goal_created": False,
+                "execution_performed": False,
+                "tool_dispatch_performed": False,
+            }
+        active_auto = [
+            goal for goal in goals.values()
+            if isinstance(goal.get("tags"), list)
+            and "autonomous_internal_inquiry" in goal["tags"]
+            and isinstance(goal.get("status"), str)
+            and goal["status"] in {"planned", "active", "blocked", "suspended"}
+        ]
+        if len(active_auto) >= self.MAX_AUTONOMOUS_INTERNAL_GOALS:
+            return {
+                "status": "autonomous_internal_goal_capacity_reached",
+                "active_internal_goal_count": len(active_auto),
+                "max_active_internal_goals": self.MAX_AUTONOMOUS_INTERNAL_GOALS,
+                "goal_created": False,
+                "execution_performed": False,
+                "tool_dispatch_performed": False,
+            }
+
+        already_adopted = set()
+        for goal in goals.values():
+            tags = goal.get("tags", [])
+            if not isinstance(tags, list):
+                continue
+            for tag in tags:
+                if isinstance(tag, str) and tag.startswith(adoption_prefix):
+                    already_adopted.add(tag[len(adoption_prefix):])
+
+        candidates = []
+        review_candidates = review.get("candidates", [])
+        if not isinstance(review_candidates, list):
+            return {
+                "status": "initiative_review_unavailable",
+                "goal_created": False,
+                "execution_performed": False,
+                "tool_dispatch_performed": False,
+            }
+        for candidate in review_candidates:
+            if not isinstance(candidate, dict):
+                continue
+            candidate_id = candidate.get("candidate_id")
+            source = candidate.get("source")
+            kind = candidate.get("kind")
+            evidence = candidate.get("evidence")
+            if (
+                not isinstance(candidate_id, str)
+                or not candidate_id.strip()
+                or not re.fullmatch(r"inquiry:[0-9a-f]{24}", candidate_id)
+                or not isinstance(kind, str)
+                or not isinstance(source, str)
+                or (kind, source) not in self.AUTONOMOUS_INTERNAL_SOURCES
+                or candidate.get("status") != "candidate_requires_human_review"
+                or not isinstance(evidence, dict)
+                or evidence.get("epistemic_state") != "open_question_not_conclusion"
+                or candidate_id in already_adopted
+            ):
+                continue
+            if source == "persisted_self_inquiry":
+                observation_count = evidence.get("observation_count")
+                if (
+                    isinstance(observation_count, bool)
+                    or not isinstance(observation_count, int)
+                    or observation_count < 1
+                ):
+                    continue
+            title = candidate.get("title")
+            description = candidate.get("description")
+            if (
+                not isinstance(title, str) or not title.strip()
+                or not isinstance(description, str) or not description.strip()
+            ):
+                continue
+            candidates.append(candidate)
+
+        candidates.sort(
+            key=lambda item: (
+                -self.PRIORITIES.get(
+                    item.get("priority") if isinstance(item.get("priority"), str) else "normal",
+                    0,
+                ),
+                item.get("candidate_id", ""),
+            )
+        )
+        if not candidates:
+            return {
+                "status": "no_new_safe_internal_inquiry",
+                "candidate_count": 0,
+                "goal_created": False,
+                "execution_performed": False,
+                "tool_dispatch_performed": False,
+            }
+
+        candidate = candidates[0]
+        candidate_id = candidate["candidate_id"]
+        reservation = self._reserve_autonomous_internal_inquiry_slot(candidate_id)
+        if reservation["status"] == "capacity_reached":
+            return {
+                "status": "autonomous_internal_goal_capacity_reached",
+                "active_internal_goal_count": reservation["active_count"],
+                "pending_internal_goal_reservations": reservation["pending_count"],
+                "max_active_internal_goals": self.MAX_AUTONOMOUS_INTERNAL_GOALS,
+                "goal_created": False,
+                "execution_performed": False,
+                "tool_dispatch_performed": False,
+            }
+        if reservation["status"] == "already_reserved":
+            return {
+                "status": "internal_inquiry_reservation_pending",
+                "candidate_id": candidate_id,
+                "goal_created": False,
+                "execution_performed": False,
+                "tool_dispatch_performed": False,
+            }
+        if reservation["status"] == "already_adopted":
+            return {
+                "status": "internal_inquiry_already_adopted",
+                "candidate_id": candidate_id,
+                "goal_created": False,
+                "execution_performed": False,
+                "tool_dispatch_performed": False,
+            }
+        if reservation["status"] != "reserved":
+            raise RuntimeError("Reserva de objetivo interno não foi confirmada.")
+        adoption_tag = adoption_prefix + candidate_id
+        now = _now()
+        priority = candidate.get("priority", "normal")
+        if not isinstance(priority, str) or priority not in {"low", "normal"}:
+            priority = "normal"
+        evidence = candidate["evidence"]
+        observation_ids = evidence.get("observation_ids", [])
+        if not isinstance(observation_ids, list):
+            observation_ids = []
+        goal = {
+            "goal_id": uuid.uuid4().hex,
+            "title": candidate["title"][:160],
+            "description": candidate["description"][:2000],
+            "priority": priority,
+            "priority_rank": self.PRIORITIES[priority],
+            "parent_id": None,
+            "tags": [
+                "initiative",
+                "autonomous_internal_inquiry",
+                candidate["source"],
+                candidate["kind"],
+                adoption_tag,
+            ],
+            "status": "planned",
+            "goal_type": "internal_inquiry",
+            "autonomy_scope": "internal_only",
+            "external_effects_allowed": False,
+            "epistemic_state": "open_question",
+            "initiative_evidence": {
+                "candidate_id": candidate_id,
+                "source": candidate["source"],
+                "basis": evidence.get("basis"),
+                "epistemic_state": evidence["epistemic_state"],
+                "observation_ids": observation_ids[:100],
+                "observation_count": evidence.get("observation_count", 0),
+            },
+            "created_at": now,
+            "updated_at": now,
+            "history": [{
+                "status": "planned",
+                "at": now,
+                "note": "autonomous_internal_inquiry_adopted",
+            }],
+            "execution_performed": False,
+            "tool_dispatch_performed": False,
+        }
+        idempotency_key = f"executive.autonomous_internal_inquiry:{candidate_id}"
+        try:
+            recorded = self.store.record_event_once(
+                self.GOAL_EVENT, idempotency_key, {"goal": goal}
+            )
+        except ValueError:
+            existing = next(
+                (
+                    item for item in self._goals().values()
+                    if isinstance(item.get("tags"), list) and adoption_tag in item["tags"]
+                ),
+                None,
+            )
+            if existing is None:
+                raise
+            goal = existing
+            recorded = {"created": False}
+        if not recorded["created"]:
+            existing = next(
+                (
+                    item for item in self._goals().values()
+                    if isinstance(item.get("tags"), list) and adoption_tag in item["tags"]
+                ),
+                None,
+            )
+            if existing is None:
+                raise RuntimeError("Registro idempotente existe sem snapshot de objetivo.")
+            goal = existing
+            status = "internal_inquiry_already_adopted"
+        else:
+            status = "autonomous_internal_inquiry_adopted"
+
+        return {
+            "status": status,
+            "candidate_id": candidate_id,
+            "goal": goal,
+            "goal_created": bool(recorded["created"]),
+            "goal_status": goal["status"],
+            "autonomy_scope": "internal_only",
+            "external_effects_allowed": False,
+            "execution_performed": False,
+            "tool_dispatch_performed": False,
+            "remaining_internal_goal_capacity": reservation["remaining_capacity"],
         }
 
     @_synchronized

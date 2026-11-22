@@ -21,11 +21,11 @@ class FakeGovernor:
         self.sessions = []
         self.requests = []
 
-    def evaluate_session(self, runtime_context, *, resource_snapshot=None):
-        self.sessions.append(runtime_context)
+    def evaluate_session(self, runtime_context, *, resource_snapshot=None, work_mode="foreground"):
+        self.sessions.append((runtime_context, work_mode))
         return {
             "status": "bounded",
-            "mode": "test_foreground",
+            "mode": work_mode if work_mode in {"background_idle", "background_companion"} else "test_foreground",
             "budget": {
                 "max_task_seconds": self.max_seconds,
                 "max_task_ram_mb": self.max_memory_mb,
@@ -37,6 +37,7 @@ class FakeGovernor:
                 "android_changes_allowed": False,
                 "package_installation_allowed": False,
                 "project_writes_allowed": False,
+                "workspace_writes_allowed": False,
                 **self.invalid_budget,
             },
         }
@@ -45,6 +46,11 @@ class FakeGovernor:
         self.requests.append(work_request)
         if not self.allowed:
             return {"allowed": False, "reason": "bloqueio de teste"}
+        if session.get("mode") in {"background_idle", "background_companion"}:
+            if work_request.get("internal_only") is not True:
+                return {"allowed": False, "reason": "background_task_must_be_internal_only"}
+            if work_request.get("checkpointable") is not True:
+                return {"allowed": False, "reason": "background_task_must_be_checkpointable"}
         return {
             "allowed": True,
             "permit": {
@@ -55,6 +61,12 @@ class FakeGovernor:
                 "continuous_loop": False,
                 "side_effects": "none",
                 "execution_performed": False,
+                "execution_mode": (
+                    session.get("mode")
+                    if session.get("mode") in {"background_idle", "background_companion"}
+                    else "test_foreground"
+                ),
+                "checkpoint_required": session.get("mode") in {"background_idle", "background_companion"},
                 **self.permit_overrides,
             },
         }
@@ -108,7 +120,7 @@ def test_governor_admits_one_cooperative_task_and_records_events(tmp_path):
     assert len(orchestrator.autonomy.sessions) == 1
     assert len(orchestrator.autonomy.requests) == 1
     assert orchestrator.autonomy.requests[0]["estimated_ram_mb"] == 32.0
-    assert len(store.list_events(10)) == 3
+    assert len(store.list_events(10)) == 5
 
 
 def test_governor_permit_must_be_bound_to_exact_task_and_risk(tmp_path):
@@ -408,3 +420,179 @@ def test_initiative_plan_rejects_oversized_or_non_json_evidence(tmp_path):
             candidate["candidate_id"], approved=True
         )
     assert store.load_memories() == {}
+
+
+
+def _background_runtime_context():
+    return {
+        "app_foreground": False,
+        "screen_interactive": False,
+        "thermal_status": "normal",
+        "source": "test_fixture",
+    }
+
+
+def test_orchestrator_runs_one_checkpointable_internal_task_in_background_mode(tmp_path):
+    governor = FakeGovernor()
+    orchestrator, store = make_orchestrator(tmp_path, governor=governor)
+    executed = []
+
+    def internal_task(execution_context):
+        execution_context.check()
+        execution_context.checkpoint({"step": 1})
+        executed.append(True)
+        return "checkpointed-result"
+
+    orchestrator.register_capability(
+        "test.background_internal",
+        internal_task,
+        risk="local_compute",
+        description="Bounded internal background work.",
+        checkpointable=True,
+    )
+    result = orchestrator.run_parallel(
+        [{"id": "night-task", "name": "night task", "capability": "test.background_internal"}],
+        runtime_context=_background_runtime_context(),
+        work_mode="background_idle",
+    )
+
+    assert result["status"] == "completed"
+    assert result["resource_session"]["mode"] == "background_idle"
+    assert result["resource_session"]["checkpoint_required"] is True
+    assert executed == [True]
+    assert governor.sessions[0][1] == "background_idle"
+    assert governor.requests[0]["internal_only"] is True
+    assert governor.requests[0]["checkpointable"] is True
+    assert governor.requests[0]["writes_workspace"] is False
+    assert len(store.list_events(10)) == 3
+
+
+def test_orchestrator_rejects_screen_on_or_foreground_background_mode(tmp_path):
+    orchestrator, store = make_orchestrator(tmp_path)
+    executed = []
+
+    def internal_task(execution_context):
+        execution_context.check()
+        executed.append(True)
+
+    orchestrator.register_capability(
+        "test.background_gate",
+        internal_task,
+        risk="local_compute",
+        description="Background mode requires a dark idle display.",
+    )
+    with pytest.raises(PermissionError, match="tela apagada"):
+        orchestrator.run_parallel(
+            [{"id": "bad-night-task", "name": "bad", "capability": "test.background_gate"}],
+            runtime_context=_runtime_context(),
+            work_mode="background_idle",
+        )
+    assert executed == []
+    assert store.list_events(10) == []
+
+
+
+def test_background_task_resumes_from_durable_checkpoint_after_interruption(tmp_path):
+    governor = FakeGovernor()
+    orchestrator, store = make_orchestrator(tmp_path, governor=governor)
+    attempts = []
+
+    def resumable_task(execution_context):
+        attempts.append(execution_context.resume_state)
+        if execution_context.resume_state is None:
+            execution_context.checkpoint({"cursor": 1, "partial": "saved"})
+            raise RuntimeError("simulated process interruption")
+        assert execution_context.resume_state == {"cursor": 1, "partial": "saved"}
+        execution_context.checkpoint({"cursor": 2, "partial": "finished"})
+        return "resumed"
+
+    orchestrator.register_capability(
+        "test.resumable_background",
+        resumable_task,
+        risk="local_compute",
+        description="Task with durable recovery state.",
+        checkpointable=True,
+    )
+    task = [{
+        "id": "night-resume-001",
+        "name": "resumable night task",
+        "capability": "test.resumable_background",
+    }]
+    context = _background_runtime_context()
+
+    interrupted = orchestrator.run_parallel(
+        task, runtime_context=context, work_mode="background_idle"
+    )
+    assert interrupted["status"] == "failed"
+    assert interrupted["tasks"][0]["error"]["type"] == "RuntimeError"
+
+    resumed = orchestrator.run_parallel(
+        task, runtime_context=context, work_mode="background_idle"
+    )
+    assert resumed["status"] == "completed"
+    assert resumed["tasks"][0]["result"] == "resumed"
+    assert attempts == [None, {"cursor": 1, "partial": "saved"}]
+    assert store.count_events(orchestrator.CHECKPOINT_EVENT) == 2
+
+    with pytest.raises(RuntimeError, match="já concluída"):
+        orchestrator.run_parallel(
+            task, runtime_context=context, work_mode="background_idle"
+        )
+
+
+def test_background_task_without_declared_checkpoint_support_is_denied(tmp_path):
+    governor = FakeGovernor()
+    orchestrator, store = make_orchestrator(tmp_path, governor=governor)
+
+    def task(execution_context):
+        execution_context.check()
+
+    orchestrator.register_capability(
+        "test.not_checkpointable",
+        task,
+        risk="local_compute",
+        description="Not registered as checkpointable.",
+    )
+    with pytest.raises(PermissionError, match="checkpointable"):
+        orchestrator.run_parallel(
+            [{"id": "no-checkpoint", "name": "no checkpoint", "capability": "test.not_checkpointable"}],
+            runtime_context=_background_runtime_context(),
+            work_mode="background_idle",
+        )
+    assert store.list_events(10) == []
+
+
+
+def test_background_companion_runs_checkpointed_task_while_chat_app_is_foreground(tmp_path):
+    orchestrator, store = make_orchestrator(tmp_path, runtime_context_provider=False)
+    orchestrator.register_capability(
+        "test.companion", lambda execution_context: (
+            execution_context.checkpoint({"progress": 1}),
+            "completed",
+        )[1],
+        risk="local_compute",
+        description="Checkpointed companion-mode task.",
+        estimated_runtime_seconds=2,
+        estimated_ram_mb=32,
+        checkpointable=True,
+    )
+
+    result = orchestrator.run_parallel(
+        [{"id": "companion-task", "name": "companion", "capability": "test.companion"}],
+        runtime_context={
+            "app_foreground": False,
+            "screen_interactive": True,
+            "thermal_status": "normal",
+            "source": "test_fixture",
+        },
+        work_mode="background_companion",
+    )
+
+    assert result["status"] == "completed"
+    assert result["resource_session"]["mode"] == "background_companion"
+    assert result["resource_session"]["checkpoint_required"] is True
+    assert orchestrator.autonomy.sessions[0][1] == "background_companion"
+    assert orchestrator.autonomy.requests[0]["internal_only"] is True
+    assert orchestrator.autonomy.requests[0]["checkpointable"] is True
+    assert store.count_events(orchestrator.CHECKPOINT_EVENT) == 1
+    assert orchestrator.task_execution_status("companion-task") == "completed"
