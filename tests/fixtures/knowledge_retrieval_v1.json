@@ -1,0 +1,172 @@
+{
+  "suite_id": "mahoraga-knowledge-retrieval-v1",
+  "version": 1,
+  "split": "held_out",
+  "description": "Corpus e consultas sintéticas versionadas para medir o baseline lexical BM25. Não é dado de treinamento.",
+  "corpus": [
+    {
+      "id": "thermal",
+      "subject": "hardware",
+      "text": "A temperatura do processador e da CPU aumenta durante carga sustentada. O aquecimento deve ser monitorado para proteger o dispositivo."
+    },
+    {
+      "id": "battery",
+      "subject": "hardware",
+      "text": "A bateria armazena energia elétrica. O consumo energético e o carregamento influenciam a autonomia do aparelho."
+    },
+    {
+      "id": "memory",
+      "subject": "hardware",
+      "text": "A memória RAM mantém dados temporários. A expansão de RAM e o armazenamento interno têm funções diferentes."
+    },
+    {
+      "id": "gpu",
+      "subject": "graphics",
+      "text": "A GPU acelera operações gráficas e renderização. O desempenho gráfico depende do processamento e da carga visual."
+    },
+    {
+      "id": "blender",
+      "subject": "graphics",
+      "text": "No Blender, uma cena contém objetos, malhas, vértices, materiais e câmeras organizados na estrutura do projeto."
+    },
+    {
+      "id": "fluids",
+      "subject": "physics",
+      "text": "A simulação de fluidos calcula movimento da água, partículas, pressão, velocidade e interação com obstáculos."
+    },
+    {
+      "id": "language",
+      "subject": "cognition",
+      "text": "A análise linguística identifica negação, intenção futura, ambiguidade, temporalidade e condições antes de classificar comandos."
+    },
+    {
+      "id": "tools",
+      "subject": "engineering",
+      "text": "O registro de ferramentas acompanha competência, evidências, limitações, versões e capacidade operacional demonstrada."
+    },
+    {
+      "id": "continuity",
+      "subject": "engineering",
+      "text": "A continuidade do projeto preserva branch, commit, checkpoint, rollback e histórico de decisões no Git."
+    },
+    {
+      "id": "android",
+      "subject": "android",
+      "text": "O Android restringe processos em segundo plano. Economia de bateria, permissões e políticas do sistema afetam a execução."
+    }
+  ],
+  "queries": [
+    {
+      "id": "L01",
+      "category": "lexical",
+      "query": "temperatura processador CPU",
+      "relevant_document_ids": [
+        "thermal"
+      ]
+    },
+    {
+      "id": "L02",
+      "category": "lexical",
+      "query": "bateria consumo energia autonomia",
+      "relevant_document_ids": [
+        "battery"
+      ]
+    },
+    {
+      "id": "L03",
+      "category": "lexical",
+      "query": "memória RAM expansão armazenamento",
+      "relevant_document_ids": [
+        "memory"
+      ]
+    },
+    {
+      "id": "L04",
+      "category": "lexical",
+      "query": "renderização GPU desempenho gráfico",
+      "relevant_document_ids": [
+        "gpu"
+      ]
+    },
+    {
+      "id": "L05",
+      "category": "lexical",
+      "query": "malha vértices materiais Blender",
+      "relevant_document_ids": [
+        "blender"
+      ]
+    },
+    {
+      "id": "L06",
+      "category": "lexical",
+      "query": "simulação fluidos água partículas",
+      "relevant_document_ids": [
+        "fluids"
+      ]
+    },
+    {
+      "id": "L07",
+      "category": "lexical",
+      "query": "negação intenção futura ambiguidade",
+      "relevant_document_ids": [
+        "language"
+      ]
+    },
+    {
+      "id": "L08",
+      "category": "lexical",
+      "query": "ferramentas competência evidências",
+      "relevant_document_ids": [
+        "tools"
+      ]
+    },
+    {
+      "id": "L09",
+      "category": "lexical",
+      "query": "branch commit checkpoint rollback",
+      "relevant_document_ids": [
+        "continuity"
+      ]
+    },
+    {
+      "id": "L10",
+      "category": "lexical",
+      "query": "processos segundo plano Android restrições",
+      "relevant_document_ids": [
+        "android"
+      ]
+    },
+    {
+      "id": "S01",
+      "category": "semantic_gap",
+      "query": "chip esquenta sob esforço",
+      "relevant_document_ids": [
+        "thermal"
+      ]
+    },
+    {
+      "id": "S02",
+      "category": "semantic_gap",
+      "query": "aparelho perde carga depressa",
+      "relevant_document_ids": [
+        "battery"
+      ]
+    },
+    {
+      "id": "S03",
+      "category": "semantic_gap",
+      "query": "água em movimento turbulento",
+      "relevant_document_ids": [
+        "fluids"
+      ]
+    },
+    {
+      "id": "T01",
+      "category": "typo",
+      "query": "temperaturaa procesador",
+      "relevant_document_ids": [
+        "thermal"
+      ]
+    }
+  ]
+}
