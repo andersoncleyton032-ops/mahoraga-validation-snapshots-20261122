@@ -147,6 +147,22 @@ def test_heldout_test_data_cannot_change_selected_champion():
     assert normal["champion"]["test"]["mae"] != changed["champion"]["test"]["mae"]
 
 
+def test_reported_case_evaluations_match_actual_vm_invocations(monkeypatch):
+    train, validation = simple_cases()
+    test = [(3.0, 7.0), (-3.0, -5.0)]
+    original = DigitalEvolutionEngine.run_program
+    calls = 0
+
+    def counted(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(DigitalEvolutionEngine, "run_program", staticmethod(counted))
+    result = DigitalEvolutionEngine(small_config()).evolve(train, validation, test)
+    assert result["case_evaluations"] == calls
+
+
 def test_case_evaluation_accounting_includes_behavior_descriptor_probes():
     train, validation = simple_cases()
     result = DigitalEvolutionEngine(small_config()).evolve(train, validation)
