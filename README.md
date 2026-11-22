@@ -7,7 +7,7 @@ This public repository is a **curated, sanitized validation snapshot** of select
 - Selected integration, regression, resource-boundary and adversarial tests for those modules.
 - Non-sensitive capability, identity, model-runtime and neural-stack configuration. All capability entries remain disabled; local model runtime remains disabled and remote access is disallowed.
 - Cognitive interest selection, simulated physiology and bounded digital-evolution experiments from the validated experiment snapshot.
-- Lab-only candidate-governance prototypes and a replay-safe persistent lab-cycle wrapper. The wrapper records planning/admission decisions in the canonical SQLite store but does not execute candidate code or promote changes.
+- Lab-only candidate-governance prototypes, a replay-safe persistent lab-cycle wrapper and a bounded batch scheduler. They record planning/admission decisions in the canonical SQLite store but do not execute candidate code, start background work or promote changes.
 
 ## What is deliberately not copied
 - Private continuity records, audit logs, work-session history or internal operational reports.
