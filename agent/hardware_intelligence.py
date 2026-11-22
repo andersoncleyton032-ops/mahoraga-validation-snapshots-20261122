@@ -45,7 +45,19 @@ class HardwareIntelligence:
             return None, f"os_error:{type(exc).__name__}"
 
     def _command(self, argv: list[str], timeout: int | None = None) -> dict:
-        if not argv or not shutil.which(argv[0]):
+        allowed_getprop = {
+            "ro.product.manufacturer", "ro.product.model", "ro.product.device",
+            "ro.build.version.release", "ro.build.version.sdk", "ro.hardware",
+            "ro.hardware.egl", "ro.hardware.vulkan", "ro.opengles.version",
+        }
+        if not argv or not isinstance(argv[0], str):
+            return {"available": False, "status": "command_not_allowlisted"}
+        if not (
+            (argv[0] == "getprop" and len(argv) == 2 and argv[1] in allowed_getprop)
+            or (argv == ["termux-battery-status"])
+        ):
+            return {"available": False, "status": "command_not_allowlisted"}
+        if not shutil.which(argv[0]):
             return {"available": False, "status": "command_not_found"}
         try:
             result = subprocess.run(argv, capture_output=True, text=True,
