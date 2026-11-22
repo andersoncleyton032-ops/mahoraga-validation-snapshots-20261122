@@ -59,6 +59,15 @@ class PersistentAutonomousLabCycle:
         base_budget: InterestBudget,
         minimum_score: float = 0.05,
     ) -> dict[str, Any]:
+        preflight_audit = self.store.audit_lab_experiments()
+        if preflight_audit["invalid"]:
+            raise PersistentAutonomousLabCycleError(
+                "Ledger contém registros inválidos; ciclo não iniciado."
+            )
+        if preflight_audit["truncated"]:
+            raise PersistentAutonomousLabCycleError(
+                "Auditoria do ledger excedeu a janela de 500 registros; ciclo adiado."
+            )
         cycle = self.cycle_factory()
         result = cycle.run_cycle(
             cycle_id=cycle_id,
@@ -146,13 +155,22 @@ class PersistentAutonomousLabCycle:
                     f"Falha ao persistir candidato {candidate_id}: {exc}"
                 ) from exc
 
+        audit = self.store.audit_lab_experiments()
+        if audit["invalid"]:
+            raise PersistentAutonomousLabCycleError(
+                "Auditoria pós-ciclo detectou registros inválidos."
+            )
+        if audit["truncated"]:
+            raise PersistentAutonomousLabCycleError(
+                "Auditoria pós-ciclo excedeu a janela de 500 registros."
+            )
         result["experiment_ledger"] = {
             "schema": "mahoraga.persistent_lab_cycle",
             "version": self.VERSION,
             "records": records,
             "created": created_count,
             "replayed": replayed_count,
-            "audit": self.store.audit_lab_experiments(),
+            "audit": audit,
         }
         result["experiment_records_persisted"] = True
         return result
