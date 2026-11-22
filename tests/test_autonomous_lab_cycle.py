@@ -85,7 +85,7 @@ def test_dependent_candidate_is_blocked_when_dependency_is_not_admitted():
     root["interest"]["estimated_runtime_ms"] = 1
     root["interest"]["estimated_ram_mb"] = 1
     root["interest"]["dependencies"] = ["dependency-001"]
-    result = run(cycle, [dependency, root], base_budget=InterestBudget(1000000, 65536))
+    result = run(cycle, [dependency, root], base_budget=InterestBudget(1000000, 65536, max_selected=256))
     assert result["planning"]["selection"]["selected_order"] == [
         "dependency-001", "root-001"
     ]
