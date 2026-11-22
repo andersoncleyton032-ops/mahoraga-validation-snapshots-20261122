@@ -13,6 +13,9 @@
 - Full private Git history, branch history or PR metadata.
 - Modules that expose arbitrary code execution or privileged external effects unless the exact threat model, approval path and isolation are reviewed.
 
+## Runtime command surface
+The included hardware and deep-diagnostics collectors use fixed read-only command allowlists before spawning subprocesses. Shell execution is not enabled for these collectors. The local model adapter accepts only a loopback IP endpoint, disallows redirects, remote fallback and tool calls, and remains disabled by default. These controls reduce exposure but do not replace runtime review or prove the whole project safe.
+
 ## Import gate
 For every proposed import:
 1. Identify the exact source commit and file list.
