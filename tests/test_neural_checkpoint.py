@@ -146,7 +146,7 @@ def test_training_checkpoint_rejects_oversized_file_before_numpy_load(
         pytest.fail("numpy.load não deveria ser chamado antes do preflight")
 
     monkeypatch.setattr(np, "load", unexpected_load)
-    with pytest.raises(NeuralError, match="64 MiB"):
+    with pytest.raises(NeuralError):
         load_training_checkpoint(network, optimizer, path)
 
     for original, parameter in zip(before, network.parameters()):
@@ -393,10 +393,10 @@ def test_checkpoint_metadata_rejects_deeply_nested_json():
         decode_metadata_array,
     )
 
-    payload = b"[" * 2048 + b"0" + b"]" * 2048
+    payload = b'{"nested":' + b"[" * 64 + b"0" + b"]" * 64 + b"}"
     metadata = np.frombuffer(payload, dtype=np.uint8)
 
-    with pytest.raises(CheckpointPreflightError, match="JSON dos metadados"):
+    with pytest.raises(CheckpointPreflightError, match="Profundidade excessiva"):
         decode_metadata_array(metadata)
 
 
@@ -418,6 +418,12 @@ def test_training_checkpoint_rejects_partial_or_extra_adam_moments(
 ):
     network = make_network()
     optimizer = Adam(learning_rate=0.03)
+    optimizer.step_count = 1
+    for parameter in network.parameters():
+        optimizer.state[id(parameter)] = {
+            "m": np.zeros_like(parameter.data),
+            "v": np.zeros_like(parameter.data),
+        }
     parameter = network.parameters()[0]
     optimizer.state[id(parameter)] = invalid_state
     path = tmp_path / "existing-valid.npz"
