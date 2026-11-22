@@ -13,7 +13,7 @@ The public validation snapshot was curated from the integrated architecture bran
 
 ## What has evidence in this snapshot
 
-The current public branch `snapshot/current-core-integration-20261122` passed its included tests on Python 3.12 and 3.14 at head `8290d6170ace9d733b17b590d1cac1a87a953a1b`: 845 passed, 1 skipped and 28 subtests passed on each version. The workflow uses Node 24-compatible Actions and pins pytest 9.2.0 / NumPy 2.5.5. Run: `45041686565`.
+The current public branch `snapshot/current-core-integration-20261122` passed its included tests on Python 3.12 and 3.14 at head `c8b5233cc4b1034fd0ee76432c0b2d975b535ed1`: 846 passed, 1 skipped and 28 subtests passed on each version. The workflow uses Node 24-compatible Actions, pins pytest 9.2.0 / NumPy 2.5.5, and validates feature branches through PR events only. Run: `45042493777`.
 
 These results validate only the included source slice and fixtures. They do not establish behavior on Android/Termux/Realme or validate the full private branch.
 
