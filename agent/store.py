@@ -39,7 +39,7 @@ def _confidence(value: Any) -> float | None:
 
 
 class KnowledgeStore:
-    SCHEMA_VERSION = 5
+    SCHEMA_VERSION = 6
 
     def __init__(self, db_path: str | Path | None = None):
         root = Path(__file__).resolve().parent.parent
@@ -266,6 +266,46 @@ class KnowledgeStore:
                 "INSERT OR IGNORE INTO schema_migrations "
                 "(version, applied_at, description) VALUES (?, ?, ?)",
                 (5, utc_now(), "Atomic per-key event sequence allocation"),
+            )
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS lab_experiments (
+                    experiment_id TEXT PRIMARY KEY,
+                    schema_version INTEGER NOT NULL,
+                    stage TEXT NOT NULL,
+                    version INTEGER NOT NULL CHECK(version >= 1),
+                    parent_digest TEXT,
+                    candidate_digest TEXT,
+                    payload_json TEXT NOT NULL,
+                    payload_sha256 TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS lab_experiment_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    experiment_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence >= 1),
+                    event_type TEXT NOT NULL,
+                    from_stage TEXT,
+                    to_stage TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    payload_sha256 TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(experiment_id, sequence),
+                    FOREIGN KEY(experiment_id)
+                        REFERENCES lab_experiments(experiment_id)
+                        ON DELETE RESTRICT
+                )
+            """)
+            connection.execute("""
+                CREATE INDEX IF NOT EXISTS idx_lab_experiment_events
+                ON lab_experiment_events(experiment_id, sequence)
+            """)
+            connection.execute(
+                "INSERT OR IGNORE INTO schema_migrations "
+                "(version, applied_at, description) VALUES (?, ?, ?)",
+                (6, utc_now(), "Durable append-only experiment ledger with checksummed transitions"),
             )
             connection.commit()
         finally:
@@ -940,6 +980,289 @@ class KnowledgeStore:
                 (event_type, severity, payload_json, now))
             return {"observation_id": int(observation.lastrowid),
                     "event_id": int(event.lastrowid)}
+
+    LAB_EXPERIMENT_STAGES = {
+        "proposed", "triaged", "sandboxed", "tested",
+        "review_ready", "rejected", "quarantined",
+    }
+    LAB_EXPERIMENT_TRANSITIONS = {
+        "proposed": {"triaged", "rejected"},
+        "triaged": {"sandboxed", "rejected"},
+        "sandboxed": {"tested", "rejected", "quarantined"},
+        "tested": {"review_ready", "rejected", "quarantined"},
+        "review_ready": {"quarantined"},
+        "rejected": set(),
+        "quarantined": set(),
+    }
+    LAB_EXPERIMENT_SCHEMA_VERSION = 1
+    LAB_EXPERIMENT_MAX_PAYLOAD_BYTES = 64 * 1024
+
+    @staticmethod
+    def _lab_payload_json(payload: dict) -> str:
+        if not isinstance(payload, dict):
+            raise ValueError("Payload do experimento precisa ser um objeto JSON.")
+        budget = [0]
+
+        def validate(value, depth=0):
+            if depth > 16:
+                raise ValueError("Profundidade excessiva no payload do experimento.")
+            budget[0] += 1
+            if budget[0] > 10_000:
+                raise ValueError("Payload do experimento excede o limite de nós.")
+            if value is None or isinstance(value, (bool, str)):
+                if isinstance(value, str) and len(value) > 16_384:
+                    raise ValueError("Texto excessivo no payload do experimento.")
+                return
+            if isinstance(value, int) and not isinstance(value, bool):
+                if value.bit_length() > 4096:
+                    raise ValueError("Inteiro excessivo no payload do experimento.")
+                return
+            if isinstance(value, float):
+                if not math.isfinite(value):
+                    raise ValueError("Número não finito no payload do experimento.")
+                return
+            if isinstance(value, list):
+                for item in value:
+                    validate(item, depth + 1)
+                return
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    if not isinstance(key, str) or len(key) > 256:
+                        raise ValueError("Chave inválida no payload do experimento.")
+                    validate(item, depth + 1)
+                return
+            raise ValueError("Tipo não JSON permitido no payload do experimento.")
+
+        validate(payload)
+        encoded = json.dumps(
+            payload, ensure_ascii=False, separators=(",", ":"),
+            sort_keys=True, allow_nan=False,
+        )
+        if len(encoded.encode("utf-8")) > KnowledgeStore.LAB_EXPERIMENT_MAX_PAYLOAD_BYTES:
+            raise ValueError("Payload do experimento excede 64 KiB.")
+        return encoded
+
+    @staticmethod
+    def _lab_digest(encoded: str) -> str:
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _lab_validate_id(experiment_id: str) -> str:
+        if (
+            not isinstance(experiment_id, str)
+            or not experiment_id
+            or len(experiment_id) > 128
+            or any(not (char.isalnum() or char in "._-") for char in experiment_id)
+        ):
+            raise ValueError("experiment_id inválido.")
+        return experiment_id
+
+    def create_lab_experiment(
+        self, experiment_id: str, payload: dict, *,
+        parent_digest: str | None = None,
+    ) -> dict:
+        """Create a durable experiment record and sequence-1 event atomically."""
+        experiment_id = self._lab_validate_id(experiment_id)
+        if parent_digest is not None and (
+            not isinstance(parent_digest, str)
+            or len(parent_digest) != 64
+            or any(char not in "0123456789abcdef" for char in parent_digest)
+        ):
+            raise ValueError("parent_digest precisa ser SHA-256 hexadecimal.")
+        clean_payload = dict(payload)
+        if "stage" in clean_payload and clean_payload["stage"] != "proposed":
+            raise ValueError("Novo experimento precisa iniciar em proposed.")
+        clean_payload["stage"] = "proposed"
+        payload_json = self._lab_payload_json(clean_payload)
+        digest = self._lab_digest(payload_json)
+        now = utc_now()
+        event_payload = {
+            "experiment_id": experiment_id,
+            "version": 1,
+            "stage": "proposed",
+            "payload_sha256": digest,
+            "parent_digest": parent_digest,
+        }
+        event_json = self._lab_payload_json(event_payload)
+        event_digest = self._lab_digest(event_json)
+        with self._transaction() as db:
+            db.execute(
+                """INSERT INTO lab_experiments(
+                    experiment_id,schema_version,stage,version,parent_digest,
+                    candidate_digest,payload_json,payload_sha256,created_at,updated_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                (experiment_id, self.LAB_EXPERIMENT_SCHEMA_VERSION, "proposed", 1,
+                 parent_digest, None, payload_json, digest, now, now),
+            )
+            db.execute(
+                """INSERT INTO lab_experiment_events(
+                    experiment_id,sequence,event_type,from_stage,to_stage,
+                    payload_json,payload_sha256,created_at
+                ) VALUES(?,?,?,?,?,?,?,?)""",
+                (experiment_id, 1, "created", None, "proposed",
+                 event_json, event_digest, now),
+            )
+        return {
+            "experiment_id": experiment_id, "stage": "proposed", "version": 1,
+            "payload_sha256": digest, "parent_digest": parent_digest,
+            "created_at": now, "updated_at": now,
+        }
+
+    def transition_lab_experiment(
+        self, experiment_id: str, *, expected_version: int,
+        expected_stage: str, new_stage: str, evidence: dict,
+        candidate_digest: str | None = None,
+    ) -> dict:
+        """Atomically append a checksummed lifecycle transition using CAS."""
+        experiment_id = self._lab_validate_id(experiment_id)
+        if isinstance(expected_version, bool) or not isinstance(expected_version, int) or expected_version < 1:
+            raise ValueError("expected_version precisa ser inteiro positivo.")
+        if expected_stage not in self.LAB_EXPERIMENT_STAGES or new_stage not in self.LAB_EXPERIMENT_STAGES:
+            raise ValueError("Estado de experimento desconhecido.")
+        if new_stage not in self.LAB_EXPERIMENT_TRANSITIONS[expected_stage]:
+            raise ValueError("Transição de estado não permitida.")
+        if candidate_digest is not None and (
+            not isinstance(candidate_digest, str) or len(candidate_digest) != 64
+            or any(char not in "0123456789abcdef" for char in candidate_digest)
+        ):
+            raise ValueError("candidate_digest precisa ser SHA-256 hexadecimal.")
+        evidence_json = self._lab_payload_json(evidence)
+        if new_stage == "tested":
+            passed = evidence.get("tests_passed")
+            total = evidence.get("tests_total")
+            if (
+                isinstance(passed, bool) or not isinstance(passed, int)
+                or isinstance(total, bool) or not isinstance(total, int)
+                or total < 1 or passed != total
+                or candidate_digest is None
+            ):
+                raise ValueError("Estado tested exige todos os testes aprovados e candidate_digest.")
+        if new_stage == "review_ready":
+            review_ref = evidence.get("independent_review_ref")
+            if not isinstance(review_ref, str) or not review_ref.strip():
+                raise ValueError("review_ready exige referência de revisão independente.")
+        now = utc_now()
+        with self._transaction() as db:
+            row = db.execute(
+                "SELECT * FROM lab_experiments WHERE experiment_id=?",
+                (experiment_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(experiment_id)
+            actual_payload_digest = self._lab_digest(row["payload_json"])
+            if actual_payload_digest != row["payload_sha256"]:
+                raise sqlite3.DatabaseError("Checksum do payload do experimento inválido.")
+            if row["version"] != expected_version or row["stage"] != expected_stage:
+                raise ValueError("Conflito de versão/estado; recarregue antes de transicionar.")
+            event_row = db.execute(
+                "SELECT COALESCE(MAX(sequence),0) AS seq FROM lab_experiment_events WHERE experiment_id=?",
+                (experiment_id,),
+            ).fetchone()
+            sequence = int(event_row["seq"]) + 1
+            next_version = int(row["version"]) + 1
+            event_payload = {
+                "experiment_id": experiment_id,
+                "version": next_version,
+                "evidence": evidence,
+                "candidate_digest": candidate_digest,
+            }
+            event_json = self._lab_payload_json(event_payload)
+            event_digest = self._lab_digest(event_json)
+            db.execute(
+                """INSERT INTO lab_experiment_events(
+                    experiment_id,sequence,event_type,from_stage,to_stage,
+                    payload_json,payload_sha256,created_at
+                ) VALUES(?,?,?,?,?,?,?,?)""",
+                (experiment_id, sequence, "transition", expected_stage, new_stage,
+                 event_json, event_digest, now),
+            )
+            db.execute(
+                """UPDATE lab_experiments SET stage=?,version=?,candidate_digest=?,
+                    updated_at=? WHERE experiment_id=? AND version=? AND stage=?""",
+                (new_stage, next_version, candidate_digest or row["candidate_digest"],
+                 now, experiment_id, expected_version, expected_stage),
+            )
+        return {
+            "experiment_id": experiment_id, "stage": new_stage,
+            "version": next_version, "candidate_digest": candidate_digest,
+            "updated_at": now,
+        }
+
+    def get_lab_experiment(self, experiment_id: str) -> dict | None:
+        experiment_id = self._lab_validate_id(experiment_id)
+        with self._reader() as db:
+            row = db.execute(
+                "SELECT * FROM lab_experiments WHERE experiment_id=?",
+                (experiment_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        if self._lab_digest(row["payload_json"]) != row["payload_sha256"]:
+            raise sqlite3.DatabaseError("Checksum do payload do experimento inválido.")
+        return {
+            "experiment_id": row["experiment_id"],
+            "schema_version": row["schema_version"], "stage": row["stage"],
+            "version": row["version"], "parent_digest": row["parent_digest"],
+            "candidate_digest": row["candidate_digest"],
+            "payload": json.loads(row["payload_json"]),
+            "payload_sha256": row["payload_sha256"],
+            "created_at": row["created_at"], "updated_at": row["updated_at"],
+        }
+
+    def list_lab_experiments(self, limit: int = 100) -> list[dict]:
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+            raise ValueError("limit precisa estar entre 1 e 500.")
+        with self._reader() as db:
+            rows = db.execute(
+                "SELECT experiment_id FROM lab_experiments ORDER BY updated_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [self.get_lab_experiment(row["experiment_id"]) for row in rows]
+
+    def get_lab_experiment_history(self, experiment_id: str) -> list[dict]:
+        experiment_id = self._lab_validate_id(experiment_id)
+        with self._reader() as db:
+            rows = db.execute(
+                "SELECT * FROM lab_experiment_events WHERE experiment_id=? ORDER BY sequence",
+                (experiment_id,),
+            ).fetchall()
+        history = []
+        for expected_sequence, row in enumerate(rows, 1):
+            if row["sequence"] != expected_sequence:
+                raise sqlite3.DatabaseError("Sequência do histórico de experimento contém lacuna.")
+            if self._lab_digest(row["payload_json"]) != row["payload_sha256"]:
+                raise sqlite3.DatabaseError("Checksum do histórico de experimento inválido.")
+            history.append({
+                "sequence": row["sequence"], "event_type": row["event_type"],
+                "from_stage": row["from_stage"], "to_stage": row["to_stage"],
+                "payload": json.loads(row["payload_json"]),
+                "payload_sha256": row["payload_sha256"], "created_at": row["created_at"],
+            })
+        return history
+
+    def audit_lab_experiments(self, limit: int = 500) -> dict:
+        """Verify current payloads and contiguous append-only event histories."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 500:
+            raise ValueError("limit precisa estar entre 1 e 500.")
+        with self._reader() as db:
+            ids = [row["experiment_id"] for row in db.execute(
+                "SELECT experiment_id FROM lab_experiments ORDER BY created_at LIMIT ?",
+                (limit,),
+            ).fetchall()]
+        valid, invalid = [], []
+        for experiment_id in ids:
+            try:
+                current = self.get_lab_experiment(experiment_id)
+                history = self.get_lab_experiment_history(experiment_id)
+                if not history or history[-1]["to_stage"] != current["stage"] or history[-1]["payload"]["version"] != current["version"]:
+                    raise sqlite3.DatabaseError("Estado atual diverge do último evento.")
+                valid.append(experiment_id)
+            except (sqlite3.DatabaseError, ValueError, KeyError) as exc:
+                invalid.append({"experiment_id": experiment_id, "reason": str(exc)})
+        return {
+            "checked": len(ids), "valid": valid, "invalid": invalid,
+            "truncated": len(ids) == limit,
+        }
 
     def record_experiment(self, hypothesis: str, method: str, result: str, conclusion: str,
                           metadata: dict | None = None, created_at: str | None = None) -> int:
