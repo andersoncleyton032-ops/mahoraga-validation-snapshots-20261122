@@ -91,15 +91,18 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - The queue now returns a structured wake request and enforces a 60-second minimum delay between chained one-shot invocations; no immediate zero-delay worker loop.
 
 ### Android WorkManager bridge validation — 2026-11-22
-- Private source branch: `implementation/android-workmanager-bridge-20261122`, source head `c3fa81984ce9f271851e4750288fc96d362353fc`.
-- Private PR #158 remains Draft, stacked on PR #157's background execution receipt hardening.
-- Public validation snapshot head: `df527b43c38f63ac5b1106f70744d67820ba81fa`.
-- Python workflow run #331: `45083947847`, conclusion `success`; Python 3.12 and 3.14 each report **918 passed, 1 skipped, 28 subtests passed**.
-- Android workflow run #9: `45083947828`, conclusion `success`; `compileDebugJavaWithJavac`, `testDebugUnitTest` and `assembleDebug` completed with **BUILD SUCCESSFUL**.
-- The preceding Android run #8 failed only because the new test method had been placed outside its Java class; the test source was corrected and run #9 passed.
-- WorkManager uses a persistent 15-minute periodic poll plus serialized one-shot work. It does not hard-require charging, battery-not-low or storage-not-low; the Python Governor applies adaptive admission. 2 GiB RAM/storage are preferred headroom; 512 MiB are emergency floors.
+- Private source branch: `implementation/android-workmanager-bridge-20261122`, source head `6c87e5e8970f7e3490b559a23257ab38c4b12f40`.
+- Private PR #158 remains Draft and is stacked on PR #157; no merge to `main`.
+- Public validation snapshot head: `8427b4ca0b79caf4ffd60a5349b6beac0441d71b`.
+- Python workflow run #335: `45084611891`, conclusion `success`; Python 3.12 and 3.14 each report **918 passed, 1 skipped, 28 subtests passed**.
+- Android workflow run #13: `45084611936`, conclusion `success`; `compileDebugJavaWithJavac`, `testDebugUnitTest` and `assembleDebug` completed with **BUILD SUCCESSFUL**.
+- Debug APK artifact: `mahoraga-android-bridge-debug`, artifact ID `14778647064`, approximately 2.87 MB, retained until 2026-12-06. It is a debug-only bridge package, not a production release or complete Termux distribution.
+- The WorkManager Worker now independently rejects missing/invalid wake receipts and only accepts `completed` when the Python completion receipt is valid, the task ID is present and execution was actually performed. Recovered completion requires a valid durable reconciliation receipt.
+- Resource policy: charging is optional; 2 GiB RAM/storage are preferred headroom, not absolute gates; 512 MiB are emergency floors. Mild thermal status keeps the bounded Companion budget; moderate reduces it, unknown permits only a minimal budget, severe/critical pauses.
+- WorkManager serializes Worker execution with a single-thread executor. Its scheduler limit is left at the supported default; the queue still processes one task per invocation.
 - The bridge uses Termux RUN_COMMAND >= 0.109, a result PendingIntent and a fixed Python entry point. Manual prerequisites remain: grant `com.termux.permission.RUN_COMMAND` to the bridge app and set `allow-external-apps=true` in Termux.
 - Official Termux contract: https://github.com/termux/termux-app/wiki/RUN_COMMAND-Intent
 - Android 12+ foreground-service background-start restrictions remain a runtime risk because Termux RUN_COMMAND promotes its service to foreground. Official Android guidance: https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start
-- The CI validates Python integration and Android compilation/unit tests only. It does **not** validate Termux IPC from a background WorkManager invocation, OEM scheduling, Android Doze behavior or the Realme 14 5G.
+- Private CI run #1597 (`45084587897`) failed before job steps/logs were available; it is not evidence of a Python test failure. The public isolated validation is the current executable evidence.
+- CI validates Python integration and Android compilation/unit tests only. It does **not** validate Termux IPC from a background WorkManager invocation, OEM scheduling, Doze behavior or the Realme 14 5G.
 - No device installation, permission grant, Termux property change, battery-setting change, Android system modification or network access has been performed.
