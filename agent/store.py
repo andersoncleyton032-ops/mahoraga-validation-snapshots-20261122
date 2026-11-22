@@ -592,6 +592,9 @@ class KnowledgeStore:
         idempotency_key: str,
         payload: dict | None = None,
         severity: str = "info",
+        *,
+        expected_latest_event_type: str | None = None,
+        expected_latest_event_id: int | None = None,
     ) -> dict:
         """Append an event once per stable key, atomically across Store instances.
 
@@ -610,6 +613,20 @@ class KnowledgeStore:
             raise ValueError("severity inválida.")
         if payload is not None and not isinstance(payload, dict):
             raise ValueError("payload deve ser um dicionário ou None.")
+        if expected_latest_event_type is not None and (
+            not isinstance(expected_latest_event_type, str)
+            or not expected_latest_event_type.strip()
+            or len(expected_latest_event_type) > 120
+        ):
+            raise ValueError("expected_latest_event_type inválido.")
+        if expected_latest_event_id is not None and (
+            isinstance(expected_latest_event_id, bool)
+            or not isinstance(expected_latest_event_id, int)
+            or expected_latest_event_id <= 0
+        ):
+            raise ValueError("expected_latest_event_id deve ser inteiro positivo ou None.")
+        if expected_latest_event_type is None and expected_latest_event_id is not None:
+            raise ValueError("expected_latest_event_id exige expected_latest_event_type.")
 
         normalized_key = idempotency_key.strip()
         normalized_type = event_type.strip()
@@ -625,6 +642,17 @@ class KnowledgeStore:
         now = utc_now()
 
         with self._transaction() as db:
+            if expected_latest_event_type is not None:
+                latest = db.execute(
+                    "SELECT id FROM events WHERE event_type=? ORDER BY id DESC LIMIT 1",
+                    (expected_latest_event_type.strip(),),
+                ).fetchone()
+                actual_latest_id = int(latest["id"]) if latest is not None else None
+                if actual_latest_id != expected_latest_event_id:
+                    raise ValueError(
+                        "Revisão do evento alterada por outro processo; recarregue o estado."
+                    )
+
             existing = db.execute(
                 "SELECT payload_sha256,event_id FROM event_idempotency WHERE idempotency_key=?",
                 (normalized_key,),
