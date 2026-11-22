@@ -5,7 +5,7 @@ import unittest
 
 import pytest
 from pathlib import Path
-from agent.store import KnowledgeStore
+from agent.store import KnowledgeStore, MemoryVersionConflict
 
 
 class TestKnowledgeStore(unittest.TestCase):

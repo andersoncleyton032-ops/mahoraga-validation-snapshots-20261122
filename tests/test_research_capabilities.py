@@ -8,7 +8,7 @@ from agent.store import KnowledgeStore
 
 
 class FakeGovernor:
-    def evaluate_session(self, runtime_context, *, resource_snapshot=None):
+    def evaluate_session(self, runtime_context, *, resource_snapshot=None, work_mode="foreground"):
         assert runtime_context["app_foreground"] is True
         assert runtime_context["screen_interactive"] is True
         return {

@@ -52,7 +52,7 @@ def test_queue_persists_and_deduplicates_items_across_instances(tmp_path):
 
 
 def test_queue_claims_by_priority_and_reclaims_only_after_lease_expiry(tmp_path):
-    queue, _ = make_queue(tmp_path)
+    queue, store = make_queue(tmp_path)
     now = datetime(2026, 11, 22, 22, 0, tzinfo=timezone.utc)
     queue.enqueue(descriptor("normal"), now=now)
     queue.enqueue(descriptor("high", priority="high"), now=now)

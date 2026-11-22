@@ -120,7 +120,7 @@ def test_governor_admits_one_cooperative_task_and_records_events(tmp_path):
     assert len(orchestrator.autonomy.sessions) == 1
     assert len(orchestrator.autonomy.requests) == 1
     assert orchestrator.autonomy.requests[0]["estimated_ram_mb"] == 32.0
-    assert len(store.list_events(10)) == 5
+    assert len(store.list_events(10)) == 3
 
 
 def test_governor_permit_must_be_bound_to_exact_task_and_risk(tmp_path):
@@ -464,7 +464,7 @@ def test_orchestrator_runs_one_checkpointable_internal_task_in_background_mode(t
     assert governor.requests[0]["internal_only"] is True
     assert governor.requests[0]["checkpointable"] is True
     assert governor.requests[0]["writes_workspace"] is False
-    assert len(store.list_events(10)) == 3
+    assert len(store.list_events(10)) == 5
 
 
 def test_orchestrator_rejects_screen_on_or_foreground_background_mode(tmp_path):
