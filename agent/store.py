@@ -750,7 +750,7 @@ class KnowledgeStore:
             "id": int(row["id"]),
             "event_type": row["event_type"],
             "severity": row["severity"],
-            "payload": payload,
+            "payload": json.loads(row["payload_json"]),
             "created_at": row["created_at"],
         }
 
@@ -1293,7 +1293,7 @@ class KnowledgeStore:
             "schema_version": row["schema_version"], "stage": row["stage"],
             "version": row["version"], "parent_digest": row["parent_digest"],
             "candidate_digest": row["candidate_digest"],
-            "payload": json.loads(row["payload_json"]),
+            "payload": payload,
             "payload_sha256": row["payload_sha256"],
             "created_at": row["created_at"], "updated_at": row["updated_at"],
         }
