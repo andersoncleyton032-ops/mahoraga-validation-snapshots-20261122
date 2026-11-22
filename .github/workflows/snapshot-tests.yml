@@ -4,15 +4,23 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'agent/**'
       - 'experiments/**'
       - 'tests/**'
+      - 'docs/**'
+      - 'README.md'
+      - '.gitignore'
       - '.github/workflows/snapshot-tests.yml'
   push:
     branches:
       - 'snapshot/**'
     paths:
+      - 'agent/**'
       - 'experiments/**'
       - 'tests/**'
+      - 'docs/**'
+      - 'README.md'
+      - '.gitignore'
       - '.github/workflows/snapshot-tests.yml'
 
 permissions:
