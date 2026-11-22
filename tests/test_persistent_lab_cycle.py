@@ -1,6 +1,7 @@
 from agent.store import KnowledgeStore
 from experiments.cognitive_interest_selector import InterestBudget
 from experiments.digital_physiology import DigitalPhysiologyState, ResourceObservation
+from experiments.autonomous_lab_cycle import AutonomousLabCycle
 from experiments.persistent_lab_cycle import PersistentAutonomousLabCycle
 
 
@@ -122,3 +123,44 @@ def test_persistent_cycle_keeps_production_and_execution_boundaries(tmp_path):
     assert result["candidate_code_executed"] is False
     assert result["production_modified"] is False
     assert result["automatic_promotion"] is False
+
+
+def test_persistent_cycle_recovers_after_record_creation_before_admission_transition(tmp_path):
+    store = KnowledgeStore(tmp_path / "cycle-crash-recovery.sqlite3")
+    backlog = [candidate()]
+    cycle_id = "cycle-recovery-001"
+    planning = AutonomousLabCycle().run_cycle(
+        cycle_id=cycle_id,
+        state=DigitalPhysiologyState(),
+        observation=observation(),
+        backlog=backlog,
+        base_budget=InterestBudget(1000, 128),
+    )
+    candidate_id = "candidate-001"
+    payload = {
+        "schema": "mahoraga.lab_candidate_record",
+        "schema_version": 1,
+        "cycle_id": cycle_id,
+        "candidate_id": candidate_id,
+        "interest": backlog[0]["interest"],
+        "governance": backlog[0]["governance"],
+        "decision": {"status": "admitted", "reason": "bounded_admission"},
+        "cycle_version": planning["cycle_version"],
+    }
+    experiment_id = PersistentAutonomousLabCycle._experiment_id(cycle_id, candidate_id)
+    store.create_lab_experiment_once(
+        experiment_id, payload, parent_digest="a" * 64,
+    )
+    assert store.get_lab_experiment(experiment_id)["stage"] == "proposed"
+
+    resumed = run(
+        PersistentAutonomousLabCycle(KnowledgeStore(store.db_path)),
+        backlog,
+        cycle_id=cycle_id,
+    )
+    record = store.get_lab_experiment(experiment_id)
+
+    assert resumed["experiment_ledger"]["replayed"] == 1
+    assert record["stage"] == "triaged"
+    assert record["version"] == 2
+    assert len(store.get_lab_experiment_history(experiment_id)) == 2
