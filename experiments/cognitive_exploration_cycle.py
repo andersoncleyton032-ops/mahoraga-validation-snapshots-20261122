@@ -77,13 +77,30 @@ class CognitiveExplorationCycle:
         # unresolved uncertainty, expected learning progress and noise risk.
         # Use it as the effective exploration allocation, not merely as telemetry.
         factor = exploration_factor
-        if control == "pause" or factor <= 0.0:
+        if control == "pause":
             return {
                 "schema": "mahoraga.cognitive_exploration_plan",
                 "schema_version": 1,
                 "cycle_version": self.VERSION,
                 "status": "deferred",
                 "reason": "homeostatic_pause",
+                "physiology": physiology,
+                "effective_exploration_factor": factor,
+                "selection": None,
+                "candidate_discovery_performed": False,
+                "memory_persisted": False,
+                "goal_created": False,
+                "work_executed": False,
+                "authorization_granted": False,
+            }
+
+        if factor <= 0.0:
+            return {
+                "schema": "mahoraga.cognitive_exploration_plan",
+                "schema_version": 1,
+                "cycle_version": self.VERSION,
+                "status": "deferred",
+                "reason": "insufficient_admission_budget",
                 "physiology": physiology,
                 "effective_exploration_factor": factor,
                 "selection": None,
@@ -116,7 +133,7 @@ class CognitiveExplorationCycle:
         # When physiological reserve is reduced, require more expected utility
         # per candidate rather than merely trying fewer low-value tasks.
         adjusted_minimum = min(
-            1.0, float(minimum_score) + (1.0 - factor) * 0.20
+            1.0, float(minimum_score) + (1.0 - admission_factor) * 0.20
         )
         budget = InterestBudget(
             max_runtime_ms=scaled_runtime,
