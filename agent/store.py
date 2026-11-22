@@ -1377,17 +1377,20 @@ class KnowledgeStore:
                         ):
                             raise sqlite3.DatabaseError("Transição no histórico é inválida.")
                     previous_stage = event["to_stage"]
+                latest_candidate_digest = next(
+                    (
+                        event["payload"].get("candidate_digest")
+                        for event in reversed(history)
+                        if event["payload"].get("candidate_digest") is not None
+                    ),
+                    None,
+                )
                 if (
                     history[-1]["to_stage"] != current["stage"]
                     or history[-1]["payload"]["version"] != current["version"]
-                    or history[-1]["payload"].get("candidate_digest") != current["candidate_digest"]
+                    or latest_candidate_digest != current["candidate_digest"]
                 ):
                     raise sqlite3.DatabaseError("Estado atual diverge do último evento.")
-                if any(
-                    event["payload"].get("candidate_digest") is not None
-                    for event in history[:-1]
-                ) and current["candidate_digest"] is None:
-                    raise sqlite3.DatabaseError("Digest do candidato foi removido do estado atual.")
                 valid.append(experiment_id)
             except (sqlite3.DatabaseError, ValueError, KeyError) as exc:
                 invalid.append({"experiment_id": experiment_id, "reason": str(exc)})
