@@ -537,17 +537,19 @@ class BackgroundWorkScheduler:
         self.worker_id = PersistentBackgroundWorkQueue._text(worker_id, "worker_id", 80)
         self.wake_adapter = wake_adapter
 
-    def _schedule_next(self, delay_seconds: int) -> str:
+    def _schedule_next(self, delay_seconds: int) -> dict[str, Any]:
         if not self.queue.has_pending():
-            return "not_needed"
+            return {"status": "not_needed", "delay_seconds": None}
         schedule = getattr(self.wake_adapter, "schedule_next", None)
         if not callable(schedule):
-            return "adapter_missing"
+            return {"status": "adapter_missing", "delay_seconds": None}
         try:
             result = schedule(delay_seconds=delay_seconds)
         except Exception:
-            return "adapter_error"
-        return "adapter_rejected" if result is False else "scheduled"
+            return {"status": "adapter_error", "delay_seconds": delay_seconds}
+        if result is False:
+            return {"status": "adapter_rejected", "delay_seconds": delay_seconds}
+        return {"status": "scheduled", "delay_seconds": delay_seconds}
 
     def run_once(
         self,
@@ -562,7 +564,7 @@ class BackgroundWorkScheduler:
                 "status": "idle",
                 "task_id": None,
                 "execution_performed": False,
-                "wake_schedule": "not_needed",
+                "wake_schedule": {"status": "not_needed", "delay_seconds": None},
             }
 
         if not isinstance(runtime_context, dict):
@@ -728,7 +730,7 @@ class BackgroundWorkScheduler:
         if receipt_valid:
             self.queue.complete(item["task_id"], self.worker_id)
             status = "completed"
-            delay = 0
+            delay = self.MIN_NEXT_TASK_DELAY_SECONDS
             failure_reason = None
         else:
             failure_reason = (

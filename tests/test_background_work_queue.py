@@ -303,7 +303,7 @@ def test_scheduler_without_platform_wake_adapter_does_not_claim_continuous_execu
     result = scheduler.run_once({"app_foreground": False, "screen_interactive": False})
 
     assert result["status"] == "completed"
-    assert result["wake_schedule"] == "adapter_missing"
+    assert result["wake_schedule"] == {"status": "adapter_missing", "delay_seconds": None}
     assert queue.summary()["queued"] == 1
 
 
