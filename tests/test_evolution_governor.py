@@ -94,7 +94,7 @@ def test_review_requires_independent_review_reference():
         "../agent/main.py",
         "experiments/../../agent/main.py",
         "/tmp/candidate.py",
-        "experiments\\\\candidate.py",
+        "experiments\\candidate.py",
     ],
 )
 def test_candidate_scope_cannot_escape_experimental_directories(scope):
