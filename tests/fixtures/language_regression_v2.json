@@ -1,0 +1,369 @@
+{
+  "suite_id": "language-regression-v2",
+  "version": 2,
+  "split": "held_out",
+  "purpose": "Conjunto independente de desafio para avaliar generalização após expansão do fixture de treinamento v2.",
+  "training_policy": "Nunca importar estes casos para qualquer conjunto de treinamento. Não copiar frases ou paráfrases próximas para fixtures de treinamento.",
+  "cases": [
+    {
+      "id": "status_paraphrase_01",
+      "category": "paraphrase",
+      "text": "Quero um resumo da estabilidade operacional do núcleo.",
+      "expected": {
+        "decision": "recognize",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "status_paraphrase_02",
+      "category": "paraphrase",
+      "text": "Diga se os processos internos continuam ativos.",
+      "expected": {
+        "decision": "recognize",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "inspect_paraphrase_01",
+      "category": "paraphrase",
+      "text": "Quais objetos aparecem na área de edição tridimensional?",
+      "expected": {
+        "decision": "recognize",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "inspect_paraphrase_02",
+      "category": "paraphrase",
+      "text": "Mostre a hierarquia visual do cenário.",
+      "expected": {
+        "decision": "recognize",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "status_typo_01",
+      "category": "typo",
+      "text": "Como está o sistemaa hoje?",
+      "expected": {
+        "decision": "recognize",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "status_typo_02",
+      "category": "typo",
+      "text": "Qual a condiçao dos servicos?",
+      "expected": {
+        "decision": "recognize",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "inspect_typo_01",
+      "category": "typo",
+      "text": "Verifique os objtos no cenário.",
+      "expected": {
+        "decision": "recognize",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "inspect_typo_02",
+      "category": "typo",
+      "text": "Examine a cne da composição.",
+      "expected": {
+        "decision": "recognize",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "negation_01",
+      "category": "negation",
+      "text": "Não consulte o relatório de operação.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "negation_02",
+      "category": "negation",
+      "text": "Nunca examine a hierarquia dos modelos.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "negation_03",
+      "category": "negation",
+      "text": "Não quero que você mostre os itens da cena.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "negation_04",
+      "category": "negation",
+      "text": "Pare de verificar os indicadores do núcleo.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "negation_05",
+      "category": "negation",
+      "text": "Não apenas observe a cena, examine também a geometria.",
+      "expected": {
+        "decision": "recognize",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "ambiguity_01",
+      "category": "ambiguity",
+      "text": "Talvez seja melhor revisar isso depois.",
+      "expected": {
+        "decision": "clarify",
+        "intent": null
+      }
+    },
+    {
+      "id": "ambiguity_02",
+      "category": "ambiguity",
+      "text": "Você pode cuidar daquela parte?",
+      "expected": {
+        "decision": "clarify",
+        "intent": null
+      }
+    },
+    {
+      "id": "ambiguity_03",
+      "category": "ambiguity",
+      "text": "Dá para verificar aquilo?",
+      "expected": {
+        "decision": "clarify",
+        "intent": null
+      }
+    },
+    {
+      "id": "ambiguity_04",
+      "category": "ambiguity",
+      "text": "Acho que seria bom olhar o negócio.",
+      "expected": {
+        "decision": "clarify",
+        "intent": null
+      }
+    },
+    {
+      "id": "future_01",
+      "category": "future_intention",
+      "text": "Na semana que vem, gostaria de consultar os relatórios do núcleo.",
+      "expected": {
+        "decision": "defer",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "future_02",
+      "category": "future_intention",
+      "text": "Quando a atualização terminar, confira os serviços.",
+      "expected": {
+        "decision": "defer",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "future_03",
+      "category": "future_intention",
+      "text": "No próximo ciclo, examine os elementos da cena.",
+      "expected": {
+        "decision": "defer",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "future_04",
+      "category": "future_intention",
+      "text": "Depois da reunião, informe o estado do sistema.",
+      "expected": {
+        "decision": "defer",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "conditional_01",
+      "category": "conditional",
+      "text": "Se houver autorização, consulte o diagnóstico do sistema.",
+      "expected": {
+        "decision": "defer",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "conditional_02",
+      "category": "conditional",
+      "text": "Caso eu confirme, inspecione a composição.",
+      "expected": {
+        "decision": "defer",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "conditional_03",
+      "category": "conditional",
+      "text": "Se for permitido, verifique os recursos do núcleo.",
+      "expected": {
+        "decision": "defer",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "conditional_04",
+      "category": "conditional",
+      "text": "Quando eu autorizar, revise a cena.",
+      "expected": {
+        "decision": "defer",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "past_01",
+      "category": "past_reference",
+      "text": "Na última sessão, revisei a composição.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_02",
+      "category": "past_reference",
+      "text": "A inspeção da cena foi concluída ontem.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_03",
+      "category": "past_reference",
+      "text": "Eu consultei o relatório mais cedo.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_04",
+      "category": "past_reference",
+      "text": "Ontem os objetos foram inspecionados.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_01",
+      "category": "out_of_domain",
+      "text": "Explique a fotossíntese.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_02",
+      "category": "out_of_domain",
+      "text": "Quanto custa um quilo de arroz?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_03",
+      "category": "out_of_domain",
+      "text": "Traduza este parágrafo para inglês.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_04",
+      "category": "out_of_domain",
+      "text": "Qual é a capital da Islândia?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "format_01",
+      "category": "format_variation",
+      "text": "STATUS???",
+      "expected": {
+        "decision": "recognize",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "format_02",
+      "category": "format_variation",
+      "text": "BLENDER: liste os objetos.",
+      "expected": {
+        "decision": "recognize",
+        "intent": "blender.inspect"
+      }
+    },
+    {
+      "id": "format_03",
+      "category": "format_variation",
+      "text": "SISTEMA — apresente diagnóstico geral.",
+      "expected": {
+        "decision": "recognize",
+        "intent": "status"
+      }
+    },
+    {
+      "id": "ood_05",
+      "category": "out_of_domain",
+      "text": "Verifique a temperatura do arroz.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_06",
+      "category": "out_of_domain",
+      "text": "Analise a fotossíntese.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_07",
+      "category": "out_of_domain",
+      "text": "Meu celular está carregado.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_08",
+      "category": "out_of_domain",
+      "text": "Revise a estrutura do texto.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    }
+  ]
+}
