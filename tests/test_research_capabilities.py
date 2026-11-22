@@ -270,7 +270,9 @@ def test_catalog_survives_reopen_without_restoring_runtime_callable(tmp_path):
     database_path = tmp_path / "capabilities.sqlite3"
     store = KnowledgeStore(database_path)
     first = ResearchOrchestrator(
-        SimpleNamespace(store=store, dharma=Dharma(tmp_path))
+        SimpleNamespace(store=store, dharma=Dharma(tmp_path)),
+        autonomy=FakeGovernor(),
+        runtime_context_provider=_runtime_context,
     )
     first.register_capability(
         "test.reopen", lambda: "não deve ser restaurada",
@@ -283,7 +285,9 @@ def test_catalog_survives_reopen_without_restoring_runtime_callable(tmp_path):
         SimpleNamespace(
             store=reopened_store,
             dharma=Dharma(tmp_path),
-        )
+        ),
+        autonomy=FakeGovernor(),
+        runtime_context_provider=_runtime_context,
     )
 
     status = reopened.status()
