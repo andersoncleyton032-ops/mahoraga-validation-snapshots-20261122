@@ -1,11 +1,11 @@
 package com.mahoraga.runtime;
 
-import org.junit.Test;
 import androidx.work.Constraints;
 import androidx.work.NetworkType;
 
-import static org.junit.Assert.assertEquals;
+import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -27,8 +27,6 @@ public final class WorkPolicyTest {
         assertFalse(WorkPolicy.isValidInitialDelay(-1));
         assertFalse(WorkPolicy.isValidInitialDelay(3601));
     }
-}
-
 
     @Test
     public void resourceHeadroomIsGovernedDynamicallyRatherThanByHardWorkManagerGates() {
@@ -39,3 +37,4 @@ public final class WorkPolicyTest {
         assertFalse(constraints.requiresBatteryNotLow());
         assertFalse(constraints.requiresStorageNotLow());
     }
+}
