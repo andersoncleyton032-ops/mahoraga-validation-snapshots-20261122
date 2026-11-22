@@ -72,3 +72,19 @@ class TestDharma(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+def test_sandbox_symlink_escape_is_rejected(tmp_path):
+    sandbox_workspace = Path(__file__).resolve().parents[1] / "sandbox" / "workspace"
+    sandbox_workspace.mkdir(parents=True, exist_ok=True)
+    link = sandbox_workspace / f"escape-{tmp_path.name}"
+    link.symlink_to(tmp_path, target_is_directory=True)
+    try:
+        result = Dharma().evaluate(
+            "create_sandbox_file", f"sandbox/workspace/{link.name}/payload.py"
+        )
+        assert not result.allowed
+        assert result.requires_approval
+    finally:
+        link.unlink(missing_ok=True)
