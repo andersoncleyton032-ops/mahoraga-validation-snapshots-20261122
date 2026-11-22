@@ -538,6 +538,8 @@ class BackgroundWorkScheduler:
         self.wake_adapter = wake_adapter
 
     def _schedule_next(self, delay_seconds: int) -> dict[str, Any]:
+        if isinstance(delay_seconds, bool) or not isinstance(delay_seconds, int) or not 0 <= delay_seconds <= 3600:
+            return {"status": "invalid_delay", "delay_seconds": None}
         if not self.queue.has_pending():
             return {"status": "not_needed", "delay_seconds": None}
         schedule = getattr(self.wake_adapter, "schedule_next", None)
@@ -547,7 +549,7 @@ class BackgroundWorkScheduler:
             result = schedule(delay_seconds=delay_seconds)
         except Exception:
             return {"status": "adapter_error", "delay_seconds": delay_seconds}
-        if result is False:
+        if result is not True:
             return {"status": "adapter_rejected", "delay_seconds": delay_seconds}
         return {"status": "scheduled", "delay_seconds": delay_seconds}
 
