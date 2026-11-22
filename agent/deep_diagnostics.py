@@ -46,8 +46,34 @@ class HardwareDeepDiagnostics:
             return {"status": "os_error", "error": type(exc).__name__}
 
     def _run(self, argv: list[str], timeout: int | None = None) -> dict[str, Any]:
-        if not argv or not shutil.which(argv[0]):
-            return {"status": "command_not_found", "command": argv[0] if argv else None}
+        allowed_getprop = {
+            "ro.product.manufacturer", "ro.product.model", "ro.product.device",
+            "ro.build.version.release", "ro.build.version.sdk", "ro.hardware",
+            "ro.hardware.egl", "ro.hardware.vulkan", "ro.opengles.version",
+            "ro.build.fingerprint",
+        }
+        allowed_rish = {
+            "id", "getenforce", "dumpsys thermalservice", "dumpsys gpu",
+            "service list", "getprop ro.hardware", "getprop ro.hardware.egl",
+            "getprop ro.hardware.vulkan",
+        }
+        if not argv or not isinstance(argv[0], str):
+            return {"status": "command_not_allowlisted"}
+        rish_call = (
+            self._rish_path is not None and argv[0] == self._rish_path
+            and len(argv) == 3 and argv[1] == "-c" and argv[2] in allowed_rish
+        )
+        getprop_call = (
+            argv[0] == "getprop" and len(argv) == 2 and argv[1] in allowed_getprop
+        )
+        if not (
+            rish_call or getprop_call
+            or argv == ["vulkaninfo", "--summary"]
+            or argv == ["termux-battery-status"]
+        ):
+            return {"status": "command_not_allowlisted"}
+        if not shutil.which(argv[0]):
+            return {"status": "command_not_found", "command": argv[0]}
         try:
             result = subprocess.run(argv, capture_output=True, text=True,
                 timeout=timeout or self.timeout, check=False,
