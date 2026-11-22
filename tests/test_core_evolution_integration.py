@@ -17,7 +17,7 @@ class ResourceFixture:
             "app_foreground": True,
             "screen_interactive": True,
             "thermal_status": thermal_status,
-            "source": "synthetic_test_fixture",
+            "source": "simulated",
         }
 
     def resource_snapshot(self, thermal_status="normal"):
@@ -57,7 +57,7 @@ def observation(**overrides):
         "unresolved_uncertainty": 0.7,
         "expected_learning_progress": 0.8,
         "noise_risk": 0.1,
-        "source": "synthetic_test_fixture",
+        "source": "simulated",
     }
     values.update(overrides)
     return ResourceObservation(**values)
@@ -139,7 +139,7 @@ def test_hardware_thermal_pause_overrides_positive_exploration_plan(tmp_path):
 
     assert session["status"] != "bounded"
     assert decision["allowed"] is False
-    assert decision["permit"]["execution_performed"] is False
+    assert decision["permit"] is None
 
 
 def test_exploration_plan_cannot_authorize_network_or_external_effects(tmp_path):
