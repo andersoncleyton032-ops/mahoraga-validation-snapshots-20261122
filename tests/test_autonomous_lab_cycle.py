@@ -38,13 +38,13 @@ def candidate(candidate_id="exp-001", **governance_overrides):
     return {"interest": interest, "governance": governance}
 
 
-def run(cycle, backlog, observation_value=None, cycle_id="cycle-001"):
+def run(cycle, backlog, observation_value=None, cycle_id="cycle-001", base_budget=None):
     return cycle.run_cycle(
         cycle_id=cycle_id,
         state=DigitalPhysiologyState(),
         observation=observation_value or observation(),
         backlog=backlog,
-        base_budget=InterestBudget(1000, 128),
+        base_budget=base_budget or InterestBudget(1000, 128),
     )
 
 
@@ -85,7 +85,10 @@ def test_dependent_candidate_is_blocked_when_dependency_is_not_admitted():
     root["interest"]["estimated_runtime_ms"] = 1
     root["interest"]["estimated_ram_mb"] = 1
     root["interest"]["dependencies"] = ["dependency-001"]
-    result = run(cycle, [dependency, root])
+    result = run(cycle, [dependency, root], base_budget=InterestBudget(10000, 1024))
+    assert result["planning"]["selection"]["selected_order"] == [
+        "dependency-001", "root-001"
+    ]
     assert result["status"] == "blocked"
     assert result["admitted_candidate_ids"] == []
     reasons = {item["candidate_id"]: item["reason"] for item in result["blocked_candidates"]}
