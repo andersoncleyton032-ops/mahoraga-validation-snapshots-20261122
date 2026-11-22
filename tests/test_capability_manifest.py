@@ -145,7 +145,8 @@ def test_manifest_sync_inserts_metadata_only(tmp_path):
 def test_registration_requires_explicit_manifest_sync(tmp_path):
     orchestrator, _, _ = make_system(tmp_path)
 
-    def add(a, b):
+    def add(a, b, execution_context):
+        execution_context.check()
         return a + b
 
     with pytest.raises(PermissionError, match="não sincronizada"):
