@@ -61,6 +61,20 @@ class TestPhysicsLab(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     PhysicsLab(gravity=gravity)
 
+    def test_extreme_step_count_is_rejected_before_simulation(self):
+        with self.assertRaisesRegex(ValueError, "limite maximo de passos"):
+            self.lab.free_fall(10, duration=1_000_000, step=0.000001)
+
+    def test_extreme_velocity_is_rejected_as_numeric_domain_error(self):
+        with self.assertRaises(ValueError):
+            self.lab.free_fall(10, initial_velocity=1e308, duration=1, step=0.1)
+
+    def test_boolean_values_are_not_accepted_as_physical_parameters(self):
+        with self.assertRaises(ValueError):
+            self.lab.free_fall(True)
+        with self.assertRaises(ValueError):
+            PhysicsLab(gravity=True)
+
     def test_invalid_simulation_parameters_are_rejected(self):
         invalid_cases = (
             {"initial_height": -1},
