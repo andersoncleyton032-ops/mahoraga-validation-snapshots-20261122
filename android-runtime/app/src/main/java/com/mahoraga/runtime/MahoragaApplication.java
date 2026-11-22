@@ -17,7 +17,6 @@ public final class MahoragaApplication extends Application
         return new Configuration.Builder()
                 .setMinimumLoggingLevel(Log.INFO)
                 .setExecutor(Executors.newSingleThreadExecutor())
-                .setMaxSchedulerLimit(1)
                 .build();
     }
 }

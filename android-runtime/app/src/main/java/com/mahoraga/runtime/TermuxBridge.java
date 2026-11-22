@@ -176,7 +176,7 @@ public final class TermuxBridge {
     }
 
     private static String safeError(String value) {
-        if (value == null || value.isBlank()) return "termux_command_rejected";
+        if (value == null || value.trim().isEmpty()) return "termux_command_rejected";
         String normalized = value.replaceAll("[\\r\\n\\t]", " ").trim();
         return normalized.substring(0, Math.min(normalized.length(), 120));
     }
