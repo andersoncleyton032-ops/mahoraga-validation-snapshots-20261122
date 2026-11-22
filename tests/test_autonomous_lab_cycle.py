@@ -80,6 +80,10 @@ def test_dependent_candidate_is_blocked_when_dependency_is_not_admitted():
     cycle = AutonomousLabCycle()
     dependency = candidate("dependency-001", risk_class="high")
     root = candidate("root-001")
+    dependency["interest"]["estimated_runtime_ms"] = 1
+    dependency["interest"]["estimated_ram_mb"] = 1
+    root["interest"]["estimated_runtime_ms"] = 1
+    root["interest"]["estimated_ram_mb"] = 1
     root["interest"]["dependencies"] = ["dependency-001"]
     result = run(cycle, [dependency, root])
     assert result["status"] == "blocked"
