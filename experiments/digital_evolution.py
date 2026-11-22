@@ -40,6 +40,13 @@ class Instruction:
         elif self.value is not None:
             raise DigitalEvolutionError("Somente PUSH_CONST aceita valor.")
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return the canonical, JSON-safe representation of this instruction."""
+        result: dict[str, Any] = {"op": self.op}
+        if self.op == "PUSH_CONST":
+            result["value"] = self.value
+        return result
+
 
 Genome = tuple[Instruction, ...]
 
