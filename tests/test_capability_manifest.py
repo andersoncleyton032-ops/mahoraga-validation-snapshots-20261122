@@ -49,7 +49,51 @@ def write_manifest(path, capabilities):
     return path
 
 
-def make_system(tmp_path, capabilities=None):
+class FakeGovernor:
+    def evaluate_session(self, runtime_context, *, resource_snapshot=None):
+        assert runtime_context["app_foreground"] is True
+        assert runtime_context["screen_interactive"] is True
+        return {
+            "status": "bounded",
+            "mode": "test",
+            "budget": {
+                "max_task_seconds": 5.0,
+                "max_task_ram_mb": 64.0,
+                "max_concurrent_tasks": 1,
+                "continuous_loop_allowed": False,
+                "network_allowed": False,
+                "camera_capture_allowed": False,
+                "microphone_capture_allowed": False,
+                "android_changes_allowed": False,
+                "package_installation_allowed": False,
+                "project_writes_allowed": False,
+            },
+        }
+
+    def evaluate_work(self, session, work_request):
+        return {
+            "allowed": True,
+            "permit": {
+                "task_id": work_request["task_id"],
+                "risk": work_request["risk"],
+                "max_runtime_seconds": min(5.0, work_request["estimated_seconds"]),
+                "max_memory_mb": min(64.0, work_request["estimated_ram_mb"]),
+                "continuous_loop": False,
+                "side_effects": "none",
+                "execution_performed": False,
+            },
+        }
+
+
+def runtime_context():
+    return {
+        "app_foreground": True,
+        "screen_interactive": True,
+        "thermal_status": "normal",
+    }
+
+
+def make_system(tmp_path, capabilities=None, *, governed=True):
     store = KnowledgeStore(tmp_path / "manifest_test.sqlite3")
     manifest_path = tmp_path / "config" / "capability_manifest.json"
     write_manifest(
@@ -64,6 +108,8 @@ def make_system(tmp_path, capabilities=None):
     orchestrator = ResearchOrchestrator(
         cognitive,
         capability_manifest=manifest,
+        autonomy=FakeGovernor() if governed else None,
+        runtime_context_provider=runtime_context if governed else None,
     )
     return orchestrator, manifest, store
 
