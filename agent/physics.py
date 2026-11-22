@@ -4,9 +4,17 @@ import math
 class PhysicsLab:
     MAX_TIME_STEPS = 100_000
 
+    @staticmethod
+    def _is_finite_number(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return False
+        try:
+            return math.isfinite(value)
+        except OverflowError:
+            return False
+
     def __init__(self, gravity=9.81):
-        if (isinstance(gravity, bool) or not isinstance(gravity, (int, float))
-                or not math.isfinite(gravity) or gravity <= 0):
+        if not self._is_finite_number(gravity) or gravity <= 0:
             raise ValueError("Gravidade deve ser positiva e finita.")
 
         self.gravity = float(gravity)
@@ -15,11 +23,7 @@ class PhysicsLab:
 
         values = (initial_height, initial_velocity, duration, step)
 
-        if any(
-            isinstance(v, bool) or not isinstance(v, (int, float))
-            or not math.isfinite(v)
-            for v in values
-        ):
+        if any(not self._is_finite_number(value) for value in values):
             raise ValueError("Todos os parametros devem ser numeros finitos.")
 
         if initial_height <= 0 or step <= 0 or duration < 0:
