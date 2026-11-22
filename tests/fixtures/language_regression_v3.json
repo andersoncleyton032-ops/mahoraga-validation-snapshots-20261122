@@ -1,0 +1,441 @@
+{
+  "suite_id": "language-regression-v3",
+  "version": 3,
+  "split": "held_out",
+  "purpose": "Conjunto adversarial independente focado em palavras polissêmicas, tópicos externos próximos do vocabulário operacional e relatos passados com verbos ausentes do vocabulário de ações.",
+  "training_policy": "Nunca importar estes casos, nem paráfrases próximas, para qualquer conjunto de treinamento. Este conjunto mede somente os casos versionados e não prova compreensão geral.",
+  "cases": [
+    {
+      "id": "ood_v3_01",
+      "category": "out_of_domain",
+      "text": "Como está o sistema solar?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_02",
+      "category": "out_of_domain",
+      "text": "Explique o processo de fotossíntese.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_03",
+      "category": "out_of_domain",
+      "text": "Quais recursos naturais existem na Amazônia?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_04",
+      "category": "out_of_domain",
+      "text": "Qual é a situação política do país?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_05",
+      "category": "out_of_domain",
+      "text": "Explique o modelo matemático de crescimento.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_06",
+      "category": "out_of_domain",
+      "text": "Analise a estrutura do texto.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_07",
+      "category": "out_of_domain",
+      "text": "Verifique o processo judicial.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_08",
+      "category": "out_of_domain",
+      "text": "Mostre o modelo econômico.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_09",
+      "category": "out_of_domain",
+      "text": "Como funciona o sistema digestivo?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_10",
+      "category": "out_of_domain",
+      "text": "Qual é a situação do trânsito agora?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_11",
+      "category": "out_of_domain",
+      "text": "Quais são os processos de fabricação?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_12",
+      "category": "out_of_domain",
+      "text": "Liste os recursos hídricos da região.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_13",
+      "category": "out_of_domain",
+      "text": "Qual é o estado do Amazonas?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_14",
+      "category": "out_of_domain",
+      "text": "Explique a geometria molecular.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_15",
+      "category": "out_of_domain",
+      "text": "Verifique a condição meteorológica.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_16",
+      "category": "out_of_domain",
+      "text": "Analise a composição química da água.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_17",
+      "category": "out_of_domain",
+      "text": "Mostre a hierarquia social.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_18",
+      "category": "out_of_domain",
+      "text": "Qual sistema político é mais estável?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_19",
+      "category": "out_of_domain",
+      "text": "Quais elementos naturais existem na praia?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_20",
+      "category": "out_of_domain",
+      "text": "Compare os modelos estatísticos.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_21",
+      "category": "out_of_domain",
+      "text": "Descreva a operação matemática.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_22",
+      "category": "out_of_domain",
+      "text": "Como funciona o processo de aprendizagem humana?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_23",
+      "category": "out_of_domain",
+      "text": "Quais são os recursos minerais da região?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_24",
+      "category": "out_of_domain",
+      "text": "Explique a estrutura celular.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_25",
+      "category": "out_of_domain",
+      "text": "Analise o ambiente econômico.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_26",
+      "category": "out_of_domain",
+      "text": "Informe o desempenho escolar.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_27",
+      "category": "out_of_domain",
+      "text": "Como está a saúde pública?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_28",
+      "category": "out_of_domain",
+      "text": "Qual é a situação jurídica da empresa?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_29",
+      "category": "out_of_domain",
+      "text": "Confira o estado de conservação do prédio.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_30",
+      "category": "out_of_domain",
+      "text": "Resuma a história do núcleo atômico.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_31",
+      "category": "out_of_domain",
+      "text": "Descreva a composição química do solo.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_32",
+      "category": "out_of_domain",
+      "text": "Explique como funciona o sistema respiratório.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_33",
+      "category": "out_of_domain",
+      "text": "Compare o quadro político internacional.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_34",
+      "category": "out_of_domain",
+      "text": "Qual é o processo de reciclagem correto?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_35",
+      "category": "out_of_domain",
+      "text": "Mostre o cenário econômico atual.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_36",
+      "category": "out_of_domain",
+      "text": "Analise o modelo de negócio da loja.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_37",
+      "category": "out_of_domain",
+      "text": "Quais são os elementos da tabela periódica?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_38",
+      "category": "out_of_domain",
+      "text": "Consulte as condições climáticas da cidade.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_39",
+      "category": "out_of_domain",
+      "text": "Qual é o status do sistema solar?",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "ood_v3_40",
+      "category": "out_of_domain",
+      "text": "Explique o processo de evolução das espécies.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_v3_41",
+      "category": "past_reference",
+      "text": "Ontem o sistema apresentou erro.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_v3_42",
+      "category": "past_reference",
+      "text": "O relatório foi concluído ontem.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_v3_43",
+      "category": "past_reference",
+      "text": "Mais cedo os serviços ficaram indisponíveis.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_v3_44",
+      "category": "past_reference",
+      "text": "Na sessão anterior o núcleo permaneceu estável.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_v3_45",
+      "category": "past_reference",
+      "text": "A cena foi renderizada ontem no Blender.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_v3_46",
+      "category": "past_reference",
+      "text": "Na semana passada os objetos mudaram de posição no Blender.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_v3_47",
+      "category": "past_reference",
+      "text": "Anteriormente o sistema registrou uma falha.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    },
+    {
+      "id": "past_v3_48",
+      "category": "past_reference",
+      "text": "O relatório técnico foi finalizado mais cedo.",
+      "expected": {
+        "decision": "abstain",
+        "intent": null
+      }
+    }
+  ]
+}
