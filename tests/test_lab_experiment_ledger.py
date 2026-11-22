@@ -254,3 +254,45 @@ def test_ledger_listing_is_bounded_and_reports_corruption(tmp_path):
     for invalid in (True, 0, 501, "2"):
         with pytest.raises(ValueError):
             store.list_lab_experiments(limit=invalid)
+
+
+def test_concurrent_idempotent_creation_produces_one_record(tmp_path):
+    stores = [KnowledgeStore(tmp_path / "concurrent-create.sqlite3") for _ in range(4)]
+    payload = {"hypothesis": "same candidate", "method": "parallel replay"}
+
+    def submit(index):
+        return stores[index % len(stores)].create_lab_experiment_once(
+            "shared-experiment", payload, parent_digest="e" * 64
+        )
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        results = list(pool.map(submit, range(48)))
+
+    assert sum(item["created"] for item in results) == 1
+    assert sum(not item["created"] for item in results) == 47
+    assert len(stores[0].list_lab_experiments()) == 1
+    assert len(stores[0].get_lab_experiment_history("shared-experiment")) == 1
+
+
+def test_history_sequence_gap_is_detected_and_reported(tmp_path):
+    store = make_store(tmp_path)
+    create(store)
+    transition(store, "exp-001", version=1, old="proposed", new="triaged")
+    transition(store, "exp-001", version=2, old="triaged", new="sandboxed")
+    with store._transaction() as db:
+        db.execute(
+            "DELETE FROM lab_experiment_events "
+            "WHERE experiment_id='exp-001' AND sequence=2"
+        )
+    with pytest.raises(sqlite3.DatabaseError, match="lacuna"):
+        store.get_lab_experiment_history("exp-001")
+    assert store.audit_lab_experiments()["invalid"]
+
+
+def test_terminal_experiment_states_cannot_be_promoted_or_reopened(tmp_path):
+    store = make_store(tmp_path)
+    create(store)
+    transition(store, "exp-001", version=1, old="proposed", new="rejected")
+    with pytest.raises(ValueError, match="não permitida"):
+        transition(store, "exp-001", version=2, old="rejected", new="proposed")
+    assert store.get_lab_experiment("exp-001")["stage"] == "rejected"
