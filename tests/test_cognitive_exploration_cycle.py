@@ -143,6 +143,43 @@ def test_strained_state_raises_utility_bar_and_abstains_on_low_value_candidate()
     assert strained["selection"]["budget"]["max_runtime_ms"] < healthy["selection"]["budget"]["max_runtime_ms"]
 
 
+def test_zero_exploration_budget_defers_before_selector_is_called():
+    class NeverCallSelector:
+        def select(self, *args, **kwargs):
+            raise AssertionError("selector must not run without exploration capacity")
+
+    cycle = CognitiveExplorationCycle(selector=NeverCallSelector())
+    result = cycle.plan(
+        state=DigitalPhysiologyState(),
+        observation=sample_observation(unresolved_uncertainty=0.0),
+        candidates=[sample_candidate()],
+        base_budget=InterestBudget(1000, 128),
+    )
+    assert result["status"] == "deferred"
+    assert result["reason"] == "insufficient_admission_budget"
+    assert result["effective_exploration_factor"] == 0.0
+    assert result["selection"] is None
+
+
+def test_exploration_budget_scales_admission_and_noise():
+    cycle = CognitiveExplorationCycle()
+    base = InterestBudget(1000, 128, max_selected=8)
+    low_noise = cycle.plan(
+        state=DigitalPhysiologyState(),
+        observation=sample_observation(noise_risk=0.0),
+        candidates=[sample_candidate()],
+        base_budget=base,
+    )
+    high_noise = cycle.plan(
+        state=DigitalPhysiologyState(),
+        observation=sample_observation(noise_risk=0.8),
+        candidates=[sample_candidate()],
+        base_budget=base,
+    )
+    assert high_noise["effective_exploration_factor"] < low_noise["effective_exploration_factor"]
+    assert high_noise["selection"]["budget"]["max_runtime_ms"] < low_noise["selection"]["budget"]["max_runtime_ms"]
+
+
 def test_empty_candidate_set_abstains_without_side_effects():
     result = CognitiveExplorationCycle().plan(
         state=DigitalPhysiologyState(),
