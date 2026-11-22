@@ -750,7 +750,7 @@ class KnowledgeStore:
             "id": int(row["id"]),
             "event_type": row["event_type"],
             "severity": row["severity"],
-            "payload": json.loads(row["payload_json"]),
+            "payload": payload,
             "created_at": row["created_at"],
         }
 
@@ -1285,6 +1285,9 @@ class KnowledgeStore:
             row["payload_json"],
         ) != row["payload_sha256"]:
             raise sqlite3.DatabaseError("Checksum do registro do experimento inválido.")
+        payload = json.loads(row["payload_json"])
+        if not isinstance(payload, dict):
+            raise sqlite3.DatabaseError("Payload atual do experimento não é um objeto.")
         return {
             "experiment_id": row["experiment_id"],
             "schema_version": row["schema_version"], "stage": row["stage"],
@@ -1321,10 +1324,13 @@ class KnowledgeStore:
                 row["to_stage"], row["payload_json"], row["created_at"],
             ) != row["payload_sha256"]:
                 raise sqlite3.DatabaseError("Checksum do histórico de experimento inválido.")
+            payload = json.loads(row["payload_json"])
+            if not isinstance(payload, dict):
+                raise sqlite3.DatabaseError("Payload de evento do experimento não é um objeto.")
             history.append({
                 "sequence": row["sequence"], "event_type": row["event_type"],
                 "from_stage": row["from_stage"], "to_stage": row["to_stage"],
-                "payload": json.loads(row["payload_json"]),
+                "payload": payload,
                 "payload_sha256": row["payload_sha256"], "created_at": row["created_at"],
             })
         return history
@@ -1352,8 +1358,16 @@ class KnowledgeStore:
                     payload = event["payload"]
                     if payload.get("version") != sequence:
                         raise sqlite3.DatabaseError("Versão do histórico não é sequencial.")
+                    if payload.get("experiment_id") != experiment_id:
+                        raise sqlite3.DatabaseError("ID do histórico diverge do registro.")
                     if sequence == 1:
-                        if event["event_type"] != "created" or event["from_stage"] is not None or event["to_stage"] != "proposed":
+                        if (
+                            event["event_type"] != "created"
+                            or event["from_stage"] is not None
+                            or event["to_stage"] != "proposed"
+                            or payload.get("stage") != "proposed"
+                            or payload.get("parent_digest") != current["parent_digest"]
+                        ):
                             raise sqlite3.DatabaseError("Evento inicial do experimento é inválido.")
                     else:
                         if (
@@ -1363,8 +1377,17 @@ class KnowledgeStore:
                         ):
                             raise sqlite3.DatabaseError("Transição no histórico é inválida.")
                     previous_stage = event["to_stage"]
-                if history[-1]["to_stage"] != current["stage"] or history[-1]["payload"]["version"] != current["version"]:
+                if (
+                    history[-1]["to_stage"] != current["stage"]
+                    or history[-1]["payload"]["version"] != current["version"]
+                    or history[-1]["payload"].get("candidate_digest") != current["candidate_digest"]
+                ):
                     raise sqlite3.DatabaseError("Estado atual diverge do último evento.")
+                if any(
+                    event["payload"].get("candidate_digest") is not None
+                    for event in history[:-1]
+                ) and current["candidate_digest"] is None:
+                    raise sqlite3.DatabaseError("Digest do candidato foi removido do estado atual.")
                 valid.append(experiment_id)
             except (sqlite3.DatabaseError, ValueError, KeyError) as exc:
                 invalid.append({"experiment_id": experiment_id, "reason": str(exc)})
