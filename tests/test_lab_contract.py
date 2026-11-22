@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 
@@ -27,6 +28,20 @@ def test_publication_policy_excludes_private_runtime_data_and_execution_surface(
     assert "local databases" in policy
     assert "credentials" in policy
     assert "arbitrary code execution" in policy
+
+
+def test_public_capability_and_model_runtime_defaults_remain_disabled():
+    manifest = json.loads(
+        (ROOT / "config" / "capability_manifest.json").read_text(encoding="utf-8")
+    )
+    runtime = json.loads(
+        (ROOT / "config" / "model_runtime.json").read_text(encoding="utf-8")
+    )
+    assert manifest["capabilities"]
+    assert all(item["enabled"] is False for item in manifest["capabilities"])
+    assert runtime["enabled"] is False
+    assert runtime["allow_remote"] is False
+    assert runtime["tool_calls_enabled"] is False
 
 
 def test_local_memory_and_activity_files_are_ignored():
