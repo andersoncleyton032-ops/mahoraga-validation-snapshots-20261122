@@ -111,7 +111,15 @@ class EvolutionGovernor:
         if not isinstance(parent_digest, str) or not self._DIGEST_RE.fullmatch(parent_digest):
             raise EvolutionGovernanceError("parent_digest must be a SHA-256 hex digest")
         change_scope = self._nonempty(change_scope, "change_scope")
-        if risk_class not in self._RISK_CLASSES:
+        if ("\\\\" in change_scope or "\\x00" in change_scope
+                or change_scope.startswith("/")):
+            raise EvolutionGovernanceError("change_scope must be a relative lab path")
+        scope_parts = change_scope.split("/")
+        if (len(scope_parts) < 2
+                or scope_parts[0] not in {"experiments", "tests", "docs"}
+                or any(part in {"", ".", ".."} for part in scope_parts)):
+            raise EvolutionGovernanceError("change_scope is outside permitted lab directories")
+        if not isinstance(risk_class, str) or risk_class not in self._RISK_CLASSES:
             raise EvolutionGovernanceError("unknown risk_class")
         if not isinstance(external_effects, bool) or not isinstance(protected_target, bool):
             raise EvolutionGovernanceError("security flags must be booleans")
