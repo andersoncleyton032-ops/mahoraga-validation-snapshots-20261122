@@ -7,6 +7,39 @@ sandbox/tests/*
 !sandbox/workspace/.gitkeep
 !sandbox/tests/.gitkeep
 
-# Local state must never be committed from the lab
+# Mahoraga local/private runtime data
+.venv/
+backups/
+memory/*.sqlite3
+memory/*.sqlite3-wal
+memory/*.sqlite3-shm
+__pycache__/
+*.py[cod]
+
+# Segredos, credenciais e material de assinatura
+*.token
+*.jks
+*.keystore
+*.p12
+keys/
+.env
+.env.*
+
+# Public validation snapshot: never publish local/runtime state
 memory/data.json
 logs/activity.log
+memory/*.sqlite3*
+experiments/experiments.json
+artifacts/
+models/checkpoints/
+training/runs/
+knowledge/raw/
+knowledge/datasets/
+*.npz
+*.token
+*.jks
+*.keystore
+*.p12
+keys/
+.env
+.env.*
