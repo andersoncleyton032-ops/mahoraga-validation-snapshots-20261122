@@ -18,7 +18,7 @@ def test_source_manifest_documents_private_state_exclusions():
     manifest = (ROOT / "docs" / "SOURCE_MANIFEST.md").read_text(encoding="utf-8")
     assert "memory/data.json" in manifest
     assert "logs/activity.log" in manifest
-    assert "curated baseline" in manifest
+    assert "curated experimental baseline" in manifest
 
 
 def test_local_memory_and_activity_files_are_ignored():
