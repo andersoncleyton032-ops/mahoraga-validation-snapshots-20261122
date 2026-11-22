@@ -164,7 +164,8 @@ def test_explicit_sync_then_binding_allows_execution(tmp_path):
     orchestrator, _, _ = make_system(tmp_path)
     orchestrator.sync_manifest_catalog()
 
-    def add(a, b):
+    def add(a, b, *, execution_context):
+        execution_context.check()
         return a + b
 
     orchestrator.register_capability(
