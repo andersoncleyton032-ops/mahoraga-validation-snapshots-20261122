@@ -575,7 +575,7 @@ def test_background_companion_allows_chat_in_foreground_with_smaller_budget(tmp_
     assert permit["permit"]["checkpoint_required"] is True
 
 
-def test_background_companion_reduces_budget_for_light_thermal_state(tmp_path):
+def test_background_companion_keeps_small_budget_for_light_thermal_state(tmp_path):
     governor = make_governor(tmp_path)
     session = governor.evaluate_session(
         background_context(screen_interactive=True, thermal_status="light"),
@@ -584,8 +584,9 @@ def test_background_companion_reduces_budget_for_light_thermal_state(tmp_path):
     )
 
     assert session["status"] == "bounded"
-    assert session["budget"]["max_task_seconds"] == 5
-    assert session["budget"]["max_task_ram_mb"] == 48
+    assert session["budget"]["max_task_seconds"] == 8
+    assert session["budget"]["max_task_ram_mb"] == 64
+    assert "thermal_light_monitoring" in session["reasons"]
 
 
 @pytest.mark.parametrize(

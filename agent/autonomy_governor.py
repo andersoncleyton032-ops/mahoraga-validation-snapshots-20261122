@@ -312,9 +312,12 @@ class AutonomyGovernor:
                 max_ram_mb = min(max_ram_mb, 16)
                 reasons.append("thermal_unknown_minimal_budget")
             elif thermal_status == "light":
-                max_seconds = min(max_seconds, 5 if work_mode == "background_companion" else 12)
-                max_ram_mb = min(max_ram_mb, 48 if work_mode == "background_companion" else 96)
-                reasons.append("thermal_light_reduced_budget")
+                if work_mode == "background_idle":
+                    max_seconds = min(max_seconds, 12)
+                    max_ram_mb = min(max_ram_mb, 96)
+                # Light is a monitoring signal, not a reason to block the
+                # already-small Companion task.
+                reasons.append("thermal_light_monitoring")
 
             if ram_mb is None:
                 hard_blocks.append("available_memory_unknown")
