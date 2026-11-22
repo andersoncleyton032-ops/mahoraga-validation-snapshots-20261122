@@ -47,20 +47,34 @@ public final class MahoragaOneShotWorker extends Worker {
                         .build());
             }
 
+            String status = result.optString("status", "");
+            String taskId = result.optString("task_id", "");
+            boolean executionPerformed = result.optBoolean("execution_performed", false);
+            boolean receiptValid = result.optBoolean("completion_receipt_valid", false);
+
             JSONObject wake = result.optJSONObject("wake_schedule");
             String wakeStatus = wake == null ? "" : wake.optString("status", "");
-            if ("adapter_error".equals(wakeStatus)
-                    || "adapter_rejected".equals(wakeStatus)
-                    || "adapter_missing".equals(wakeStatus)
-                    || "invalid_delay".equals(wakeStatus)
-                    || "invalid_schedule_receipt".equals(wakeStatus)) {
+            if (!"scheduled".equals(wakeStatus) && !"not_needed".equals(wakeStatus)) {
                 return Result.retry();
             }
-            if ("error".equals(result.optString("status"))) return Result.retry();
+            if ("completed".equals(status)) {
+                if (taskId.isBlank() || !executionPerformed || !receiptValid) {
+                    return Result.retry();
+                }
+            } else if ("completed_reconciled".equals(status)) {
+                if (taskId.isBlank() || executionPerformed || !receiptValid) {
+                    return Result.retry();
+                }
+            } else if (executionPerformed || "error".equals(status)) {
+                return Result.retry();
+            }
 
             Data output = new Data.Builder()
-                    .putString("status", result.optString("status", "unknown"))
-                    .putString("task_id", result.optString("task_id", ""))
+                    .putString("status", status)
+                    .putString("task_id", taskId)
+                    .putBoolean("execution_performed", executionPerformed)
+                    .putBoolean("completion_receipt_valid", receiptValid)
+                    .putString("wake_status", wakeStatus)
                     .build();
             return Result.success(output);
         } catch (JSONException malformed) {

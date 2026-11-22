@@ -654,6 +654,7 @@ class BackgroundWorkScheduler:
             return {
                 "status": "completed_reconciled",
                 "task_id": item["task_id"],
+                "completion_receipt_valid": True,
                 "execution_performed": False,
                 "wake_schedule": self._schedule_next(self.MIN_NEXT_TASK_DELAY_SECONDS),
             }

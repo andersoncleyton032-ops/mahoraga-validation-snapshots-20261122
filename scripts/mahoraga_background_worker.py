@@ -79,6 +79,7 @@ def run_worker_once(
         "status": str(result.get("status", "unknown"))[:80],
         "task_id": result.get("task_id"),
         "execution_performed": result.get("execution_performed") is True,
+        "completion_receipt_valid": result.get("completion_receipt_valid") is True,
         "wake_schedule": wake if isinstance(wake, dict) else {
             "status": "invalid_schedule_receipt",
             "delay_seconds": None,
