@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "installer_version": "0.6.0",
+  "project": "Mahoraga",
+  "status": "integration_scaffold",
+  "neural_modules": {
+    "core": "agent/neural_core.py",
+    "training": "agent/neural_training.py",
+    "checkpoint": "agent/neural_checkpoint.py"
+  },
+  "principles": {
+    "existing_neural_source_is_authoritative": true,
+    "do_not_overwrite_existing_neural_modules": true,
+    "no_unverified_external_weights_or_datasets": true,
+    "no_paid_services_or_quotas_without_explicit_approval": true,
+    "training_must_be_reproducible_and_measured": true
+  },
+  "knowledge_layout": {
+    "raw": "knowledge/raw",
+    "curated": "knowledge/curated",
+    "datasets": "knowledge/datasets",
+    "metadata": "knowledge/metadata"
+  },
+  "model_layout": {
+    "checkpoints": "models/checkpoints",
+    "registry": "models/registry"
+  },
+  "training_layout": {
+    "configs": "training/configs",
+    "runs": "training/runs"
+  },
+  "training_policy": {
+    "architecture": "must_be_selected_per_experiment",
+    "optimizer": "must_be_declared_per_experiment",
+    "loss": "must_be_declared_per_experiment",
+    "random_seed": "required_for_reproducible_experiments",
+    "dataset_hash": "required",
+    "validation_split_or_method": "required",
+    "checkpoint_policy": "save_best_and_recovery_checkpoints",
+    "never_claim_general_intelligence_from_small_benchmarks": true
+  },
+  "resource_policy": {
+    "respect_android_process_lifecycle": true,
+    "monitor_memory_temperature_battery_and_storage": true,
+    "checkpoint_before_long_or_interruptible_runs": true,
+    "no_background_autostart_added": true,
+    "no_root_or_permission_changes": true
+  }
+}
