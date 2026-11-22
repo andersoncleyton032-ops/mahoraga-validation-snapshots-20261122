@@ -30,7 +30,7 @@ The isolated snapshot now adds schema v6 tables to the canonical SQLite `Knowled
 On restart, records can be reloaded and the audit routine checks checksums, contiguous sequence numbers, version progression and allowed stage transitions. Checksums detect accidental or unsophisticated corruption; they are not cryptographic signatures against an attacker able to rewrite both data and hashes. Corrupt records fail closed and are reported; automatic repair is intentionally absent.
 
 ## Current boundary
-The lab coordinator consumes a caller-supplied backlog for one planning/admission cycle. It does not discover candidates, generate patches, create workspaces, execute tests or run as a background service. The lab governor keeps in-memory state; the new ledger persists experiment metadata and evidence references, but does not itself authenticate external CI evidence or verify artifacts.
+The lab coordinator consumes a caller-supplied backlog for one planning/admission cycle. The coordinator itself does not persist state; the separate ledger persists experiment metadata and evidence references. It does not discover candidates, generate patches, create workspaces, execute tests or run as a background service. The lab governor keeps in-memory state; the new ledger persists experiment metadata and evidence references, but does not itself authenticate external CI evidence or verify artifacts.
 
 The integrated core modules in this snapshot are source code under test, not evidence that the full private runtime has been validated on Android or that all capabilities are enabled. The capability manifest entries remain disabled; the local model runtime remains disabled and remote access is disallowed.
 
