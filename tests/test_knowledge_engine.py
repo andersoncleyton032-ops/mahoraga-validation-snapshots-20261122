@@ -154,7 +154,7 @@ def test_migration_is_registered_once(engine):
 
         integrity = db.execute("PRAGMA integrity_check").fetchone()[0]
 
-    assert versions == [(1,), (2,), (3,), (4,), (5,)]
+    assert versions == [(1,), (2,), (3,), (4,), (5,), (6,)]
     assert integrity == "ok"
 
 
