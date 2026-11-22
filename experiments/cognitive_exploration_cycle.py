@@ -71,7 +71,12 @@ class CognitiveExplorationCycle:
             raise CognitiveExplorationCycleError(str(exc)) from exc
 
         control = physiology["state"]["control_state"]
-        factor = physiology["regulation"]["recommended_admission_factor"]
+        admission_factor = physiology["regulation"]["recommended_admission_factor"]
+        exploration_factor = physiology["regulation"]["exploration_budget"]
+        # exploration_budget already incorporates admission, resource capacity,
+        # unresolved uncertainty, expected learning progress and noise risk.
+        # Use it as the effective exploration allocation, not merely as telemetry.
+        factor = exploration_factor
         if control == "pause" or factor <= 0.0:
             return {
                 "schema": "mahoraga.cognitive_exploration_plan",
@@ -80,6 +85,7 @@ class CognitiveExplorationCycle:
                 "status": "deferred",
                 "reason": "homeostatic_pause",
                 "physiology": physiology,
+                "effective_exploration_factor": factor,
                 "selection": None,
                 "candidate_discovery_performed": False,
                 "memory_persisted": False,
@@ -131,6 +137,7 @@ class CognitiveExplorationCycle:
             "status": selection["status"],
             "reason": "homeostasis_adjusted_candidate_selection",
             "physiology": physiology,
+            "effective_exploration_factor": factor,
             "selection": selection,
             "candidate_discovery_performed": False,
             "memory_persisted": False,
