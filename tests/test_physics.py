@@ -69,6 +69,12 @@ class TestPhysicsLab(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.lab.free_fall(10, initial_velocity=1e308, duration=1, step=0.1)
 
+    def test_arbitrarily_large_integer_inputs_are_rejected_cleanly(self):
+        with self.assertRaises(ValueError):
+            self.lab.free_fall(10**1000)
+        with self.assertRaises(ValueError):
+            PhysicsLab(gravity=10**1000)
+
     def test_boolean_values_are_not_accepted_as_physical_parameters(self):
         with self.assertRaises(ValueError):
             self.lab.free_fall(True)
