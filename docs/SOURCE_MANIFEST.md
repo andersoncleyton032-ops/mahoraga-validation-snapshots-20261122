@@ -249,7 +249,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 
 - Private source repository: andersoncleyton032-ops/mahoraga-core (private).
 - Source PR: #160, Draft; source branch implementation/procedural-skill-contract-20261123.
-- Source head at synchronization: eee5bb455a6340dab49dfc8af9f19a15a933c28.
+- Source head at synchronization: 2718ea9eb04553283f6ca9e458eee51148e865c8.
 - Public validation branch: snapshot/procedural-skill-contract-20261123.
 - Curated files copied from the private branch:
   - agent/procedural_skills.py
@@ -261,3 +261,16 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - The initial skill package is disabled and references only disabled read-only capabilities. No capability activation or runtime execution is performed.
 - This snapshot is for independent CI validation only; it is not a production mirror or merge target.
 - Source file blob SHAs are recorded in the private PR #160 and can be compared directly before any further synchronization.
+
+
+## Procedural skill contract — validation result
+
+- Latest private source branch head: 2718ea9eb04553283f6ca9e458eee51148e865c8 (private PR #160, still Draft).
+- Canonical public snapshot branch head: aa79cf2c2bdb758b63a6bc40a67b826a710f96d5 at the time of Python validation.
+- Python workflow run #399: 941 passed, 1 skipped, 28 subtests passed on Python 3.12 and Python 3.14; compileall passed on both.
+- The skipped test requires a local language-training corpus intentionally excluded from this public snapshot.
+- Six curated source files were compared against the private source branch by Git blob SHA; all six matched.
+- The initial CI failures exposed missing connectome edges and two stale/omitted integration contracts; those were corrected before run #399.
+- The evidence verifier is a trusted local provider contract (verify_local). No provider is configured by default, so operational skills remain fail-closed.
+- The short-lived validation PR #7 was incorporated into the canonical snapshot branch by fast-forward; this did not merge the snapshot PR into main. PR #5 remains Draft and unmerged.
+- Android Runtime Contract run #77 was still running at the time of this update. No new Android or Realme runtime claim is made.
