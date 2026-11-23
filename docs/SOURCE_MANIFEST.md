@@ -198,3 +198,10 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Added tests for exit-zero with missing/rejected acknowledgements.
 - Android's `am broadcast` command uses an ordered broadcast result receiver; source review confirms the receiver result code is surfaced in stdout. The Realme test must still confirm this exact output and sender UID in the Termux process context.
 - Validation status: **pending CI for the ordered-acknowledgement update**.
+
+### Queue snapshot test harness correction — 2026-11-22
+- Private source head at import: `2df057424a58f26d059f36d08485ab513d8d2a93`.
+- Android run #47 (`45088640783`) compiled the application but failed one unit test: `MahoragaOneShotWorkerTest.queueSnapshotIsPreservedInWorkManagerOutput`. The failure occurred because the local Android unit-test runtime exposes a stubbed `org.json.JSONObject`; constructing it in the test throws `RuntimeException`.
+- Production parsing remains in the worker. The output-data builder now receives already-parsed primitive queue fields, allowing deterministic tests without invoking Android JSON stubs.
+- The test was rewritten to cover queue snapshot propagation and absent-snapshot behavior. This is a test-harness correction, not evidence of an application runtime defect.
+- Validation status: **pending a new Android CI run for the corrected test**.
