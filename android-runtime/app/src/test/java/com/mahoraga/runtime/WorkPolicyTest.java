@@ -29,6 +29,11 @@ public final class WorkPolicyTest {
     }
 
     @Test
+    public void retryBackoffExceedsPythonQueueLease() {
+        assertTrue(WorkPolicy.RETRY_BACKOFF_SECONDS > 90);
+    }
+
+    @Test
     public void resourceHeadroomIsGovernedDynamicallyRatherThanByHardWorkManagerGates() {
         Constraints constraints = WorkScheduler.buildConstraints();
 
