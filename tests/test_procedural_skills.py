@@ -165,7 +165,7 @@ def registry(
 
 def test_registry_loads_contract_without_loading_executable_code(tmp_path):
     item = registry(tmp_path)
-    assert item.valid
+    assert item.valid, item.status()
     assert item.status()["declared_count"] == 1
     assert item.status()["code_loading_enabled"] is False
     assert item.status()["execution_enabled"] is False
