@@ -1570,6 +1570,9 @@ class IntegratedCore:
                 "shared_tool_registry": True,
                 "shared_perception_engine": self.perception.store is self.store,
                 "shared_autonomy_governor": self.autonomy.hardware is self.hardware,
+                "orchestrator_autonomy": (
+                    self.research_orchestrator.autonomy is self.autonomy
+                ),
                 "perception": self.perception.status(),
                 "autonomy_policy": {
                     "foreground_required_for_compute": True,
