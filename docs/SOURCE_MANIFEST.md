@@ -172,3 +172,11 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Corrected stale README claims: WorkManager does not impose charging/battery/storage hard constraints; Python Governor performs admission. The Termux command is bounded by coreutils timeout; stopping future WorkManager requests does not synchronously terminate a running command.
 - Documented Android API 26+ `startForegroundService()`, cross-app target SDK nuance, Android 14+ sender UID verification, output truncation checks, retry/lease relationship, APK/worker separation, and the non-sandbox nature of Termux.
 - No runtime code changed in this documentation commit. Validation is through the Android CI build for the source snapshot; device behavior remains unverified.
+
+
+### Cross-app foreground-service future-compatibility gate — 2026-11-22
+- Private source branch: `hardening/worker-fencing-and-recovery-20261123`, source head at import: `dab6a23bc78cab907d5a0ad47ec13d49677f3fed`.
+- Before RUN_COMMAND, the bridge compares Android API level, Mahoraga caller target SDK and installed Termux target SDK. If API >=31 and both apps target >=31, it fails closed with `termux_target_sdk_requires_background_fgs_review`.
+- Current upstream Termux target SDK 28 does not activate the gate; the check prevents silently assuming the same exception after a future Termux target SDK increase.
+- Added tests for Android API/target SDK combinations and documented the compatibility gate in the Android README.
+- Validation status: **pending CI for this exact target-SDK gate**.
