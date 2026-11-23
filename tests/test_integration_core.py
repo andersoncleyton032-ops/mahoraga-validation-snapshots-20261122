@@ -270,11 +270,26 @@ def test_integrated_core_reuses_cognitive_reasoning_instance(tmp_path):
 
 
 def test_integrated_core_routes_capability_through_real_governor(tmp_path):
+    manifest_path = tmp_path / "config" / "capability_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps({
+        "schema": "mahoraga.capability_manifest",
+        "version": "1.0.0",
+        "capabilities": [{
+            "id": "integration.governed",
+            "name": "Capacidade governada",
+            "purpose": "Validar admissão pelo Governor real.",
+            "risk": "local_compute",
+            "maturity_state": "implemented",
+            "enabled": True,
+        }],
+    }), encoding="utf-8")
     core = IntegratedCore(
         root=tmp_path,
         store=KnowledgeStore(tmp_path / "governed.sqlite3"),
         hardware=GovernedFakeHardware(),
     )
+    core.research_orchestrator.sync_manifest_catalog()
     executed = []
 
     def bounded_capability(execution_context):
