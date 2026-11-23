@@ -47,6 +47,17 @@ public final class MahoragaOneShotWorker extends Worker {
                         .build());
             }
 
+            Object taskIdValue = result.isNull("task_id") ? null : result.opt("task_id");
+            if (!result.has("task_id") || !isValidWorkerEnvelope(
+                    result.opt("status"),
+                    taskIdValue,
+                    result.opt("execution_performed"),
+                    result.opt("completion_receipt_valid")
+            )) {
+                return Result.failure(new Data.Builder()
+                        .putString("error_code", "malformed_worker_result_envelope")
+                        .build());
+            }
             String status = result.optString("status", "");
             String taskId = result.optString("task_id", "");
             boolean executionPerformed = result.optBoolean("execution_performed", false);
@@ -61,9 +72,15 @@ public final class MahoragaOneShotWorker extends Worker {
             }
 
             JSONObject wake = result.optJSONObject("wake_schedule");
-            String wakeStatus = wake == null ? "" : wake.optString("status", "");
-            Object wakeDelay = wake == null || wake.isNull("delay_seconds")
-                    ? null : wake.opt("delay_seconds");
+            if (wake == null || !wake.has("status")
+                    || !(wake.opt("status") instanceof String)
+                    || !wake.has("delay_seconds")) {
+                return Result.failure(new Data.Builder()
+                        .putString("error_code", "malformed_wake_schedule_envelope")
+                        .build());
+            }
+            String wakeStatus = wake.optString("status", "");
+            Object wakeDelay = wake.isNull("delay_seconds") ? null : wake.opt("delay_seconds");
             if (!isValidWakeReceipt(wakeStatus, wakeDelay)) {
                 return Result.failure(new Data.Builder()
                         .putString("error_code", "invalid_wake_schedule_receipt")
@@ -112,6 +129,15 @@ public final class MahoragaOneShotWorker extends Worker {
     }
 
 
+
+    static boolean isValidWorkerEnvelope(
+            Object status, Object taskId, Object executionPerformed, Object receiptValid
+    ) {
+        return status instanceof String
+                && (taskId == null || taskId instanceof String)
+                && executionPerformed instanceof Boolean
+                && receiptValid instanceof Boolean;
+    }
 
     static boolean isKnownWorkerStatus(String status) {
         return "idle".equals(status)
