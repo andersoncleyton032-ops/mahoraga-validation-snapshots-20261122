@@ -6,22 +6,24 @@ import static org.junit.Assert.assertTrue;
 
 import androidx.work.Data;
 
-import org.json.JSONObject;
 import org.junit.Test;
 
 public final class MahoragaOneShotWorkerTest {
     @Test
-    public void queueSnapshotIsPreservedInWorkManagerOutput() throws Exception {
-        JSONObject queue = new JSONObject()
-                .put("revision", 17)
-                .put("queued", 2)
-                .put("claimed", 1)
-                .put("active_items", 3)
-                .put("recently_finished", 8)
-                .put("pending", true);
-
+    public void queueSnapshotIsPreservedInWorkManagerOutput() {
         Data output = MahoragaOneShotWorker.buildOutputData(
-                "completed", "task-17", true, true, "scheduled", queue
+                "completed",
+                "task-17",
+                true,
+                true,
+                "scheduled",
+                true,
+                17,
+                2,
+                1,
+                3,
+                8,
+                true
         );
 
         assertEquals(17, output.getInt("queue_revision", -1));
@@ -37,7 +39,8 @@ public final class MahoragaOneShotWorkerTest {
     @Test
     public void missingQueueSnapshotDoesNotInventQueueValues() {
         Data output = MahoragaOneShotWorker.buildOutputData(
-                "idle", null, false, false, "not_needed", null
+                "idle", null, false, false, "not_needed",
+                false, -1, -1, -1, -1, -1, false
         );
 
         assertFalse(output.getKeyValueMap().containsKey("queue_queued"));
