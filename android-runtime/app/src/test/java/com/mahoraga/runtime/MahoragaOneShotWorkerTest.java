@@ -21,6 +21,8 @@ public final class MahoragaOneShotWorkerTest {
         assertFalse(MahoragaOneShotWorker.isValidWorkerState("completed", "", true, true));
         assertFalse(MahoragaOneShotWorker.isValidWorkerState("idle", "t1", false, false));
         assertFalse(MahoragaOneShotWorker.isValidWorkerState("completed", "t1", false, true));
+        assertTrue(MahoragaOneShotWorker.isKnownWorkerStatus("failed"));
+        assertFalse(MahoragaOneShotWorker.isKnownWorkerStatus("unknown"));
     }
 
     @Test
