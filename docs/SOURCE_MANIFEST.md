@@ -223,3 +223,8 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Worker result now requires a string status, present task_id field (string or JSON null), and actual Boolean values for execution_performed and completion_receipt_valid. Missing or coerced fields fail closed.
 - Added unit tests for valid idle/completed envelopes and invalid status/task/boolean types.
 - Latest public Android CI run is pending for this exact envelope refinement.
+### Termux prerequisite visibility — 2026-11-22
+- Private source head at import: `40c25f01fb8d7b356fa53fe93f8c9ad522663d10`.
+- Bridge Activity now displays the manual prerequisites: Termux >=0.109, RUN_COMMAND permission, `allow-external-apps=true`, and `$PREFIX/bin/timeout`.
+- README now accurately distinguishes prerequisites checked by the bridge from `allow-external-apps`, which remains a manual Termux property. No setting or permission is changed automatically.
+- Validation status: pending Android CI for this UI/documentation update.
