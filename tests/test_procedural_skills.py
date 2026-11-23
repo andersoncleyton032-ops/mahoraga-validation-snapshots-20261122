@@ -371,3 +371,14 @@ def test_unverified_evidence_reference_blocks_operational_skill(tmp_path):
     readiness = item.readiness("test.system_audit")
     assert readiness["ready"] is False
     assert "evidence_unverified:ci:test fixture" in readiness["blockers"]
+
+
+
+def test_sum_of_step_runtime_estimates_must_fit_skill_budget(tmp_path):
+    skill = make_skill()
+    skill["resource_budget"]["max_runtime_seconds"] = 3
+
+    item = registry(tmp_path, skill=skill)
+
+    assert item.valid is False
+    assert "Soma dos tempos estimados" in item.status()["error"]
