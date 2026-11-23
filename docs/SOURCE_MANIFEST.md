@@ -212,3 +212,9 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Requires wake status/delay to be structurally valid and consistent with queue.pending: pending work requires an acknowledged scheduled wake; no pending work requires not_needed.
 - Added unit tests for allowed states, unknown states, inconsistent receipts, wake delay boundaries and queue schema/type validation.
 - Android run #49 was launched before this exact strict-receipt update; CI for the latest worker/test/README sync is pending.
+### JSON-null and retry classification refinement — 2026-11-22
+- Private source head at import: `99a38da2705a1380427e4e5c648529b45cac4ec2`.
+- The worker now normalizes JSON `null` for `wake_schedule.delay_seconds` via `JSONObject.isNull()` before checking `not_needed`; otherwise Android's `JSONObject.NULL` sentinel would be mistaken for a non-null delay.
+- Unknown worker statuses are permanent schema failures; known but internally inconsistent states return WorkManager retry so a potentially incomplete execution can be reconciled rather than being silently accepted or prematurely terminalized.
+- Added tests distinguishing known/unknown states and preserving retry behavior for inconsistent known states.
+- The latest Android validation is pending after this refinement; prior run #52 did not include it.
