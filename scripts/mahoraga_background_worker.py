@@ -60,13 +60,7 @@ def run_worker_once(
     from agent.integration_core import IntegratedCore
 
     runtime = core or IntegratedCore(root=ROOT)
-    InternalBackgroundCapabilities(runtime).register()
     queue = PersistentBackgroundWorkQueue(runtime.store)
-
-    if not queue.has_pending():
-        timestamp = time.time() if now_epoch is None else now_epoch
-        queue.enqueue(build_poll_task_descriptor(timestamp))
-
     invocation_worker_id = build_worker_id() if worker_id is None else worker_id
     scheduler = BackgroundWorkScheduler(
         queue,
@@ -74,6 +68,22 @@ def run_worker_once(
         invocation_worker_id,
         wake_adapter or AndroidWorkManagerWakeAdapter(),
     )
+
+    registration = InternalBackgroundCapabilities(runtime).register()
+    if registration.get("registered") is not True:
+        return {
+            "schema": "mahoraga.background_worker_result.v1",
+            "status": "deferred",
+            "task_id": f"capability-gate:{InternalBackgroundCapabilities.CAPABILITY_ID}",
+            "execution_performed": False,
+            "completion_receipt_valid": False,
+            "wake_schedule": scheduler.schedule_next_pending(900),
+            "queue": queue.summary(),
+        }
+
+    if not queue.has_pending():
+        timestamp = time.time() if now_epoch is None else now_epoch
+        queue.enqueue(build_poll_task_descriptor(timestamp))
     try:
         runtime_context = runtime.hardware.runtime_context()
     except Exception:
