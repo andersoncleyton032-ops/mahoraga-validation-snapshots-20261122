@@ -34,7 +34,7 @@ The app only displays these requirements. It does not edit Termux properties, An
 ## Android service launch and wake security
 
 - On Android API 26+, the bridge calls `Context.startForegroundService()` to start Termux's `RunCommandService`; older versions use `startService()`.
-- Current Termux upstream 0.118.0 declares target SDK 28. Android's Android-12+ cross-app foreground-service background-start restriction applies only when both the caller and service-owning app target API 31+. The Android O background-service launch contract still makes the foreground-service launch API necessary for the Mahoraga caller (target API 36).
+- Current Termux upstream 0.118.0 declares target SDK 28. Android's Android-12+ cross-app foreground-service background-start restriction applies only when both the caller and service-owning app target API 31+. The Android O background-service launch contract still makes the foreground-service launch API necessary for the Mahoraga caller (target API 36). The bridge checks both installed target SDK values and fails closed if a future Termux version also targets API 31+, pending a revised background-start design.
 - The exported wake receiver is required for the Termux process to send an explicit wake broadcast. On Android API 34+, it compares `getSentFromUid()` with the installed Termux package UID. On older Android versions, sender identity is unavailable through this API; explicit action validation and rate limiting remain, but do not provide equivalent sender authentication.
 - The bridge does not request INTERNET, microphone, camera, location, storage or overlay permissions. WorkManager may merge its standard scheduling/boot permissions.
 
