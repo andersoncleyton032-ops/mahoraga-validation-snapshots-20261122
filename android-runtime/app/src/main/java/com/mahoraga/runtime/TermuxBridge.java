@@ -84,6 +84,15 @@ public final class TermuxBridge {
         } catch (PackageManager.NameNotFoundException missing) {
             return ExecutionResult.failure("termux_not_installed", false);
         }
+        if (requiresCrossAppFgsReview(
+                Build.VERSION.SDK_INT,
+                app.getApplicationInfo().targetSdkVersion,
+                termuxInfo.targetSdkVersion
+        )) {
+            return ExecutionResult.failure(
+                    "termux_target_sdk_requires_background_fgs_review", false
+            );
+        }
         if (!supportsResultPendingIntent(termuxPackage.versionName)) {
             return ExecutionResult.failure("termux_version_requires_0_109_or_newer", false);
         }
@@ -180,6 +189,13 @@ public final class TermuxBridge {
     }
 
 
+
+
+    static boolean requiresCrossAppFgsReview(
+            int platformApi, int callerTargetSdk, int serviceTargetSdk
+    ) {
+        return platformApi >= 31 && callerTargetSdk >= 31 && serviceTargetSdk >= 31;
+    }
 
     static String[] buildTimeoutArguments(String pythonPath, String scriptPath) {
         return new String[]{
