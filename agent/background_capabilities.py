@@ -18,6 +18,84 @@ class InternalBackgroundCapabilities:
 
     def register(self) -> dict[str, Any]:
         orchestrator = self.core.research_orchestrator
+        manifest = getattr(orchestrator, "capability_manifest", None)
+        if manifest is None or getattr(manifest, "valid", False) is not True:
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "capability_manifest_unavailable_or_invalid",
+            }
+
+        declared = manifest.get(self.CAPABILITY_ID)
+        if not isinstance(declared, dict):
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "capability_not_declared",
+            }
+        if declared.get("enabled") is not True:
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "capability_disabled_in_manifest",
+            }
+        if declared.get("risk") != "local_compute":
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "capability_risk_mismatch",
+            }
+        resources = declared.get("resource_requirements")
+        if (
+            not isinstance(resources, dict)
+            or resources.get("max_runtime_seconds") != self.ESTIMATED_RUNTIME_SECONDS
+            or resources.get("max_ram_mb") != self.ESTIMATED_RAM_MB
+            or resources.get("checkpointable") is not True
+        ):
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "capability_resource_contract_mismatch",
+            }
+
+        sync_catalog = getattr(orchestrator, "sync_manifest_catalog", None)
+        if not callable(sync_catalog):
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "manifest_catalog_sync_unavailable",
+            }
+        try:
+            sync_result = sync_catalog()
+        except Exception:
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "manifest_catalog_sync_failed",
+            }
+        conflicts = (
+            sync_result.get("conflicts", [])
+            if isinstance(sync_result, dict) else []
+        )
+        if any(
+            isinstance(conflict, dict)
+            and conflict.get("id") == self.CAPABILITY_ID
+            for conflict in conflicts
+        ):
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "manifest_catalog_conflict",
+            }
+
         existing = orchestrator.capability_descriptor(self.CAPABILITY_ID)
         if existing is not None:
             if (
@@ -29,8 +107,13 @@ class InternalBackgroundCapabilities:
                 raise PermissionError(
                     "Registro existente diverge do contrato interno checkpointable."
                 )
-            return existing
-        return orchestrator.register_capability(
+            return {
+                **existing,
+                "status": "registered",
+                "registered": True,
+                "capability_id": self.CAPABILITY_ID,
+            }
+        registered = orchestrator.register_capability(
             self.CAPABILITY_ID,
             self._adopt_next_inquiry,
             risk="local_compute",
@@ -39,6 +122,12 @@ class InternalBackgroundCapabilities:
             estimated_ram_mb=self.ESTIMATED_RAM_MB,
             checkpointable=True,
         )
+        return {
+            **registered,
+            "status": "registered",
+            "registered": True,
+            "capability_id": self.CAPABILITY_ID,
+        }
 
     def _adopt_next_inquiry(self, execution_context) -> dict[str, Any]:
         check = getattr(execution_context, "check", None)
