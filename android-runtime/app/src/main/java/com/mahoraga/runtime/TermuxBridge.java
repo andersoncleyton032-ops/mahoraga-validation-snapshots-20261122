@@ -8,7 +8,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
-import android.os.Build;
 import android.os.Bundle;
 
 import java.io.File;
@@ -38,13 +37,18 @@ public final class TermuxBridge {
             "com.termux.RUN_COMMAND_COMMAND_DESCRIPTION";
 
     private static final String RESULT_STDOUT = "stdout";
+    private static final String RESULT_STDOUT_ORIGINAL_LENGTH = "stdout_original_length";
+    private static final String RESULT_STDERR = "stderr";
+    private static final String RESULT_STDERR_ORIGINAL_LENGTH = "stderr_original_length";
     private static final String RESULT_EXIT_CODE = "exitCode";
     private static final String RESULT_ERR = "err";
     private static final String RESULT_ERRMSG = "errmsg";
     private static final long RESULT_TIMEOUT_SECONDS = 45L;
     private static final int COMMAND_TIMEOUT_SECONDS = 30;
     private static final int COMMAND_KILL_GRACE_SECONDS = 2;
-    private static final int MAX_STDOUT_CHARS = 64 * 1024;
+    private static final int MAX_STDOUT_CHARS = 48 * 1024;
+    private static final int MAX_STDERR_CHARS = 16 * 1024;
+    private static final int MAX_TOTAL_OUTPUT_CHARS = 64 * 1024;
 
     private TermuxBridge() {}
 
@@ -149,7 +153,14 @@ public final class TermuxBridge {
 
             int exitCode = result.getInt(RESULT_EXIT_CODE, -1);
             String stdout = result.getString(RESULT_STDOUT, "");
-            if (stdout.length() > MAX_STDOUT_CHARS) {
+            String stderr = result.getString(RESULT_STDERR, "");
+            int stdoutOriginalLength = parseOriginalLength(
+                    result.getString(RESULT_STDOUT_ORIGINAL_LENGTH), stdout.length()
+            );
+            int stderrOriginalLength = parseOriginalLength(
+                    result.getString(RESULT_STDERR_ORIGINAL_LENGTH), stderr.length()
+            );
+            if (!isOutputWithinLimits(stdoutOriginalLength, stderrOriginalLength)) {
                 return ExecutionResult.failure("termux_result_exceeded_output_limit", false);
             }
             if (exitCode != 0) {
@@ -205,10 +216,19 @@ public final class TermuxBridge {
         }
     }
 
-    private static int parseOriginalLength(String value, int fallback) {
+    static boolean isOutputWithinLimits(int stdoutLength, int stderrLength) {
+        return stdoutLength >= 0
+                && stderrLength >= 0
+                && stdoutLength <= MAX_STDOUT_CHARS
+                && stderrLength <= MAX_STDERR_CHARS
+                && (long) stdoutLength + (long) stderrLength <= MAX_TOTAL_OUTPUT_CHARS;
+    }
+
+    static int parseOriginalLength(String value, int fallback) {
         if (value == null) return fallback;
         try {
-            return Integer.parseInt(value);
+            int parsed = Integer.parseInt(value);
+            return parsed < 0 ? Integer.MAX_VALUE : parsed;
         } catch (NumberFormatException invalid) {
             return Integer.MAX_VALUE;
         }
