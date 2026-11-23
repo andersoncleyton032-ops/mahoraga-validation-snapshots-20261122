@@ -1,6 +1,7 @@
 package com.mahoraga.runtime;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -22,6 +23,24 @@ public final class TermuxBridgePolicyTest {
                         "/termux/home/mahoraga/scripts/mahoraga_background_worker.py"
                 )
         );
+    }
+
+    @Test
+    public void outputLengthsMustRespectBothStreamsAndCombinedBudget() {
+        assertTrue(TermuxBridge.isOutputWithinLimits(1024, 1024));
+        assertTrue(TermuxBridge.isOutputWithinLimits(48 * 1024, 16 * 1024));
+        assertFalse(TermuxBridge.isOutputWithinLimits(48 * 1024 + 1, 0));
+        assertFalse(TermuxBridge.isOutputWithinLimits(0, 16 * 1024 + 1));
+        assertFalse(TermuxBridge.isOutputWithinLimits(60 * 1024, 8 * 1024));
+        assertFalse(TermuxBridge.isOutputWithinLimits(-1, 0));
+    }
+
+    @Test
+    public void originalLengthMetadataFailsClosedWhenMalformed() {
+        assertEquals(12, TermuxBridge.parseOriginalLength(null, 12));
+        assertEquals(120, TermuxBridge.parseOriginalLength("120", 12));
+        assertEquals(Integer.MAX_VALUE, TermuxBridge.parseOriginalLength("invalid", 12));
+        assertEquals(Integer.MAX_VALUE, TermuxBridge.parseOriginalLength("-1", 12));
     }
 
     @Test
