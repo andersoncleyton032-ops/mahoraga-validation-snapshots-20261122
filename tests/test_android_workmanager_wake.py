@@ -65,3 +65,16 @@ def test_poll_task_id_is_stable_within_each_fifteen_minute_window():
     assert first["checkpointable"] is True
     assert first["risk"] == "local_compute"
     assert first["capability"] == "internal.adopt_next_inquiry"
+
+
+def test_worker_invocation_ids_are_unique_and_namespaced():
+    from scripts.mahoraga_background_worker import build_worker_id
+
+    first = build_worker_id()
+    second = build_worker_id()
+
+    assert first.startswith("android-workmanager:")
+    assert second.startswith("android-workmanager:")
+    assert first != second
+    assert len(first) <= 80
+    assert len(second) <= 80
