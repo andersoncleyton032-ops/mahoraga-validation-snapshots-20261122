@@ -51,15 +51,19 @@ public final class MahoragaOneShotWorker extends Worker {
             String taskId = result.optString("task_id", "");
             boolean executionPerformed = result.optBoolean("execution_performed", false);
             boolean receiptValid = result.optBoolean("completion_receipt_valid", false);
-            if (!isValidWorkerState(status, taskId, executionPerformed, receiptValid)) {
+            if (!isKnownWorkerStatus(status)) {
                 return Result.failure(new Data.Builder()
-                        .putString("error_code", "invalid_worker_result_state")
+                        .putString("error_code", "unknown_worker_result_status")
                         .build());
+            }
+            if (!isValidWorkerState(status, taskId, executionPerformed, receiptValid)) {
+                return Result.retry();
             }
 
             JSONObject wake = result.optJSONObject("wake_schedule");
             String wakeStatus = wake == null ? "" : wake.optString("status", "");
-            Object wakeDelay = wake == null ? null : wake.opt("delay_seconds");
+            Object wakeDelay = wake == null || wake.isNull("delay_seconds")
+                    ? null : wake.opt("delay_seconds");
             if (!isValidWakeReceipt(wakeStatus, wakeDelay)) {
                 return Result.failure(new Data.Builder()
                         .putString("error_code", "invalid_wake_schedule_receipt")
@@ -108,6 +112,15 @@ public final class MahoragaOneShotWorker extends Worker {
     }
 
 
+
+    static boolean isKnownWorkerStatus(String status) {
+        return "idle".equals(status)
+                || "deferred".equals(status)
+                || "queued".equals(status)
+                || "failed".equals(status)
+                || "completed".equals(status)
+                || "completed_reconciled".equals(status);
+    }
 
     static boolean isValidWorkerState(
             String status, String taskId, boolean executionPerformed, boolean receiptValid
