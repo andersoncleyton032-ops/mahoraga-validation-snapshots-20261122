@@ -134,6 +134,11 @@ class FakeOrchestrator:
         return {"registered_capabilities": [{"id": value} for value in self.registered]}
 
 
+class FakeEvidenceVerifier:
+    def verify_local(self, reference):
+        return {"valid": True, "reference": reference}
+
+
 class FakeStore:
     def __init__(self):
         self.events = []
@@ -146,11 +151,15 @@ class FakeStore:
         return len(self.events)
 
 
-def registry(tmp_path, *, skill=None, manifest_enabled=False, orchestrator=None, store=None):
+def registry(
+    tmp_path, *, skill=None, manifest_enabled=False, orchestrator=None,
+    store=None, evidence_verifier=None,
+):
     manifest = make_manifest(tmp_path, enabled=manifest_enabled)
     path = write_skills(tmp_path, [skill or make_skill()])
     return ProceduralSkillRegistry(
-        path, manifest, orchestrator=orchestrator, store=store
+        path, manifest, orchestrator=orchestrator, store=store,
+        evidence_verifier=evidence_verifier,
     )
 
 
@@ -213,6 +222,7 @@ def test_fully_gated_skill_can_produce_plan_but_never_dispatch(tmp_path):
         skill=make_skill(enabled=True, maturity="operational"),
         manifest_enabled=True,
         orchestrator=orchestrator,
+        evidence_verifier=FakeEvidenceVerifier(),
     )
     plan = item.plan("test.system_audit", {"scope": "hardware"})
     assert plan["status"] == "planned"
@@ -328,3 +338,36 @@ def test_operational_maturity_requires_recorded_evidence(tmp_path):
     item = registry(tmp_path, skill=skill)
     assert item.valid is False
     assert "exige evidência" in item.status()["error"]
+
+
+def test_operational_skill_without_trusted_evidence_verifier_is_not_ready(tmp_path):
+    item = registry(
+        tmp_path,
+        skill=make_skill(enabled=True, maturity="operational"),
+        manifest_enabled=True,
+        orchestrator=FakeOrchestrator([
+            "hardware.snapshot", "introspection.capability_audit"
+        ]),
+    )
+    readiness = item.readiness("test.system_audit")
+    assert readiness["ready"] is False
+    assert "evidence_verifier_unavailable" in readiness["blockers"]
+
+
+def test_unverified_evidence_reference_blocks_operational_skill(tmp_path):
+    class RejectEvidence:
+        def verify_local(self, reference):
+            return {"valid": False, "reference": reference}
+
+    item = registry(
+        tmp_path,
+        skill=make_skill(enabled=True, maturity="operational"),
+        manifest_enabled=True,
+        orchestrator=FakeOrchestrator([
+            "hardware.snapshot", "introspection.capability_audit"
+        ]),
+        evidence_verifier=RejectEvidence(),
+    )
+    readiness = item.readiness("test.system_audit")
+    assert readiness["ready"] is False
+    assert "evidence_unverified:ci:test fixture" in readiness["blockers"]
