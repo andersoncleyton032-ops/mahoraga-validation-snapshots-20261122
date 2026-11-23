@@ -147,7 +147,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - On Android API 34+, the exported wake receiver now accepts requests only when `BroadcastReceiver.getSentFromPackage()` identifies `com.termux`. The API call is guarded by the API 34 level check; older Android versions retain the existing explicit-action and rate-limit compatibility path.
 - Added tests for trusted Termux sender, untrusted sender and unavailable sender identity.
 - Rationale: the receiver must remain exported for the Termux process to request a wake, but an arbitrary installed app should not be able to trigger repeated background work.
-- Android workflow run #28 (`45087768537`) and Python workflow run #350 (`45087768540`) are validating this and the subsequent result-bundle changes. The sender identity returned for a real `/system/bin/am broadcast` launched from Termux must be confirmed on the Realme before claiming the inter-app wake path works.
+- Android workflow run #28 (`45087768537`) passed Java compilation, Android unit tests and debug APK assembly; Python run #350 (`45087768540`) passed Python 3.12/3.14 compilation and included tests. Artifact ID `14779688763`, 2,873,320 bytes, SHA-256 `b916124fff0fc9303ee48e265326790c872dd27b81ec777f45c0313dbb88afdc`, expires 2026-12-07. The sender identity returned for a real `/system/bin/am broadcast` launched from Termux must still be confirmed on the Realme before claiming the inter-app wake path works.
 
 
 ### Termux result-bundle truncation validation — 2026-11-22
@@ -156,7 +156,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - It rejects output exceeding 48 KiB stdout, 16 KiB stderr, or 64 KiB combined, preventing acceptance of truncated JSON receipts.
 - Added unit tests for valid boundaries, oversized streams, combined overflow, malformed metadata and negative lengths.
 - Termux's RUN_COMMAND documentation defines these original-length fields specifically to detect truncation; the previous bridge had a parser helper but did not use it.
-- Android workflow run #28 (`45087768537`) and Python workflow run #350 (`45087768540`) are validating this exact result-bundle update.
+- Android workflow run #28 (`45087768537`) and Python workflow run #350 (`45087768540`) passed, including the exact result-bundle validation update.
 
 
 ### Companion execution observability — 2026-11-22
