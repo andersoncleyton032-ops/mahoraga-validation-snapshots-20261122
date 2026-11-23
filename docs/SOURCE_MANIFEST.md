@@ -165,3 +165,10 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Status can be refreshed manually and is refreshed when the Activity resumes. This is WorkManager-side observability only; it does not yet query the Termux SQLite queue directly or provide a notification channel.
 - No additional Android permissions or network access are introduced.
 - Validation status: **pending Android CI for this exact UI update**; device usability and display layout remain untested.
+
+
+### Runtime contract documentation reconciliation — 2026-11-22
+- Private source branch head at import: `f6548c4dce76ee7a23c7e486d7a8dc94c223329b`.
+- Corrected stale README claims: WorkManager does not impose charging/battery/storage hard constraints; Python Governor performs admission. The Termux command is bounded by coreutils timeout; stopping future WorkManager requests does not synchronously terminate a running command.
+- Documented Android API 26+ `startForegroundService()`, cross-app target SDK nuance, Android 14+ sender UID verification, output truncation checks, retry/lease relationship, APK/worker separation, and the non-sandbox nature of Termux.
+- No runtime code changed in this documentation commit. Validation is through the Android CI build for the source snapshot; device behavior remains unverified.
