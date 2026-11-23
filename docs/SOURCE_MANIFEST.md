@@ -238,3 +238,9 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - 21 implementation, Android build/configuration, worker, bridge, receiver, scheduler, UI and test files were fetched from both refs and their Git blob SHAs compared. All 21 matched exactly.
 - This confirms code-content parity for the audited file set; it does not mean the private and public repository histories or documentation trees are identical.
 - The current public head is a provenance/documentation commit after the latest code sync. Android run #62 (`45089693346`) is the build/test run for the latest UI prerequisite panel code.
+### Current debug APK — UI prerequisites + strict receipt contract — 2026-11-23
+- Android run #62 (`45089693346`) passed Java compilation, all Android unit tests and `assembleDebug` for public code commit `5fd29a3e8458ac2ca6e54ca827735d2e8ff4632d`.
+- Artifact ID `14780523033`, name `mahoraga-android-bridge-debug`, size 2,877,678 bytes, SHA-256 `f98c583f7bc40a6b4d38ca3d8c1de6b7a098501e54d86d335aa94626d9d62ad5`, expires 2026-12-07.
+- This build includes the manual Termux prerequisite panel, queue snapshot observability, strict typed worker/wake/queue receipt validation, Termux UID authentication, target-SDK fail-closed gate, process timeout, retry/lease alignment and ordered wake acknowledgement.
+- The subsequent public head `e2b412896700c9e35c7ef2e00ca52d1d78840311` contains provenance documentation only; the 21-file blob audit confirms the Android/Python code content remains identical to private PR #159 head `a4c14d9a2129c8294b029cfe02627ec3f1ac8131`.
+- Status: **CI validated; not yet installed or device-tested**. This is the current candidate APK for the controlled Realme validation plan, not proof of background execution.
