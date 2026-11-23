@@ -9,7 +9,7 @@ def test_wake_adapter_uses_only_fixed_explicit_broadcast_without_shell():
 
     def runner(command, **kwargs):
         calls.append((command, kwargs))
-        return SimpleNamespace(returncode=0)
+        return SimpleNamespace(returncode=0, stdout="Broadcast completed: result=1\\n", stderr="")
 
     adapter = AndroidWorkManagerWakeAdapter(command_runner=runner)
 
@@ -28,6 +28,21 @@ def test_wake_adapter_uses_only_fixed_explicit_broadcast_without_shell():
         "check": False,
     }
 
+
+
+def test_wake_adapter_rejects_exit_zero_without_receiver_enqueue_acknowledgement():
+    for stdout in (
+        "Broadcast completed: result=0\\n",
+        "Broadcast completed: result=4\\n",
+        "",
+        None,
+    ):
+        adapter = AndroidWorkManagerWakeAdapter(
+            command_runner=lambda *args, _stdout=stdout, **kwargs: SimpleNamespace(
+                returncode=0, stdout=_stdout, stderr=""
+            )
+        )
+        assert adapter.schedule_next(delay_seconds=60) is False
 
 def test_wake_adapter_rejects_invalid_delays_without_invoking_runner():
     calls = []
