@@ -18,7 +18,7 @@ This is a source-only Android bridge. It has **not** been installed, enabled or 
 - The bridge waits up to 45 seconds for the Termux result. If the timeout utility is missing or not executable, the bridge fails closed.
 - A unique UUID worker identity is generated for each Python invocation. A stale process cannot reuse the logical queue-owner identity of a later invocation.
 - The APK does not package the Python worker. The Termux checkout and worker file must match the recorded source commit independently.
-- Termux RUN_COMMAND results are accepted only when the internal error code is `Activity.RESULT_OK`, the exit code is zero, a valid worker receipt is present, and original stdout/stderr lengths show that the result was not truncated. Limits are 48 KiB stdout, 16 KiB stderr and 64 KiB combined.
+- Termux RUN_COMMAND results are accepted only when the internal error code is `Activity.RESULT_OK`, the exit code is zero, a valid worker receipt is present, and original stdout/stderr lengths show that the result was not truncated. Limits are 48 KiB stdout, 16 KiB stderr and 64 KiB combined. The Android worker also enforces an allowlisted set of worker states, exact queue component/version and typed non-negative queue counts, plus consistency between queue.pending and the ordered wake acknowledgement.
 - Termux is not a network sandbox. The current allowlisted worker capability does not use network tools, but the Termux process itself retains whatever network access Android grants to Termux.
 
 ## Explicit Termux prerequisites
