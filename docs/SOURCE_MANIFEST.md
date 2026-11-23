@@ -266,11 +266,11 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 ## Procedural skill contract — validation result
 
 - Latest private source branch head: 2718ea9eb04553283f6ca9e458eee51148e865c8 (private PR #160, still Draft).
-- Canonical public snapshot branch head: aa79cf2c2bdb758b63a6bc40a67b826a710f96d5 at the time of Python validation.
-- Python workflow run #399: 941 passed, 1 skipped, 28 subtests passed on Python 3.12 and Python 3.14; compileall passed on both.
+- Canonical public snapshot branch head: 255376e2e0ce50fd25429b2a51cbc450c12ff7b4.
+- Python workflow run #400: 941 passed, 1 skipped, 28 subtests passed on Python 3.12 and Python 3.14; compileall passed on both. This reran the same code after the provenance update.
 - The skipped test requires a local language-training corpus intentionally excluded from this public snapshot.
 - Six curated source files were compared against the private source branch by Git blob SHA; all six matched.
 - The initial CI failures exposed missing connectome edges and two stale/omitted integration contracts; those were corrected before run #399.
 - The evidence verifier is a trusted local provider contract (verify_local). No provider is configured by default, so operational skills remain fail-closed.
 - The short-lived validation PR #7 was incorporated into the canonical snapshot branch by fast-forward; this did not merge the snapshot PR into main. PR #5 remains Draft and unmerged.
-- Android Runtime Contract run #77 was still running at the time of this update. No new Android or Realme runtime claim is made.
+- Android Runtime Contract run #78 passed Java compilation, Android unit tests and debug APK assembly. This validates the bridge build only; no new Android or Realme device runtime claim is made.
