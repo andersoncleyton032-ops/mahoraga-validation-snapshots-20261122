@@ -119,3 +119,13 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Python workflow run #337 (`45086922248`): Python 3.12 and 3.14 source compilation and all included tests passed. Android workflow run #15 (`45086922251`): Java compilation, Android unit tests and debug APK assembly passed. Artifact `mahoraga-android-bridge-debug`, ID `14779319499`, 2,872,480 bytes, SHA-256 `a1f000d220a05947cb881b7b4f0b347a6f732dea1abd80f1ea877f9893018954`, expires 2026-12-07.
 - This change is not yet proven to prevent duplicate side effects from a process that continues running after the Android-side timeout; process cancellation and lease-duration alignment remain open.
 - No Android app, Termux settings, permissions, device data or private repository history were changed or published.
+
+
+### Android background service launch correction — 2026-11-22
+- Private source branch: `hardening/worker-fencing-and-recovery-20261123`, current source head at import: `e7f158a0ef24c7a4f62f45a8e2814ba4ea7271cc`.
+- Updated `TermuxBridge.java` to call `Context.startForegroundService()` on Android API 26+ and retain `startService()` only below API 26.
+- Added `TermuxBridgePolicyTest` for the API 25/26 boundary and Android 12/API 31 and Android 16/API 36.
+- Source rationale: Android background execution limits require a background caller targeting API 26+ to use the foreground-service launch API for a foreground service. The Android 12 foreground-service background-start restriction for cross-app starts applies only when both the caller and service-owning app target API 31+. Current upstream Termux source reports version 0.118.0 and targetSdkVersion 28, so that specific Android 12 restriction does not apply to the Termux-owned service. The Android 8+ background service API contract remains relevant to Mahoraga's targetSdk 36 caller.
+- References: Android background execution limits and cross-app FGS restriction documentation; Termux upstream `app/build.gradle`, `gradle.properties`, and `RunCommandService.java`.
+- Validation status: **pending CI for this exact source update**. Even with the correct API dispatch, Realme/OEM behavior, Termux configuration and the actual background WorkManager path still require device validation.
+- This change does not alter Termux settings, grant permissions, install apps or modify the device.
