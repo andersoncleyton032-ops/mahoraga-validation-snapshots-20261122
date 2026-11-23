@@ -73,7 +73,7 @@ public final class WorkScheduler {
         )
                 .setInitialDelay(WorkPolicy.POLL_INTERVAL_MINUTES, TimeUnit.MINUTES)
                 .setConstraints(buildConstraints())
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 60, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkPolicy.RETRY_BACKOFF_SECONDS, TimeUnit.SECONDS)
                 .build();
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -87,7 +87,7 @@ public final class WorkScheduler {
         return new OneTimeWorkRequest.Builder(MahoragaOneShotWorker.class)
                 .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
                 .setConstraints(buildConstraints())
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 60, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkPolicy.RETRY_BACKOFF_SECONDS, TimeUnit.SECONDS)
                 .build();
     }
 
