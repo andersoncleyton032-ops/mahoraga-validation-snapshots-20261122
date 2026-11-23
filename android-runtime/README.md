@@ -29,7 +29,7 @@ The bridge requires:
 3. The user to enable `allow-external-apps=true` in Termux.
 4. The Termux coreutils `timeout` executable at `$PREFIX/bin/timeout`.
 
-The app only displays these requirements. It does not edit Termux properties, Android settings, battery-optimization settings or permissions. No setup has been performed on a device.
+The bridge checks the installed Termux package/version, RUN_COMMAND permission and timeout executable. The `allow-external-apps` property remains a manual Termux prerequisite; a Termux rejection is surfaced as a bridge error. The app does not edit Termux properties, Android settings, battery-optimization settings or permissions. No setup has been performed on a device.
 
 ## Android service launch and wake security
 
