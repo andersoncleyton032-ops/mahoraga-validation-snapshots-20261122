@@ -8,6 +8,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Build;
 import android.os.Bundle;
 
 import java.io.File;
@@ -127,7 +128,7 @@ public final class TermuxBridge {
                 );
 
         try {
-            app.startService(command);
+            startTermuxCommand(app, command);
             Bundle result = TermuxResultReceiver.await(
                     requestId, future, RESULT_TIMEOUT_SECONDS
             );
@@ -159,6 +160,19 @@ public final class TermuxBridge {
         } finally {
             resultPendingIntent.cancel();
             TermuxResultReceiver.cancel(requestId, future);
+        }
+    }
+
+
+    static boolean usesForegroundService(int sdkInt) {
+        return sdkInt >= Build.VERSION_CODES.O;
+    }
+
+    static void startTermuxCommand(Context context, Intent command) {
+        if (usesForegroundService(Build.VERSION.SDK_INT)) {
+            context.startForegroundService(command);
+        } else {
+            context.startService(command);
         }
     }
 
