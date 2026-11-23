@@ -34,7 +34,7 @@ O registry:
 2. rejeita campos executáveis aninhados, riscos não permitidos, permissões fora da allowlist e ambientes que declarem rede ou mutações externas;
 3. valida orçamento por invocação (até 20 s, 256 MiB e 32 etapas);
 4. valida IDs, referências às capacidades declaradas, compatibilidade de risco e fluxo de dados entre etapas;
-5. calcula prontidão somente quando habilidade, maturidade, capacidades do manifesto, vínculos do Orchestrator e ferramentas requeridas estão disponíveis;
+5. calcula prontidão somente quando habilidade, maturidade, evidências verificadas por provedor local confiável, capacidades do manifesto, vínculos do Orchestrator e ferramentas requeridas estão disponíveis;
 6. fornece correspondência lexical determinística de intenções como baseline, sem alegar recrutamento semântico;
 7. produz um plano declarativo bloqueado ou elegível, sem despachar etapas;
 8. pode registrar o plano como evento no KnowledgeStore, sem declarar execução.
@@ -62,7 +62,7 @@ Ainda não existe:
 - sandbox de sistema operacional;
 - pipeline completo de build, E2E, QA visual, empacotamento e deploy de sites/apps.
 
-A correspondência lexical é apenas um baseline reproduzível. Um plano elegível não é prova de execução. O staging do Workbench não é isolamento de código arbitrário.
+A correspondência lexical é apenas um baseline reproduzível. Maturidade operacional exige um provedor confiável injetado que implemente verify_local(reference); sem ele, a habilidade permanece bloqueada. Um plano elegível não é prova de execução. O staging do Workbench não é isolamento de código arbitrário.
 
 ## 5. Próxima sequência de desenvolvimento
 
