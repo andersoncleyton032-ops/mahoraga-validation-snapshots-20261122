@@ -44,6 +44,16 @@ public final class TermuxBridgePolicyTest {
     }
 
     @Test
+    public void crossAppForegroundRestrictionRequiresBothAppsToTargetAndroid12() {
+        assertFalse(TermuxBridge.requiresCrossAppFgsReview(30, 36, 36));
+        assertFalse(TermuxBridge.requiresCrossAppFgsReview(31, 36, 28));
+        assertFalse(TermuxBridge.requiresCrossAppFgsReview(31, 28, 36));
+        assertTrue(TermuxBridge.requiresCrossAppFgsReview(31, 31, 31));
+        assertTrue(TermuxBridge.requiresCrossAppFgsReview(36, 36, 36));
+        assertFalse(TermuxBridge.requiresCrossAppFgsReview(36, 36, 28));
+    }
+
+    @Test
     public void foregroundServiceLaunchIsUsedFromAndroidOAndLater() {
         assertFalse(TermuxBridge.usesForegroundService(25));
         assertTrue(TermuxBridge.usesForegroundService(26));
