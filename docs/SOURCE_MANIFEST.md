@@ -205,3 +205,10 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Production parsing remains in the worker. The output-data builder now receives already-parsed primitive queue fields, allowing deterministic tests without invoking Android JSON stubs.
 - The test was rewritten to cover queue snapshot propagation and absent-snapshot behavior. This is a test-harness correction, not evidence of an application runtime defect.
 - Python workflow run #371 (`45089064459`) passed on Python 3.12 and 3.14, including compilation and all included focused tests. Android workflow run #49 (`45089064500`) is running the corrected queue snapshot tests and APK build.
+### Strict worker state, wake and queue receipt contract — 2026-11-22
+- Private source branch head at import: `36e7bbd101fb1c851eade94ae801854ac9736274`.
+- Android worker now accepts only known states (`idle`, `deferred`, `queued`, `failed`, `completed`, `completed_reconciled`) with state-specific task ID, execution flag and receipt-validity invariants. Unknown or inconsistent states fail closed.
+- Requires queue summary component/version `PersistentBackgroundWorkQueue`/`0.1.0`, non-negative integer counters and a boolean pending flag.
+- Requires wake status/delay to be structurally valid and consistent with queue.pending: pending work requires an acknowledged scheduled wake; no pending work requires not_needed.
+- Added unit tests for allowed states, unknown states, inconsistent receipts, wake delay boundaries and queue schema/type validation.
+- Android run #49 was launched before this exact strict-receipt update; CI for the latest worker/test/README sync is pending.
