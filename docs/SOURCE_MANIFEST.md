@@ -129,3 +129,14 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - References: Android background execution limits and cross-app FGS restriction documentation; Termux upstream `app/build.gradle`, `gradle.properties`, and `RunCommandService.java`.
 - Validation status: **pending CI for this exact source update**. Even with the correct API dispatch, Realme/OEM behavior, Termux configuration and the actual background WorkManager path still require device validation.
 - This change does not alter Termux settings, grant permissions, install apps or modify the device.
+
+
+### Bounded Termux process and lease recovery — 2026-11-22
+- Private source branch: `hardening/worker-fencing-and-recovery-20261123`, source head at import: `b66709804e5609ddcae37752e46ddabf6bf8ec7f`.
+- `TermuxBridge` now invokes the Termux coreutils `timeout` utility as the fixed executable, with a 30-second process deadline, SIGTERM and a 2-second SIGKILL grace period. It fails closed if the utility is absent or not executable.
+- The Android result wait remains 45 seconds, leaving time for the bounded Termux command to terminate and deliver its result.
+- WorkManager retry backoff is now 120 seconds, exceeding the Python queue's 90-second default lease. This prevents the normal retry from running before an interrupted worker's lease expires and being treated as idle.
+- Added Android unit tests for the timeout argument contract and for retry-backoff/lease ordering.
+- This improves process lifetime and lease recovery but does not prove OS-level sandboxing. A task may still be interrupted before checkpoint; SQLite transaction recovery, idempotency and lease reconciliation remain required.
+- The Termux coreutils package is marked essential upstream; the bridge nevertheless checks the exact executable at runtime rather than assuming it exists.
+- Validation status: **pending CI for this exact source update**. Device-level process termination, actual installed coreutils version and callback behavior remain untested on the Realme.
