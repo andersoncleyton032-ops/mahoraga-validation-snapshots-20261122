@@ -244,3 +244,20 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - This build includes the manual Termux prerequisite panel, queue snapshot observability, strict typed worker/wake/queue receipt validation, Termux UID authentication, target-SDK fail-closed gate, process timeout, retry/lease alignment and ordered wake acknowledgement.
 - The subsequent public head `e2b412896700c9e35c7ef2e00ca52d1d78840311` contains provenance documentation only; the 21-file blob audit confirms the Android/Python code content remains identical to private PR #159 head `a4c14d9a2129c8294b029cfe02627ec3f1ac8131`.
 - Status: **CI validated; not yet installed or device-tested**. This is the current candidate APK for the controlled Realme validation plan, not proof of background execution.
+
+## Procedural skill contract v1 — curated validation increment
+
+- Private source repository: andersoncleyton032-ops/mahoraga-core (private).
+- Source PR: #160, Draft; source branch implementation/procedural-skill-contract-20261123.
+- Source head at synchronization: eee5bb455a6340dab49dfc8af9f19a15a933c28.
+- Public validation branch: snapshot/procedural-skill-contract-20261123.
+- Curated files copied from the private branch:
+  - agent/procedural_skills.py
+  - agent/integration_core.py
+  - config/procedural_skills.json
+  - tests/test_procedural_skills.py
+  - docs/architecture/PROCEDURAL_SKILL_CONTRACT_V1_20261123.md
+- The copied code contains no private database, user memory, device logs, model weights, credentials or original private Git history.
+- The initial skill package is disabled and references only disabled read-only capabilities. No capability activation or runtime execution is performed.
+- This snapshot is for independent CI validation only; it is not a production mirror or merge target.
+- Source file blob SHAs are recorded in the private PR #160 and can be compared directly before any further synchronization.
