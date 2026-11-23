@@ -272,6 +272,7 @@ class ProceduralSkillRegistry:
             raise ProceduralSkillError("CapabilityManifest ausente ou inválido.")
         steps = []
         seen_step_ids = set()
+        estimated_total_seconds = 0.0
         for step in item["steps"]:
             if not isinstance(step, dict) or set(step) != self.STEP_FIELDS:
                 raise ProceduralSkillError("Etapa possui campos inválidos.")
@@ -322,6 +323,11 @@ class ProceduralSkillRegistry:
             ):
                 raise ProceduralSkillError(
                     f"Orçamento da capacidade excede o orçamento da habilidade: {capability_id}"
+                )
+            estimated_total_seconds += float(capability_seconds)
+            if estimated_total_seconds > seconds:
+                raise ProceduralSkillError(
+                    "Soma dos tempos estimados das etapas excede o orçamento da habilidade."
                 )
             seen_step_ids.add(step_id)
             steps.append({
