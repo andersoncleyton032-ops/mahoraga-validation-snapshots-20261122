@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.SystemClock;
 
 public final class WakeRequestReceiver extends BroadcastReceiver {
@@ -15,6 +16,8 @@ public final class WakeRequestReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || !ACTION.equals(intent.getAction())) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+                && !WorkPolicy.isTrustedWakeSender(Build.VERSION.SDK_INT, getSentFromPackage())) return;
         if (!WorkScheduler.isEnabled(context)) return;
 
         int delay = intent.getIntExtra("delay_seconds", -1);
