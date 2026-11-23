@@ -388,3 +388,18 @@ def test_register_enabled_adapters_uses_manifest_catalog_and_shared_orchestrator
     assert descriptor["estimated_ram_mb"] == 32
     assert orchestrator.capability_descriptor("memory.history_read") is None
     assert store.list_capabilities()
+
+
+
+def test_executor_defers_after_a_step_when_total_runtime_budget_is_exhausted(monkeypatch):
+    executor, _, _, orchestrator, store = make_executor()
+    clock = iter([100.0, 100.0, 109.0])
+    monkeypatch.setattr("agent.procedural_skill_executor.time.monotonic", lambda: next(clock))
+
+    result = executor.execute("test.system_audit", run_id="deadline-001")
+
+    assert result["status"] == "deferred"
+    assert result["completed_steps"] == ["hardware"]
+    assert result["reason"] == "skill_runtime_budget_exhausted_after_step"
+    assert len(orchestrator.calls) == 1
+    assert store.events[-1]["event_type"] == "procedural_skill.deferred"
