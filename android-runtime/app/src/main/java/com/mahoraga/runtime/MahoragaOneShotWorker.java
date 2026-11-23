@@ -69,17 +69,39 @@ public final class MahoragaOneShotWorker extends Worker {
                 return Result.retry();
             }
 
-            Data output = new Data.Builder()
-                    .putString("status", status)
-                    .putString("task_id", taskId)
-                    .putBoolean("execution_performed", executionPerformed)
-                    .putBoolean("completion_receipt_valid", receiptValid)
-                    .putString("wake_status", wakeStatus)
-                    .build();
-            return Result.success(output);
+            JSONObject queue = result.optJSONObject("queue");
+            return Result.success(buildOutputData(
+                    status, taskId, executionPerformed, receiptValid, wakeStatus, queue
+            ));
         } catch (JSONException malformed) {
             return Result.retry();
         }
+    }
+
+
+    static Data buildOutputData(
+            String status,
+            String taskId,
+            boolean executionPerformed,
+            boolean receiptValid,
+            String wakeStatus,
+            JSONObject queue
+    ) {
+        Data.Builder output = new Data.Builder()
+                .putString("status", status)
+                .putString("task_id", taskId)
+                .putBoolean("execution_performed", executionPerformed)
+                .putBoolean("completion_receipt_valid", receiptValid)
+                .putString("wake_status", wakeStatus);
+        if (queue != null) {
+            output.putInt("queue_revision", queue.optInt("revision", -1))
+                    .putInt("queue_queued", queue.optInt("queued", -1))
+                    .putInt("queue_claimed", queue.optInt("claimed", -1))
+                    .putInt("queue_active_items", queue.optInt("active_items", -1))
+                    .putInt("queue_recently_finished", queue.optInt("recently_finished", -1))
+                    .putBoolean("queue_pending", queue.optBoolean("pending", false));
+        }
+        return output.build();
     }
 
     private static String extractPayload(String stdout) {
