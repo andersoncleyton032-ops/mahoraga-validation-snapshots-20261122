@@ -47,6 +47,10 @@ public final class MainActivity extends Activity {
         status.setText("\nEstado: desativado.");
         layout.addView(status);
 
+        TextView prerequisites = new TextView(this);
+        prerequisites.setText("Requisitos manuais do Termux:\\n- Termux 0.109 ou superior\\n- Permissão RUN_COMMAND concedida ao Bridge\\n- allow-external-apps=true em termux.properties\\n- $PREFIX/bin/timeout disponível\\nO Bridge não altera essas configurações.");
+        layout.addView(prerequisites);
+
         oneShotStatus = new TextView(this);
         oneShotStatus.setText("Execução única: ainda sem leitura.");
         layout.addView(oneShotStatus);
