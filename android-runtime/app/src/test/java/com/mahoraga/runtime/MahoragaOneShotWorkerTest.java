@@ -10,6 +10,28 @@ import org.junit.Test;
 
 public final class MahoragaOneShotWorkerTest {
     @Test
+    public void workerEnvelopeRequiresTypedStatusTaskAndBooleans() {
+        assertTrue(MahoragaOneShotWorker.isValidWorkerEnvelope(
+                "idle", null, false, false
+        ));
+        assertTrue(MahoragaOneShotWorker.isValidWorkerEnvelope(
+                "completed", "task-1", true, true
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidWorkerEnvelope(
+                null, "task-1", true, true
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidWorkerEnvelope(
+                "completed", 42, true, true
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidWorkerEnvelope(
+                "idle", null, "false", false
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidWorkerEnvelope(
+                "idle", null, false, "false"
+        ));
+    }
+
+    @Test
     public void onlyKnownWorkerStatesWithConsistentReceiptsAreAccepted() {
         assertTrue(MahoragaOneShotWorker.isValidWorkerState("completed", "t1", true, true));
         assertTrue(MahoragaOneShotWorker.isValidWorkerState("completed_reconciled", "t1", false, true));
