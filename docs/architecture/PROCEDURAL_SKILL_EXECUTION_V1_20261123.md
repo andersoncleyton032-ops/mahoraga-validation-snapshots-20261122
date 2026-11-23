@@ -29,9 +29,10 @@ A habilidade não carrega código, não importa módulos e não executa comandos
 - Apenas habilidades `read_only`.
 - Apenas `foreground`; Companion/background exige agendamento e retomada por etapa e permanece fora do escopo.
 - Cada capacidade precisa estar habilitada explicitamente no manifesto, ter risco read-only e orçamento válido.
-- Cada etapa deve caber no orçamento total da habilidade.
+- A soma dos tempos estimados das etapas deve caber no orçamento total da habilidade; o executor também verifica o prazo total após cada etapa.
 - Sem rede, câmera, microfone, instalação, mudanças Android, efeitos externos, escrita no workspace ou alteração de projeto.
 - O adaptador registra checkpoint compacto contendo ID da capacidade, SHA-256 do resultado, tamanho e tipo. O resultado não é copiado para o checkpoint.
+- O relatório distingue tipos de artefato declarados de arquivos efetivamente materializados; v1 não cria arquivos.
 - A execução não promove maturidade, não registra evidência operacional automaticamente e não habilita a própria habilidade.
 
 ## Produção permanece bloqueada
