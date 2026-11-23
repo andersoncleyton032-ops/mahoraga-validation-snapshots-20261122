@@ -140,3 +140,11 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - This improves process lifetime and lease recovery but does not prove OS-level sandboxing. A task may still be interrupted before checkpoint; SQLite transaction recovery, idempotency and lease reconciliation remain required.
 - The Termux coreutils package is marked essential upstream; the bridge nevertheless checks the exact executable at runtime rather than assuming it exists.
 - Validation status: **pending CI for this exact source update**. Device-level process termination, actual installed coreutils version and callback behavior remain untested on the Realme.
+
+
+### Wake receiver sender authentication — 2026-11-22
+- Private source branch: `hardening/worker-fencing-and-recovery-20261123`, source head at import: `d340205a202da84c63f9ce45b0bd1b2dfd726d74`.
+- On Android API 34+, the exported wake receiver now accepts requests only when `BroadcastReceiver.getSentFromPackage()` identifies `com.termux`. The API call is guarded by the API 34 level check; older Android versions retain the existing explicit-action and rate-limit compatibility path.
+- Added tests for trusted Termux sender, untrusted sender and unavailable sender identity.
+- Rationale: the receiver must remain exported for the Termux process to request a wake, but an arbitrary installed app should not be able to trigger repeated background work.
+- Validation status: **pending CI for this exact sender-authentication update**. The sender identity returned for a real `/system/bin/am broadcast` launched from Termux must be confirmed on the Realme before claiming the inter-app wake path works.
