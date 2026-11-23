@@ -232,3 +232,9 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Android run #60 (`45089605454`) passed Java compilation, unit tests and debug APK assembly for the typed worker envelope, strict queue/wake receipts and retry classification.
 - Artifact ID `14780393934`, 2,877,598 bytes, SHA-256 `808d812a3991b1e073d307b8da24c393e99e1cb70cd460bf01bf543b1fd07681`, expires 2026-12-07.
 - This artifact predates the later Activity prerequisite panel and README correction; Android run #62 (`45089693346`) is validating those changes.
+### Private/public source parity audit — 2026-11-23
+- Private PR #159 head at audit: `a4c14d9a2129c8294b029cfe02627ec3f1ac8131`.
+- Public snapshot branch head at audit: `e2b412896700c9e35c7ef2e00ca52d1d78840311`.
+- 21 implementation, Android build/configuration, worker, bridge, receiver, scheduler, UI and test files were fetched from both refs and their Git blob SHAs compared. All 21 matched exactly.
+- This confirms code-content parity for the audited file set; it does not mean the private and public repository histories or documentation trees are identical.
+- The current public head is a provenance/documentation commit after the latest code sync. Android run #62 (`45089693346`) is the build/test run for the latest UI prerequisite panel code.
