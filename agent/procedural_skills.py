@@ -305,6 +305,24 @@ class ProceduralSkillRegistry:
                 raise ProceduralSkillError(f"Capacidade não declarada: {capability_id}")
             if self.RISK_ORDER[capability["risk"]] > self.RISK_ORDER[item["risk"]]:
                 raise ProceduralSkillError("Etapa excede a classe de risco da habilidade.")
+            capability_budget = capability.get("resource_requirements", {})
+            capability_seconds = capability_budget.get("estimated_runtime_seconds")
+            capability_ram = capability_budget.get("estimated_ram_mb")
+            if (
+                isinstance(capability_seconds, bool)
+                or not isinstance(capability_seconds, (int, float))
+                or not math.isfinite(float(capability_seconds))
+                or capability_seconds <= 0
+                or capability_seconds > seconds
+                or isinstance(capability_ram, bool)
+                or not isinstance(capability_ram, (int, float))
+                or not math.isfinite(float(capability_ram))
+                or capability_ram <= 0
+                or capability_ram > ram
+            ):
+                raise ProceduralSkillError(
+                    f"Orçamento da capacidade excede o orçamento da habilidade: {capability_id}"
+                )
             seen_step_ids.add(step_id)
             steps.append({
                 "id": step_id,
