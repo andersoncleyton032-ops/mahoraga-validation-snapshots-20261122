@@ -1555,14 +1555,14 @@ A cadeia #154→#155→#156→(11 commits intermediários)→#157→#158→#159 
 |---|---|---|---|
 | Contrato declarativo de skills | `procedural_skills.py`, `procedural_skills.json` | TESTED_INTEGRATION (PR #160 snapshot CI) | Plano declarativo; sem despacho até PR #162 |
 | Binding de adaptadores read-only | `capability_adapters.py`, `ResearchOrchestrator` | IMPLEMENTED; tests added in PR #162 | Só IDs conhecidos e enabled explicitamente; não habilita capacidades |
-| Execução procedural read-only | `procedural_skill_executor.py` | IMPLEMENTED; CI PENDING | Foreground apenas; uma etapa por chamada; sem rede, escrita no workspace ou efeitos externos |
+| Execução procedural read-only | `procedural_skill_executor.py` | TESTED_INTEGRATION (snapshot CI) | Foreground apenas; uma etapa por chamada; sem rede, escrita no workspace ou efeitos externos |
 | Checkpoint de adaptador | `ReadOnlyCapabilityAdapters._governed_binding` | IMPLEMENTED; tests added | Guarda hash/metadados do resultado; não é retomada completa da habilidade |
 | Integração com núcleo e conectoma | `IntegratedCore`, `CognitiveFabric` | IMPLEMENTED; tests added | A CI da branch ainda precisa validar os novos vínculos |
 | Fábrica web/app | skill `web.app_builder`, pipeline E2E/visual | PLANNED | Não implementada; requer staging, execução confiável isolada, build, testes, inspeção visual e empacotamento |
 
 **Gate de produção:** `mahoraga.system_audit` permanece disabled e em maturidade designed. Todas as capacidades de produção permanecem disabled. Testes de execução usam manifesto, store e evidências temporários.
 
-**Evidência:** PR #162 Draft, branch `implementation/procedural-skill-execution-20261123`. A execução privada de CI anterior ao PR terminou sem logs nem steps; isso não comprova falha de código nem aprovação. O snapshot público validou somente a correção do gate anterior (950 passed, 1 skipped, 28 subtests em Python 3.12/3.14; contrato Android aprovado). A CI específica da execução procedural está pendente. Nenhuma validação no Realme foi realizada.
+**Evidência:** PR #162 Draft, branch `implementation/procedural-skill-execution-20261123`. A execução privada de CI anterior ao PR terminou sem logs nem steps; isso não comprova falha de código nem aprovação. O snapshot público validou somente a correção do gate anterior (950 passed, 1 skipped, 28 subtests em Python 3.12/3.14; contrato Android aprovado). Snapshot CI no HEAD `2072ced10727b14c7b9d93142e40d22a201f72c1`: 962 passed, 1 skipped e 28 subtests em Python 3.12/3.14; compileall aprovado. Android Runtime Contract para o HEAD anterior `5792a2ab0ebaa9035bb64ef702b88d9468786707` passou compilação Java, unit tests e assembleDebug. A CI privada do HEAD desta PR ainda precisa ser observada. Nenhuma validação no Realme foi realizada.
 
 
 
