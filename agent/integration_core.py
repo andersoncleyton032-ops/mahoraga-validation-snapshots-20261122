@@ -272,9 +272,9 @@ class IntegratedCore:
             "read_only_capability_adapters_core": (
                 "capability_adapters", "integrated_core"
             ),
-            "procedural_executor_registry": ("procedural_skill_executor", "registry"),
-            "procedural_executor_adapters": ("procedural_skill_executor", "adapters"),
-            "procedural_executor_orchestrator": ("procedural_skill_executor", "orchestrator"),
+            "procedural_executor_registry": ("procedural_skill_executor", "procedural_skills"),
+            "procedural_executor_adapters": ("procedural_skill_executor", "capability_adapters"),
+            "procedural_executor_orchestrator": ("procedural_skill_executor", "research_orchestrator"),
             "procedural_executor_store": ("procedural_skill_executor", "store"),
             "knowledge_store": ("knowledge", "store"),
             "introspection_store": ("introspection", "store"),
