@@ -16,6 +16,7 @@ class AndroidWorkManagerWakeAdapter:
     MIN_DELAY_SECONDS = 60
     MAX_DELAY_SECONDS = 3600
     TIMEOUT_SECONDS = 5
+    ACCEPTED_RESULT = "Broadcast completed: result=1"
 
     def __init__(self, command_runner: Callable[..., Any] | None = None):
         self._command_runner = command_runner or subprocess.run
@@ -29,7 +30,7 @@ class AndroidWorkManagerWakeAdapter:
         )
 
     def schedule_next(self, *, delay_seconds: int) -> bool:
-        """Request one fixed explicit broadcast; return True only on exit code 0."""
+        """Request one fixed explicit broadcast; require receiver enqueue acknowledgement."""
         if not self.valid_delay(delay_seconds):
             return False
         command = [
@@ -53,4 +54,10 @@ class AndroidWorkManagerWakeAdapter:
             )
         except (OSError, subprocess.SubprocessError):
             return False
-        return type(getattr(result, "returncode", None)) is int and result.returncode == 0
+        stdout = getattr(result, "stdout", "")
+        return (
+            type(getattr(result, "returncode", None)) is int
+            and result.returncode == 0
+            and isinstance(stdout, str)
+            and self.ACCEPTED_RESULT in stdout
+        )
