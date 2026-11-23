@@ -143,9 +143,9 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 
 
 ### Wake receiver sender authentication — 2026-11-22
-- Private source branch: `hardening/worker-fencing-and-recovery-20261123`, source head at import: `d340205a202da84c63f9ce45b0bd1b2dfd726d74`.
+- Private source branch: `hardening/worker-fencing-and-recovery-20261123`, updated source head at UID-authentication import: `fa46006d2825df723085338d942c5f0979567e02`.
 - On Android API 34+, the exported wake receiver now accepts requests only when `BroadcastReceiver.getSentFromPackage()` identifies `com.termux`. The API call is guarded by the API 34 level check; older Android versions retain the existing explicit-action and rate-limit compatibility path.
-- Added tests for trusted Termux sender, untrusted sender and unavailable sender identity.
+- Added tests for matching Termux UID, mismatched UID, invalid sender UID and compatibility below API 34.
 - Rationale: the receiver must remain exported for the Termux process to request a wake, but an arbitrary installed app should not be able to trigger repeated background work.
 - Android workflow run #28 (`45087768537`) passed Java compilation, Android unit tests and debug APK assembly; Python run #350 (`45087768540`) passed Python 3.12/3.14 compilation and included tests. Artifact ID `14779688763`, 2,873,320 bytes, SHA-256 `b916124fff0fc9303ee48e265326790c872dd27b81ec777f45c0313dbb88afdc`, expires 2026-12-07. The sender identity returned for a real `/system/bin/am broadcast` launched from Termux must still be confirmed on the Realme before claiming the inter-app wake path works.
 
