@@ -188,3 +188,13 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Bridge Activity displays the last WorkManager-reported queue counts and revision alongside task status and receipt validity.
 - Added unit tests for queue snapshot propagation and for not inventing values when a queue object is absent.
 - This is still a snapshot carried by the last WorkManager output; it is not a live query of SQLite. CI for this exact update is pending.
+
+
+### Ordered wake broadcast acknowledgement — 2026-11-22
+- Private source branch head at import: `fa1242de95c2ff50cd509f087630c1425b04d912`.
+- `WorkScheduler.enqueueNext()` now returns whether the WorkManager enqueue call was accepted.
+- `WakeRequestReceiver` uses explicit ordered-broadcast result codes for invalid request, untrusted sender, disabled scheduler, invalid delay, rate limiting, enqueue failure and accepted enqueue.
+- The Termux Python adapter now requires the exact receiver acknowledgement `Broadcast completed: result=1`; an `am` process exit code of zero without receiver acceptance no longer counts as a scheduled wake.
+- Added tests for exit-zero with missing/rejected acknowledgements.
+- Android's `am broadcast` command uses an ordered broadcast result receiver; source review confirms the receiver result code is surfaced in stdout. The Realme test must still confirm this exact output and sender UID in the Termux process context.
+- Validation status: **pending CI for the ordered-acknowledgement update**.
