@@ -218,3 +218,8 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Unknown worker statuses are permanent schema failures; known but internally inconsistent states return WorkManager retry so a potentially incomplete execution can be reconciled rather than being silently accepted or prematurely terminalized.
 - Added tests distinguishing known/unknown states and preserving retry behavior for inconsistent known states.
 - Android run #52 (`45089345826`) passed the strict state/queue/wake receipt contract before the JSON-null normalization. Python run #378 (`45089467034`) and Android run #56 (`45089467047`) are validating the latest JSON-null and retry-classification refinement.
+### Typed worker receipt envelope — 2026-11-22
+- Private source head at import: `0870bfcd7f949e9d0223dba49d73d1e54a51cb9a`.
+- Worker result now requires a string status, present task_id field (string or JSON null), and actual Boolean values for execution_performed and completion_receipt_valid. Missing or coerced fields fail closed.
+- Added unit tests for valid idle/completed envelopes and invalid status/task/boolean types.
+- Latest public Android CI run is pending for this exact envelope refinement.
