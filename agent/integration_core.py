@@ -22,6 +22,7 @@ from .tool_intelligence import ToolIntelligence
 from .research_orchestrator import ResearchOrchestrator
 from .capability_manifest import CapabilityManifest
 from .procedural_skills import ProceduralSkillRegistry
+from .procedural_skill_executor import ProceduralSkillExecutor
 from .identity_engine import IdentityEngine
 from .model_runtime import LocalModelAdapter
 from .perception_engine import PerceptionEngine
@@ -132,6 +133,12 @@ class IntegratedCore:
         from .command_center import CommandCenter
         self.commands = CommandCenter(self)
         self.read_only_capability_adapters = ReadOnlyCapabilityAdapters(self)
+        self.procedural_skill_executor = ProceduralSkillExecutor(
+            self.procedural_skills,
+            self.read_only_capability_adapters,
+            self.research_orchestrator,
+            self.store,
+        )
         self.fabric = CognitiveFabric()
         self._validate_shared_components()
         self._register_cognitive_fabric_handlers()
@@ -179,6 +186,16 @@ class IntegratedCore:
             "read_only_capability_adapters_core": (
                 self.read_only_capability_adapters.core is self
             ),
+            "procedural_executor_registry": (
+                self.procedural_skill_executor.registry is self.procedural_skills
+            ),
+            "procedural_executor_adapters": (
+                self.procedural_skill_executor.adapters is self.read_only_capability_adapters
+            ),
+            "procedural_executor_orchestrator": (
+                self.procedural_skill_executor.orchestrator is self.research_orchestrator
+            ),
+            "procedural_executor_store": self.procedural_skill_executor.store is self.store,
             "knowledge_store": self.knowledge.store is self.store,
             "introspection_store": self.introspection.store is self.store,
             "introspection_hardware": self.introspection.hardware is self.hardware,
@@ -228,7 +245,7 @@ class IntegratedCore:
             "capability_adapters", "perception", "autonomy", "model_runtime", "identity", "introspection",
             "image_generation", "cognitive", "language", "reasoning", "mathematics", "executive", "conversation",
             "prototype_plasticity", "metacognition", "memory_graph", "capability_manifest",
-            "research_orchestrator", "procedural_skills", "blender_bridge", "blender_intelligence", "commands",
+            "research_orchestrator", "procedural_skills", "procedural_skill_executor", "blender_bridge", "blender_intelligence", "commands",
         ]
         endpoints = {
             "cognitive_store": ("cognitive", "store"),
@@ -255,6 +272,10 @@ class IntegratedCore:
             "read_only_capability_adapters_core": (
                 "capability_adapters", "integrated_core"
             ),
+            "procedural_executor_registry": ("procedural_skill_executor", "registry"),
+            "procedural_executor_adapters": ("procedural_skill_executor", "adapters"),
+            "procedural_executor_orchestrator": ("procedural_skill_executor", "orchestrator"),
+            "procedural_executor_store": ("procedural_skill_executor", "store"),
             "knowledge_store": ("knowledge", "store"),
             "introspection_store": ("introspection", "store"),
             "introspection_hardware": ("introspection", "hardware"),
@@ -304,6 +325,27 @@ class IntegratedCore:
     def inspect_cognitive_fabric(self) -> dict[str, Any]:
         """Return the verified structural connectome and observed runtime flows."""
         return self.fabric.connectome_snapshot()
+
+
+    def execute_procedural_skill(
+        self,
+        skill_id: str,
+        inputs: dict | None = None,
+        *,
+        runtime_context: dict | None = None,
+        resource_snapshot: dict | None = None,
+        run_id: str | None = None,
+        work_mode: str = "foreground",
+    ) -> dict:
+        """Execute one declared procedural skill through shared governed bindings."""
+        return self.procedural_skill_executor.execute(
+            skill_id,
+            inputs,
+            runtime_context=runtime_context,
+            resource_snapshot=resource_snapshot,
+            run_id=run_id,
+            work_mode=work_mode,
+        )
 
 
 
@@ -1562,6 +1604,7 @@ class IntegratedCore:
                 ],
             },
             "procedural_skills": self.procedural_skills.status(),
+            "procedural_skill_execution": self.procedural_skill_executor.status(),
             "integration": {
                 "shared_store": True,
                 "shared_dharma": True,
