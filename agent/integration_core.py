@@ -159,6 +159,13 @@ class IntegratedCore:
             "procedural_skills_orchestrator": (
                 self.procedural_skills.orchestrator is self.research_orchestrator
             ),
+            "procedural_skills_store": self.procedural_skills.store is self.store,
+            "procedural_skills_manifest": (
+                self.procedural_skills.capability_manifest is self.capability_manifest
+            ),
+            "procedural_skills_orchestrator": (
+                self.procedural_skills.orchestrator is self.research_orchestrator
+            ),
             "blender_bridge_store": self.blender_bridge.store is self.store,
             "blender_bridge_dharma": self.blender_bridge.dharma is self.dharma,
             "blender_intelligence_bridge": self.blender_intelligence.bridge is self.blender_bridge,
@@ -216,7 +223,7 @@ class IntegratedCore:
             "capability_adapters", "perception", "autonomy", "model_runtime", "identity", "introspection",
             "image_generation", "cognitive", "language", "reasoning", "mathematics", "executive", "conversation",
             "prototype_plasticity", "metacognition", "memory_graph", "capability_manifest",
-            "research_orchestrator", "blender_bridge", "blender_intelligence", "commands",
+            "research_orchestrator", "procedural_skills", "blender_bridge", "blender_intelligence", "commands",
         ]
         endpoints = {
             "cognitive_store": ("cognitive", "store"),
@@ -231,6 +238,9 @@ class IntegratedCore:
             "orchestrator_store": ("research_orchestrator", "store"),
             "orchestrator_dharma": ("research_orchestrator", "dharma"),
             "orchestrator_autonomy": ("research_orchestrator", "autonomy"),
+            "procedural_skills_store": ("procedural_skills", "store"),
+            "procedural_skills_manifest": ("procedural_skills", "capability_manifest"),
+            "procedural_skills_orchestrator": ("procedural_skills", "research_orchestrator"),
             "blender_bridge_store": ("blender_bridge", "store"),
             "blender_bridge_dharma": ("blender_bridge", "dharma"),
             "blender_intelligence_bridge": ("blender_intelligence", "blender_bridge"),
