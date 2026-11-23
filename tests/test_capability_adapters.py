@@ -215,13 +215,19 @@ def test_governed_bindings_require_execution_context_and_check_around_call(
         def check(self):
             calls.append("check")
 
+        def checkpoint(self, state):
+            calls.append(("checkpoint", state["capability_id"]))
+            return {"sequence": 1}
+
     with pytest.raises(TypeError):
         bindings["hardware.snapshot"]()
 
     result = bindings["hardware.snapshot"](execution_context=Context())
 
     assert result["android"]["model"] == "test-device"
-    assert calls == ["check", "check"]
+    assert calls[0] == "check"
+    assert calls[1] == ("checkpoint", "hardware.snapshot")
+    assert calls[2] == "check"
 
 
 def test_disabled_manifest_blocks_explicit_read_only_registration(
