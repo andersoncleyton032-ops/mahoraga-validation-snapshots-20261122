@@ -217,4 +217,4 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - The worker now normalizes JSON `null` for `wake_schedule.delay_seconds` via `JSONObject.isNull()` before checking `not_needed`; otherwise Android's `JSONObject.NULL` sentinel would be mistaken for a non-null delay.
 - Unknown worker statuses are permanent schema failures; known but internally inconsistent states return WorkManager retry so a potentially incomplete execution can be reconciled rather than being silently accepted or prematurely terminalized.
 - Added tests distinguishing known/unknown states and preserving retry behavior for inconsistent known states.
-- The latest Android validation is pending after this refinement; prior run #52 did not include it.
+- Android run #52 (`45089345826`) passed the strict state/queue/wake receipt contract before the JSON-null normalization. Python run #378 (`45089467034`) and Android run #56 (`45089467047`) are validating the latest JSON-null and retry-classification refinement.
