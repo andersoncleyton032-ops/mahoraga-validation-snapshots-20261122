@@ -1563,3 +1563,13 @@ A cadeia #154→#155→#156→(11 commits intermediários)→#157→#158→#159 
 **Gate de produção:** `mahoraga.system_audit` permanece disabled e em maturidade designed. Todas as capacidades de produção permanecem disabled. Testes de execução usam manifesto, store e evidências temporários.
 
 **Evidência:** PR #162 Draft, branch `implementation/procedural-skill-execution-20261123`. A execução privada de CI anterior ao PR terminou sem logs nem steps; isso não comprova falha de código nem aprovação. O snapshot público validou somente a correção do gate anterior (950 passed, 1 skipped, 28 subtests em Python 3.12/3.14; contrato Android aprovado). A CI específica da execução procedural está pendente. Nenhuma validação no Realme foi realizada.
+
+
+
+## 19. Background Companion — auditoria da cadeia intermediária — 23/11/2026
+
+- Branch intermediária `implementation/background-companion-mode-20261122`: 11 commits, 0 atrás do HEAD #156, 8 arquivos alterados; proveniência reconciliada, mesmo autor/committer, sem merges.
+- Introduz dois modos distintos: `background_companion` (tela interativa, Mahoraga em segundo plano, até 8 s/64 MiB; 5 s/48 MiB em thermal light) e `background_idle` (tela apagada, até 20 s/128 MiB; 12 s/96 MiB em thermal light).
+- Governor, Orchestrator e Scheduler mantêm checkpoint obrigatório, uma tarefa por invocação, sem loop contínuo e fail-closed em contexto desconhecido.
+- Auditoria estática registrada em `docs/operations/BACKGROUND_COMPANION_11_COMMIT_AUDIT_20261123.md`; nenhum defeito funcional foi identificado na cadeia.
+- Maturidade: TESTED_INTEGRATION em snapshot CI; VALIDATED_REAL permanece pendente. A execução no Realme não foi realizada e o pré-requisito Termux `allow-external-apps` continua não habilitado.
