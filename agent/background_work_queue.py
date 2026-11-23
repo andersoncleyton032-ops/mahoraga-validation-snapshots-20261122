@@ -553,6 +553,10 @@ class BackgroundWorkScheduler:
             return {"status": "adapter_rejected", "delay_seconds": delay_seconds}
         return {"status": "scheduled", "delay_seconds": delay_seconds}
 
+    def schedule_next_pending(self, delay_seconds: int = 900) -> dict[str, Any]:
+        """Schedule a bounded retry for already-pending work without claiming it."""
+        return self._schedule_next(delay_seconds)
+
     def run_once(
         self,
         runtime_context: dict | None,
