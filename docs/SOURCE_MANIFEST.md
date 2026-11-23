@@ -157,3 +157,11 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Added unit tests for valid boundaries, oversized streams, combined overflow, malformed metadata and negative lengths.
 - Termux's RUN_COMMAND documentation defines these original-length fields specifically to detect truncation; the previous bridge had a parser helper but did not use it.
 - Android workflow run #28 (`45087768537`) and Python workflow run #350 (`45087768540`) are validating this exact result-bundle update.
+
+
+### Companion execution observability — 2026-11-22
+- Private source branch: `hardening/worker-fencing-and-recovery-20261123`, source head at import: `866059a5509f2cab0c7b0476322395323452db4b`.
+- The Bridge Activity now queries WorkManager's unique one-shot and periodic work records and displays state, attempt count, worker status, task ID, wake status, error code and completion-receipt validity when present.
+- Status can be refreshed manually and is refreshed when the Activity resumes. This is WorkManager-side observability only; it does not yet query the Termux SQLite queue directly or provide a notification channel.
+- No additional Android permissions or network access are introduced.
+- Validation status: **pending Android CI for this exact UI update**; device usability and display layout remain untested.
