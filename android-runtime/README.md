@@ -4,13 +4,22 @@ This is a source-only Android bridge. It has **not** been installed, enabled or 
 
 ## Runtime contract
 
-- WorkManager owns persistent scheduling and rescheduling across ordinary process death and reboot.
-- A periodic queue poll runs no more often than the 15-minute WorkManager minimum.
+- WorkManager owns persistent scheduling and rescheduling across ordinary process death and reboot. Android force-stop is different: scheduled work may not resume until the user opens the app again.
+- A periodic queue poll uses the 15-minute WorkManager minimum. Timing is inexact and can be deferred by Android, Doze, quotas and OEM power management; this is not an exact alarm or an always-running daemon.
 - When Python reports queued work, a fixed explicit broadcast appends a one-shot request to the serialized WorkManager chain.
-- One invocation calls one fixed Termux script. The Python queue lease, one-task scheduler and completion receipt remain authoritative.
-- WorkManager constraints require charging, battery-not-low and storage-not-low. Network is explicitly not required.
-- The Python Governor selects Companion when the screen is interactive and Mahoraga/Termux is not foreground; otherwise it selects the screen-off idle policy. Unknown state fails closed.
-- WorkManager timing is inexact and can be deferred by Android, Doze, quotas and OEM power management. It is not an exact alarm or an always-running daemon.
+- The Android worker calls one fixed Termux script. The Python queue lease, one-task scheduler, checkpoint and completion receipt remain authoritative.
+- WorkManager has no charging, battery-not-low or storage-not-low hard constraints. The Android request only declares `NetworkType.NOT_REQUIRED`; the Python Governor performs contextual resource admission.
+- The Governor selects a smaller `background_companion` budget when the screen is interactive and Mahoraga/Termux is not foreground, and the `background_idle` policy when screen-off conditions are verified. Unknown state fails closed or receives only the minimum budget. Thermal, battery, RAM and storage policies remain dynamic in Python.
+- WorkManager's one-shot retry backoff is 120 seconds, above the Python queue's default 90-second lease. This gives an interrupted process's lease time to expire before retry.
+
+## Termux invocation and process bounds
+
+- The bridge invokes only the fixed executable `$PREFIX/bin/timeout`, with SIGTERM at 30 seconds and a 2-second SIGKILL grace period, wrapping the fixed Python executable and `~/mahoraga/scripts/mahoraga_background_worker.py`.
+- The bridge waits up to 45 seconds for the Termux result. If the timeout utility is missing or not executable, the bridge fails closed.
+- A unique UUID worker identity is generated for each Python invocation. A stale process cannot reuse the logical queue-owner identity of a later invocation.
+- The APK does not package the Python worker. The Termux checkout and worker file must match the recorded source commit independently.
+- Termux RUN_COMMAND results are accepted only when the internal error code is `Activity.RESULT_OK`, the exit code is zero, a valid worker receipt is present, and original stdout/stderr lengths show that the result was not truncated. Limits are 48 KiB stdout, 16 KiB stderr and 64 KiB combined.
+- Termux is not a network sandbox. The current allowlisted worker capability does not use network tools, but the Termux process itself retains whatever network access Android grants to Termux.
 
 ## Explicit Termux prerequisites
 
@@ -18,19 +27,27 @@ The bridge requires:
 1. Termux package `com.termux`, version 0.109 or newer for result PendingIntents.
 2. The user to grant this app `com.termux.permission.RUN_COMMAND`.
 3. The user to enable `allow-external-apps=true` in Termux.
+4. The Termux coreutils `timeout` executable at `$PREFIX/bin/timeout`.
 
 The app only displays these requirements. It does not edit Termux properties, Android settings, battery-optimization settings or permissions. No setup has been performed on a device.
 
-The bridge invokes only `$PREFIX/bin/python` with the fixed script `~/mahoraga/scripts/mahoraga_background_worker.py`. It does not accept arbitrary command paths, shell fragments or task arguments. The Python wake adapter emits only an explicit broadcast to this app with a bounded delay.
+## Android service launch and wake security
 
-## Permissions and side effects
+- On Android API 26+, the bridge calls `Context.startForegroundService()` to start Termux's `RunCommandService`; older versions use `startService()`.
+- Current Termux upstream 0.118.0 declares target SDK 28. Android's Android-12+ cross-app foreground-service background-start restriction applies only when both the caller and service-owning app target API 31+. The Android O background-service launch contract still makes the foreground-service launch API necessary for the Mahoraga caller (target API 36).
+- The exported wake receiver is required for the Termux process to send an explicit wake broadcast. On Android API 34+, it compares `getSentFromUid()` with the installed Termux package UID. On older Android versions, sender identity is unavailable through this API; explicit action validation and rate limiting remain, but do not provide equivalent sender authentication.
+- The bridge does not request INTERNET, microphone, camera, location, storage or overlay permissions. WorkManager may merge its standard scheduling/boot permissions.
 
-The manifest declares only the Termux RUN_COMMAND permission and package visibility for Termux. It does not declare INTERNET, microphone, camera, location, storage or foreground-service permissions. WorkManager's own manifest may merge its standard scheduling/boot permissions.
+## Observability
 
-The exported wake receiver can only enqueue the fixed, constrained worker. It validates the delay, rate-limits requests and ignores requests after the user disables the cycle. The worker does not access the network. Termux executes one bounded, checkpointable local task per invocation.
+The Bridge Activity queries WorkManager's one-shot and periodic records and displays state, attempt count, worker status, task ID, wake status, error code and receipt validity when present. The view refreshes when the Activity resumes or when the user requests it.
 
-Stopping cancels future periodic and one-shot work. A Termux process already started may finish its current bounded invocation and checkpoint; it is not force-killed.
+This is WorkManager-side observability only. It does not yet read the Termux SQLite queue directly or provide a notification channel.
 
-## Validation boundary
+## Stop and validation boundary
 
-The Gradle build and unit tests validate source compatibility and local scheduling policy only. They do not prove that Termux accepts RUN_COMMAND on a particular installation, that the Realme firmware honors WorkManager promptly, or that Shizuku/rish observations are available. Those require a later, explicit device validation stage.
+Stopping cancels future periodic and one-shot work. A Termux process already started is bounded by the 30-second timeout plus 2-second kill grace; it is not synchronously cancelled by WorkManager's stop button.
+
+Gradle build and CI unit tests validate source compatibility and local policy contracts only. They do not prove that Termux accepts RUN_COMMAND on the installed version, that the wake sender UID is reported as expected, that the Realme firmware honors WorkManager promptly, or that Shizuku/rish observations are available. Those require the explicit device validation plan in `docs/operations/REALME_COMPANION_DEVICE_VALIDATION_PLAN_20261122.md`.
+
+No device installation, permission grant, Termux property change or Android power-policy change is performed by this source tree.
