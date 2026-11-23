@@ -127,7 +127,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Added `TermuxBridgePolicyTest` for the API 25/26 boundary and Android 12/API 31 and Android 16/API 36.
 - Source rationale: Android background execution limits require a background caller targeting API 26+ to use the foreground-service launch API for a foreground service. The Android 12 foreground-service background-start restriction for cross-app starts applies only when both the caller and service-owning app target API 31+. Current upstream Termux source reports version 0.118.0 and targetSdkVersion 28, so that specific Android 12 restriction does not apply to the Termux-owned service. The Android 8+ background service API contract remains relevant to Mahoraga's targetSdk 36 caller.
 - References: Android background execution limits and cross-app FGS restriction documentation; Termux upstream `app/build.gradle`, `gradle.properties`, and `RunCommandService.java`.
-- Validation status: **pending CI for this exact source update**. Even with the correct API dispatch, Realme/OEM behavior, Termux configuration and the actual background WorkManager path still require device validation.
+- Android workflow run #19 (`45087405165`) passed Java compilation, Android unit tests and debug APK assembly. Artifact ID `14780165940`, 2,872,608 bytes, SHA-256 `de11d73e02389a359041ffd08b8b63907ee68f9e17989626cf4da7ab495e3a87`, expires 2026-12-07. Even with the correct API dispatch, Realme/OEM behavior, Termux configuration and the actual background WorkManager path still require device validation.
 - This change does not alter Termux settings, grant permissions, install apps or modify the device.
 
 
@@ -139,7 +139,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Added Android unit tests for the timeout argument contract and for retry-backoff/lease ordering.
 - This improves process lifetime and lease recovery but does not prove OS-level sandboxing. A task may still be interrupted before checkpoint; SQLite transaction recovery, idempotency and lease reconciliation remain required.
 - The Termux coreutils package is marked essential upstream; the bridge nevertheless checks the exact executable at runtime rather than assuming it exists.
-- Validation status: **pending CI for this exact source update**. Device-level process termination, actual installed coreutils version and callback behavior remain untested on the Realme.
+- Android workflow run #23 (`45087545399`) passed Java compilation, Android unit tests and debug APK assembly. Artifact ID `14779589327`, 2,872,955 bytes, SHA-256 `6c8d10f951f32d8bf7fdc13e48a2f2f814da0c7c3acf82a7a1979c890e1d0a81`, expires 2026-12-07. Device-level process termination, actual installed coreutils version and callback behavior remain untested on the Realme.
 
 
 ### Wake receiver sender authentication — 2026-11-22
@@ -147,7 +147,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - On Android API 34+, the exported wake receiver now accepts requests only when `BroadcastReceiver.getSentFromPackage()` identifies `com.termux`. The API call is guarded by the API 34 level check; older Android versions retain the existing explicit-action and rate-limit compatibility path.
 - Added tests for trusted Termux sender, untrusted sender and unavailable sender identity.
 - Rationale: the receiver must remain exported for the Termux process to request a wake, but an arbitrary installed app should not be able to trigger repeated background work.
-- Validation status: **pending CI for this exact sender-authentication update**. The sender identity returned for a real `/system/bin/am broadcast` launched from Termux must be confirmed on the Realme before claiming the inter-app wake path works.
+- Android workflow run #28 (`45087768537`) and Python workflow run #350 (`45087768540`) are validating this and the subsequent result-bundle changes. The sender identity returned for a real `/system/bin/am broadcast` launched from Termux must be confirmed on the Realme before claiming the inter-app wake path works.
 
 
 ### Termux result-bundle truncation validation — 2026-11-22
@@ -156,4 +156,4 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - It rejects output exceeding 48 KiB stdout, 16 KiB stderr, or 64 KiB combined, preventing acceptance of truncated JSON receipts.
 - Added unit tests for valid boundaries, oversized streams, combined overflow, malformed metadata and negative lengths.
 - Termux's RUN_COMMAND documentation defines these original-length fields specifically to detect truncation; the previous bridge had a parser helper but did not use it.
-- Validation status: **pending CI for this exact result-bundle update**.
+- Android workflow run #28 (`45087768537`) and Python workflow run #350 (`45087768540`) are validating this exact result-bundle update.
