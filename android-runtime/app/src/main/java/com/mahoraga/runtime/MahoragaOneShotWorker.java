@@ -51,26 +51,43 @@ public final class MahoragaOneShotWorker extends Worker {
             String taskId = result.optString("task_id", "");
             boolean executionPerformed = result.optBoolean("execution_performed", false);
             boolean receiptValid = result.optBoolean("completion_receipt_valid", false);
+            if (!isValidWorkerState(status, taskId, executionPerformed, receiptValid)) {
+                return Result.failure(new Data.Builder()
+                        .putString("error_code", "invalid_worker_result_state")
+                        .build());
+            }
 
             JSONObject wake = result.optJSONObject("wake_schedule");
             String wakeStatus = wake == null ? "" : wake.optString("status", "");
-            if (!"scheduled".equals(wakeStatus) && !"not_needed".equals(wakeStatus)) {
-                return Result.retry();
-            }
-            if ("completed".equals(status)) {
-                if (taskId.isBlank() || !executionPerformed || !receiptValid) {
-                    return Result.retry();
-                }
-            } else if ("completed_reconciled".equals(status)) {
-                if (taskId.isBlank() || executionPerformed || !receiptValid) {
-                    return Result.retry();
-                }
-            } else if (executionPerformed || "error".equals(status)) {
-                return Result.retry();
+            Object wakeDelay = wake == null ? null : wake.opt("delay_seconds");
+            if (!isValidWakeReceipt(wakeStatus, wakeDelay)) {
+                return Result.failure(new Data.Builder()
+                        .putString("error_code", "invalid_wake_schedule_receipt")
+                        .build());
             }
 
             JSONObject queue = result.optJSONObject("queue");
-            boolean hasQueue = queue != null;
+            if (queue == null || !isValidQueueSnapshot(
+                    queue.optString("component", ""),
+                    queue.optString("version", ""),
+                    queue.opt("revision"),
+                    queue.opt("queued"),
+                    queue.opt("claimed"),
+                    queue.opt("active_items"),
+                    queue.opt("recently_finished"),
+                    queue.opt("pending")
+            )) {
+                return Result.failure(new Data.Builder()
+                        .putString("error_code", "invalid_queue_snapshot")
+                        .build());
+            }
+            boolean hasQueue = true;
+            boolean queuePending = queue.optBoolean("pending", false);
+            if (queuePending != "scheduled".equals(wakeStatus)) {
+                return Result.failure(new Data.Builder()
+                        .putString("error_code", "queue_wake_receipt_mismatch")
+                        .build());
+            }
             return Result.success(buildOutputData(
                     status,
                     taskId,
@@ -83,13 +100,70 @@ public final class MahoragaOneShotWorker extends Worker {
                     hasQueue ? queue.optInt("claimed", -1) : -1,
                     hasQueue ? queue.optInt("active_items", -1) : -1,
                     hasQueue ? queue.optInt("recently_finished", -1) : -1,
-                    hasQueue && queue.optBoolean("pending", false)
+                    queuePending
             ));
         } catch (JSONException malformed) {
             return Result.retry();
         }
     }
 
+
+
+    static boolean isValidWorkerState(
+            String status, String taskId, boolean executionPerformed, boolean receiptValid
+    ) {
+        if (status == null) return false;
+        String safeTaskId = taskId == null ? "" : taskId;
+        switch (status) {
+            case "completed":
+                return !safeTaskId.isBlank() && executionPerformed && receiptValid;
+            case "completed_reconciled":
+                return !safeTaskId.isBlank() && !executionPerformed && receiptValid;
+            case "idle":
+                return safeTaskId.isBlank() && !executionPerformed && !receiptValid;
+            case "deferred":
+            case "queued":
+            case "failed":
+                return !safeTaskId.isBlank() && !executionPerformed && !receiptValid;
+            default:
+                return false;
+        }
+    }
+
+    static boolean isValidWakeReceipt(String status, Object delaySeconds) {
+        if ("not_needed".equals(status)) return delaySeconds == null;
+        if (!"scheduled".equals(status) || !(delaySeconds instanceof Number)) return false;
+        double value = ((Number) delaySeconds).doubleValue();
+        return Double.isFinite(value) && value >= 60 && value <= 3600
+                && value == Math.rint(value);
+    }
+
+    static boolean isValidQueueSnapshot(
+            String component,
+            String version,
+            Object revision,
+            Object queued,
+            Object claimed,
+            Object activeItems,
+            Object recentlyFinished,
+            Object pending
+    ) {
+        return "PersistentBackgroundWorkQueue".equals(component)
+                && "0.1.0".equals(version)
+                && isNonNegativeInteger(revision)
+                && isNonNegativeInteger(queued)
+                && isNonNegativeInteger(claimed)
+                && isNonNegativeInteger(activeItems)
+                && isNonNegativeInteger(recentlyFinished)
+                && pending instanceof Boolean;
+    }
+
+    private static boolean isNonNegativeInteger(Object value) {
+        if (!(value instanceof Number)) return false;
+        double number = ((Number) value).doubleValue();
+        return Double.isFinite(number) && number >= 0
+                && number <= Integer.MAX_VALUE && number == Math.rint(number);
+    }
 
     static Data buildOutputData(
             String status,
