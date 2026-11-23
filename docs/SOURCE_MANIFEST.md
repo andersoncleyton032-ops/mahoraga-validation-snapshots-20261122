@@ -204,4 +204,4 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Android run #47 (`45088640783`) compiled the application but failed one unit test: `MahoragaOneShotWorkerTest.queueSnapshotIsPreservedInWorkManagerOutput`. The failure occurred because the local Android unit-test runtime exposes a stubbed `org.json.JSONObject`; constructing it in the test throws `RuntimeException`.
 - Production parsing remains in the worker. The output-data builder now receives already-parsed primitive queue fields, allowing deterministic tests without invoking Android JSON stubs.
 - The test was rewritten to cover queue snapshot propagation and absent-snapshot behavior. This is a test-harness correction, not evidence of an application runtime defect.
-- Validation status: **pending a new Android CI run for the corrected test**.
+- Python workflow run #371 (`45089064459`) passed on Python 3.12 and 3.14, including compilation and all included focused tests. Android workflow run #49 (`45089064500`) is running the corrected queue snapshot tests and APK build.
