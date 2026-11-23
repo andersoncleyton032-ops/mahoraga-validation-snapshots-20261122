@@ -238,6 +238,30 @@ def test_connectome_represents_every_shared_component_invariant(tmp_path):
     assert image_edge["verified"] is True
 
 
+def test_integrated_core_connects_procedural_skills_to_shared_core_and_connectome(tmp_path):
+    core = make_core(tmp_path)
+
+    assert core.procedural_skills.store is core.store
+    assert core.procedural_skills.capability_manifest is core.capability_manifest
+    assert core.procedural_skills.orchestrator is core.research_orchestrator
+    assert core.procedural_skills.evidence_verifier is core.cognitive.evidence_verifier
+
+    snapshot = core.inspect_cognitive_fabric()
+    assert "procedural_skills" in snapshot["nodes"]
+    relationships = {
+        item["relationship_id"]: item
+        for item in snapshot["verified_structural_edges"]
+    }
+    for relationship_id in (
+        "procedural_skills_store",
+        "procedural_skills_manifest",
+        "procedural_skills_orchestrator",
+        "procedural_skills_evidence_verifier",
+    ):
+        assert relationships[relationship_id]["verified"] is True
+        assert relationships[relationship_id]["source"] == "procedural_skills"
+
+
 def test_integrated_core_reuses_cognitive_reasoning_instance(tmp_path):
     core = make_core(tmp_path)
     assert core.reasoning is core.cognitive.reasoning
@@ -246,38 +270,11 @@ def test_integrated_core_reuses_cognitive_reasoning_instance(tmp_path):
 
 
 def test_integrated_core_routes_capability_through_real_governor(tmp_path):
-    manifest_path = tmp_path / "config" / "capability_manifest.json"
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps({
-        "schema": "mahoraga.capability_manifest",
-        "version": "1.0.0",
-        "capabilities": [{
-            "id": "integration.governed",
-            "name": "Capacidade governada de teste",
-            "purpose": "Validar a admissão pelo governor real.",
-            "description": "Capacidade sintética e local para teste.",
-            "version": "1.0.0",
-            "risk": "local_compute",
-            "maturity_state": "tested_individually",
-            "source_module": "tests",
-            "operations": ["bounded_compute"],
-            "inputs": {},
-            "outputs": {"result": "string"},
-            "dependencies": [],
-            "tools": [],
-            "limitations": ["Não representa execução de produção."],
-            "resource_requirements": {"cpu": "low"},
-            "validation": {"tests_passed": 1},
-            "enabled": True,
-            "metadata": {},
-        }],
-    }), encoding="utf-8")
     core = IntegratedCore(
         root=tmp_path,
         store=KnowledgeStore(tmp_path / "governed.sqlite3"),
         hardware=GovernedFakeHardware(),
     )
-    core.research_orchestrator.sync_manifest_catalog()
     executed = []
 
     def bounded_capability(execution_context):
@@ -318,7 +315,7 @@ def test_integrated_core_reuses_shared_perception_and_autonomy_components(tmp_pa
     assert core.research_orchestrator.runtime_context_provider is None
 
     report = core.build_report()
-    assert report["integration"]["shared_autonomy_governor"] is True
+    assert report["integration"]["orchestrator_autonomy"] is True
     assert report["integration"]["shared_perception_engine"] is True
     assert report["integration"]["shared_autonomy_governor"] is True
     assert report["integration"]["perception"]["continuous_sampling"] is False
