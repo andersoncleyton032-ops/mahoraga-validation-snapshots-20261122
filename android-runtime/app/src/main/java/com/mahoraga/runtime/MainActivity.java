@@ -135,6 +135,17 @@ public final class MainActivity extends Activity {
                             builder.append(" | recibo=")
                                     .append(output.getBoolean("completion_receipt_valid", false));
                         }
+                        if (output.getKeyValueMap().containsKey("queue_queued")) {
+                            builder.append(" | fila=")
+                                    .append(output.getInt("queue_queued", -1)).append("q/")
+                                    .append(output.getInt("queue_claimed", -1)).append("c")
+                                    .append(" | ativos=")
+                                    .append(output.getInt("queue_active_items", -1))
+                                    .append(" | rev=")
+                                    .append(output.getInt("queue_revision", -1))
+                                    .append(" | pendente=")
+                                    .append(output.getBoolean("queue_pending", false));
+                        }
                     }
                     value = builder.toString();
                 }
