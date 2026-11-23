@@ -228,3 +228,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Bridge Activity now displays the manual prerequisites: Termux >=0.109, RUN_COMMAND permission, `allow-external-apps=true`, and `$PREFIX/bin/timeout`.
 - README now accurately distinguishes prerequisites checked by the bridge from `allow-external-apps`, which remains a manual Termux property. No setting or permission is changed automatically.
 - Python workflow run #384 (`45089693314`) passed on Python 3.12/3.14. Android workflow run #62 (`45089693346`) is validating the Activity/README update.
+### Typed worker receipt envelope validation evidence — 2026-11-22
+- Android run #60 (`45089605454`) passed Java compilation, unit tests and debug APK assembly for the typed worker envelope, strict queue/wake receipts and retry classification.
+- Artifact ID `14780393934`, 2,877,598 bytes, SHA-256 `808d812a3991b1e073d307b8da24c393e99e1cb70cd460bf01bf543b1fd07681`, expires 2026-12-07.
+- This artifact predates the later Activity prerequisite panel and README correction; Android run #62 (`45089693346`) is validating those changes.
