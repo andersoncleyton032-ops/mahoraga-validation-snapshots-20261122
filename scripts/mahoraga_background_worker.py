@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sys
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 RESULT_PREFIX = "MAHORAGA_WORKER_RESULT:"
+
+
+def build_worker_id() -> str:
+    """Return a unique fencing identity for this process invocation."""
+    return f"android-workmanager:{uuid.uuid4().hex}"
 
 
 def build_poll_task_descriptor(now_epoch: int | float) -> dict[str, Any]:
@@ -42,7 +48,7 @@ def run_worker_once(
     *,
     core=None,
     now_epoch: int | float | None = None,
-    worker_id: str = "android-workmanager",
+    worker_id: str | None = None,
     wake_adapter=None,
 ) -> dict[str, Any]:
     from agent.android_workmanager_wake import AndroidWorkManagerWakeAdapter
@@ -61,10 +67,11 @@ def run_worker_once(
         timestamp = time.time() if now_epoch is None else now_epoch
         queue.enqueue(build_poll_task_descriptor(timestamp))
 
+    invocation_worker_id = build_worker_id() if worker_id is None else worker_id
     scheduler = BackgroundWorkScheduler(
         queue,
         runtime.research_orchestrator,
-        worker_id,
+        invocation_worker_id,
         wake_adapter or AndroidWorkManagerWakeAdapter(),
     )
     try:
