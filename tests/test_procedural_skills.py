@@ -23,7 +23,7 @@ def capability(capability_id, *, enabled=False, risk="read_only"):
         "dependencies": [],
         "tools": [],
         "limitations": [],
-        "resource_requirements": {},
+        "resource_requirements": {"estimated_runtime_seconds": 2, "estimated_ram_mb": 32},
         "validation": {},
         "enabled": enabled,
         "metadata": {},
