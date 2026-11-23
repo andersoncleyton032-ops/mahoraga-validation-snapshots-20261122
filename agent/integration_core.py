@@ -122,6 +122,7 @@ class IntegratedCore:
             self.capability_manifest,
             orchestrator=self.research_orchestrator,
             store=self.store,
+            evidence_verifier=getattr(self.cognitive, "evidence_verifier", None),
         )
         self.blender_bridge = BlenderBridge(self.store, self.dharma)
         self.blender_intelligence = BlenderIntelligence(
@@ -158,6 +159,10 @@ class IntegratedCore:
             ),
             "procedural_skills_orchestrator": (
                 self.procedural_skills.orchestrator is self.research_orchestrator
+            ),
+            "procedural_skills_evidence_verifier": (
+                self.procedural_skills.evidence_verifier
+                is getattr(self.cognitive, "evidence_verifier", None)
             ),
             "procedural_skills_store": self.procedural_skills.store is self.store,
             "procedural_skills_manifest": (
@@ -241,6 +246,7 @@ class IntegratedCore:
             "procedural_skills_store": ("procedural_skills", "store"),
             "procedural_skills_manifest": ("procedural_skills", "capability_manifest"),
             "procedural_skills_orchestrator": ("procedural_skills", "research_orchestrator"),
+            "procedural_skills_evidence_verifier": ("procedural_skills", "cognitive"),
             "blender_bridge_store": ("blender_bridge", "store"),
             "blender_bridge_dharma": ("blender_bridge", "dharma"),
             "blender_intelligence_bridge": ("blender_intelligence", "blender_bridge"),
