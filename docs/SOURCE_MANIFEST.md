@@ -148,3 +148,12 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Added tests for trusted Termux sender, untrusted sender and unavailable sender identity.
 - Rationale: the receiver must remain exported for the Termux process to request a wake, but an arbitrary installed app should not be able to trigger repeated background work.
 - Validation status: **pending CI for this exact sender-authentication update**. The sender identity returned for a real `/system/bin/am broadcast` launched from Termux must be confirmed on the Realme before claiming the inter-app wake path works.
+
+
+### Termux result-bundle truncation validation — 2026-11-22
+- Private source branch: `hardening/worker-fencing-and-recovery-20261123`, source head at import: `69e35dd873aaed2b154f708aa8c13713dee3bd3a`.
+- The bridge now reads Termux `stdout_original_length` and `stderr_original_length` metadata, not only the returned string sizes. Malformed or negative length metadata fails closed.
+- It rejects output exceeding 48 KiB stdout, 16 KiB stderr, or 64 KiB combined, preventing acceptance of truncated JSON receipts.
+- Added unit tests for valid boundaries, oversized streams, combined overflow, malformed metadata and negative lengths.
+- Termux's RUN_COMMAND documentation defines these original-length fields specifically to detect truncation; the previous bridge had a parser helper but did not use it.
+- Validation status: **pending CI for this exact result-bundle update**.
