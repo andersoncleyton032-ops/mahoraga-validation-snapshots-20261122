@@ -10,6 +10,55 @@ import org.junit.Test;
 
 public final class MahoragaOneShotWorkerTest {
     @Test
+    public void onlyKnownWorkerStatesWithConsistentReceiptsAreAccepted() {
+        assertTrue(MahoragaOneShotWorker.isValidWorkerState("completed", "t1", true, true));
+        assertTrue(MahoragaOneShotWorker.isValidWorkerState("completed_reconciled", "t1", false, true));
+        assertTrue(MahoragaOneShotWorker.isValidWorkerState("idle", "", false, false));
+        assertTrue(MahoragaOneShotWorker.isValidWorkerState("deferred", "t1", false, false));
+        assertTrue(MahoragaOneShotWorker.isValidWorkerState("queued", "t1", false, false));
+        assertTrue(MahoragaOneShotWorker.isValidWorkerState("failed", "t1", false, false));
+        assertFalse(MahoragaOneShotWorker.isValidWorkerState("unknown", "", false, false));
+        assertFalse(MahoragaOneShotWorker.isValidWorkerState("completed", "", true, true));
+        assertFalse(MahoragaOneShotWorker.isValidWorkerState("idle", "t1", false, false));
+        assertFalse(MahoragaOneShotWorker.isValidWorkerState("completed", "t1", false, true));
+    }
+
+    @Test
+    public void wakeReceiptMustMatchScheduledStatusAndDelay() {
+        assertTrue(MahoragaOneShotWorker.isValidWakeReceipt("not_needed", null));
+        assertFalse(MahoragaOneShotWorker.isValidWakeReceipt("not_needed", 60));
+        assertTrue(MahoragaOneShotWorker.isValidWakeReceipt("scheduled", 60));
+        assertTrue(MahoragaOneShotWorker.isValidWakeReceipt("scheduled", 3600));
+        assertFalse(MahoragaOneShotWorker.isValidWakeReceipt("scheduled", 59));
+        assertFalse(MahoragaOneShotWorker.isValidWakeReceipt("scheduled", 3601));
+        assertFalse(MahoragaOneShotWorker.isValidWakeReceipt("scheduled", "60"));
+        assertFalse(MahoragaOneShotWorker.isValidWakeReceipt("unknown", null));
+    }
+
+    @Test
+    public void queueSnapshotMustHaveExactComponentVersionAndTypedCounts() {
+        assertTrue(MahoragaOneShotWorker.isValidQueueSnapshot(
+                "PersistentBackgroundWorkQueue", "0.1.0",
+                1, 2, 3, 4, 5, true
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidQueueSnapshot(
+                "OtherQueue", "0.1.0", 1, 2, 3, 4, 5, true
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidQueueSnapshot(
+                "PersistentBackgroundWorkQueue", "0.2.0", 1, 2, 3, 4, 5, true
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidQueueSnapshot(
+                "PersistentBackgroundWorkQueue", "0.1.0", -1, 2, 3, 4, 5, true
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidQueueSnapshot(
+                "PersistentBackgroundWorkQueue", "0.1.0", 1.5, 2, 3, 4, 5, true
+        ));
+        assertFalse(MahoragaOneShotWorker.isValidQueueSnapshot(
+                "PersistentBackgroundWorkQueue", "0.1.0", 1, 2, 3, 4, 5, "true"
+        ));
+    }
+
+    @Test
     public void queueSnapshotIsPreservedInWorkManagerOutput() {
         Data output = MahoragaOneShotWorker.buildOutputData(
                 "completed",
