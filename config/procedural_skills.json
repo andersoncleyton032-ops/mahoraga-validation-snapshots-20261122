@@ -1,0 +1,111 @@
+{
+  "schema": "mahoraga.procedural_skills",
+  "version": "1.0.0",
+  "skills": [
+    {
+      "id": "mahoraga.system_audit",
+      "version": "0.1.0",
+      "domain": "internal_systems",
+      "description": "Auditar estado de hardware, capacidades declaradas e metadados de memória sem alterar o sistema.",
+      "intent_triggers": [
+        "auditar o sistema",
+        "inspecionar capacidades",
+        "avaliar estado operacional"
+      ],
+      "exclusions": [
+        "instalar pacotes",
+        "alterar permissões",
+        "publicar",
+        "fazer deploy",
+        "modificar arquivos do projeto"
+      ],
+      "input_schema": {
+        "scope": {
+          "type": "string",
+          "required": false,
+          "description": "Área de auditoria solicitada."
+        }
+      },
+      "output_schema": {
+        "report": {
+          "type": "object",
+          "required": true,
+          "description": "Relatório agregado com proveniência e limitações."
+        }
+      },
+      "preconditions": [
+        "KnowledgeStore disponível",
+        "CapabilityManifest válido",
+        "contexto operacional conhecido"
+      ],
+      "environment": {
+        "runtime": "local_python",
+        "network": false,
+        "android_changes": false
+      },
+      "dependencies": [
+        "agent.integration_core",
+        "agent.hardware_intelligence",
+        "agent.introspection",
+        "agent.store"
+      ],
+      "tools": [],
+      "risk": "read_only",
+      "permissions": [
+        "read_local_state"
+      ],
+      "resource_budget": {
+        "max_runtime_seconds": 8,
+        "max_ram_mb": 64,
+        "max_steps": 3
+      },
+      "steps": [
+        {
+          "id": "hardware",
+          "capability_id": "hardware.snapshot",
+          "purpose": "Obter snapshot local de hardware.",
+          "input_bindings": {},
+          "checkpoint_required": true
+        },
+        {
+          "id": "capability_audit",
+          "capability_id": "introspection.capability_audit",
+          "purpose": "Auditar maturidade e evidências de capacidades.",
+          "input_bindings": {},
+          "checkpoint_required": true
+        },
+        {
+          "id": "memory_history",
+          "capability_id": "memory.history_read",
+          "purpose": "Consultar metadados de memória e eventos.",
+          "input_bindings": {},
+          "checkpoint_required": true
+        }
+      ],
+      "expected_artifacts": [
+        "system_audit_report"
+      ],
+      "validators": [
+        "schema",
+        "capability_binding",
+        "resource_budget",
+        "provenance"
+      ],
+      "failure_recovery": {
+        "retry_policy": "bounded",
+        "max_retries": 1,
+        "checkpoint_policy": "after_each_step",
+        "on_failure": "preserve_partial_and_stop"
+      },
+      "provenance": {
+        "source": "Mahoraga internal specification",
+        "license": "internal",
+        "version": "0.1.0"
+      },
+      "rollback": "read_only_no_mutation",
+      "evidence": [],
+      "maturity_state": "designed",
+      "enabled": false
+    }
+  ]
+}

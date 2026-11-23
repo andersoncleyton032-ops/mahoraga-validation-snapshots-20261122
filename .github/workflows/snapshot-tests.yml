@@ -4,23 +4,27 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'agent/**'
       - 'experiments/**'
       - 'tests/**'
+      - 'docs/**'
+      - 'README.md'
+      - '.gitignore'
       - '.github/workflows/snapshot-tests.yml'
   push:
     branches:
-      - 'snapshot/**'
+      - main
     paths:
+      - 'agent/**'
       - 'experiments/**'
       - 'tests/**'
+      - 'docs/**'
+      - 'README.md'
+      - '.gitignore'
       - '.github/workflows/snapshot-tests.yml'
 
 permissions:
   contents: read
-
-concurrency:
-  group: mahoraga-snapshot-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   focused-tests:
@@ -32,14 +36,16 @@ jobs:
         python-version: ['3.12', '3.14']
     steps:
       - name: Check out snapshot without persisted credentials
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install test runner
-        run: python -m pip install --disable-pip-version-check pytest
+        run: python -m pip install --disable-pip-version-check pytest==9.2.0 numpy==2.5.5
+      - name: Compile included Python sources
+        run: python -m compileall -q agent experiments tests
       - name: Run all included focused tests
-        run: python -m pytest -q tests/
+        run: python -m pytest -q -ra tests/

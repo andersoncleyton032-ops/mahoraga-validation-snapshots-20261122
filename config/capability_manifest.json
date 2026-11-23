@@ -1,0 +1,778 @@
+{
+  "schema": "mahoraga.capability_manifest",
+  "version": "1.0.0",
+  "capabilities": [
+    {
+      "id": "hardware.snapshot",
+      "name": "Leitura do estado do hardware",
+      "purpose": "Consultar o estado conhecido dos recursos físicos e do ambiente Android.",
+      "description": "Coleta um retrato operacional do hardware sem solicitar persistência de snapshots.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.hardware_intelligence",
+      "operations": [
+        "HardwareIntelligence.snapshot()"
+      ],
+      "inputs": {
+        "parameters": []
+      },
+      "outputs": {
+        "result": "Snapshot dos subsistemas de hardware disponíveis."
+      },
+      "dependencies": [],
+      "tools": [],
+      "limitations": [
+        "A disponibilidade dos dados depende das permissões e interfaces do Android.",
+        "A coleta não garante acesso a sensores ou métricas bloqueados pelo sistema."
+      ],
+      "resource_requirements": {
+        "compute": "low",
+        "estimated_runtime_seconds": 2,
+        "estimated_ram_mb": 32
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound"
+      }
+    },
+    {
+      "id": "knowledge.catalog_read",
+      "name": "Consulta ao catálogo de conhecimento",
+      "purpose": "Consultar documentos, fragmentos e contagens do conhecimento armazenado.",
+      "description": "Expõe operações de listagem e contagem sem importar documentos ou exportar arquivos.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.knowledge_engine",
+      "operations": [
+        "KnowledgeEngine.list_documents()",
+        "KnowledgeEngine.list_chunks()",
+        "KnowledgeEngine.counts()"
+      ],
+      "inputs": {
+        "list_documents": {
+          "subject": "opcional",
+          "limit": "opcional"
+        },
+        "list_chunks": {
+          "document_id": "obrigatório",
+          "limit": "opcional"
+        }
+      },
+      "outputs": {
+        "result": "Registros e contagens do catálogo de conhecimento."
+      },
+      "dependencies": [
+        "agent.store"
+      ],
+      "tools": [],
+      "limitations": [
+        "Não importa documentos.",
+        "Não exporta conjuntos de dados nem cria arquivos."
+      ],
+      "resource_requirements": {
+        "compute": "low",
+        "storage": "database_read",
+        "estimated_runtime_seconds": 2,
+        "estimated_ram_mb": 32
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound"
+      }
+    },
+    {
+      "id": "memory.history_read",
+      "name": "Consulta ao histórico de memória",
+      "purpose": "Consultar memórias, eventos e experimentos registrados.",
+      "description": "Reúne operações de leitura do histórico persistente do Mahoraga.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.store",
+      "operations": [
+        "KnowledgeStore.list_memory_metadata()",
+        "KnowledgeStore.list_event_metadata()",
+        "KnowledgeStore.count_memories()",
+        "KnowledgeStore.count_events()",
+        "KnowledgeStore.counts()"
+      ],
+      "inputs": {
+        "memory_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 100
+        },
+        "event_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 100
+        },
+        "event_type": "opcional"
+      },
+      "outputs": {
+        "result": "Chaves e datas de memória, cabeçalhos de eventos e contagens; valores e payloads são omitidos."
+      },
+      "dependencies": [
+        "agent.store"
+      ],
+      "tools": [],
+      "limitations": [
+        "Não expõe value_json de memórias nem payload_json de eventos.",
+        "A listagem de chaves e eventos é limitada e pode não cobrir o histórico completo.",
+        "Não cria, altera ou exclui registros.",
+        "A consulta depende da integridade e disponibilidade do banco."
+      ],
+      "resource_requirements": {
+        "compute": "low",
+        "storage": "database_read",
+        "estimated_runtime_seconds": 1,
+        "estimated_ram_mb": 16
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "payload_policy": "metadata_only"
+      }
+    },
+    {
+      "id": "cognition.context_review",
+      "name": "Revisão cognitiva de contexto",
+      "purpose": "Reunir contexto relevante a partir de memórias, eventos, experimentos e documentos.",
+      "description": "Reúne um retrato limitado dos catálogos de memória, eventos e documentos sem expor conteúdo persistente.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.cognitive_engine",
+      "operations": [
+        "KnowledgeStore.list_memory_metadata()",
+        "KnowledgeStore.list_event_metadata()",
+        "KnowledgeEngine.list_documents()",
+        "CognitiveEngine._authorize('introspect')"
+      ],
+      "inputs": {
+        "topic": "opcional; filtragem de catálogo documental",
+        "event_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "outputs": {
+        "result": "Visão de catálogo e contagens; valores de memória e payloads de eventos são omitidos."
+      },
+      "dependencies": [
+        "agent.store",
+        "agent.knowledge_engine"
+      ],
+      "tools": [],
+      "limitations": [
+        "A revisão é metadata-only e não recupera valores de memória nem payloads de eventos.",
+        "Amostras de memória e eventos são limitadas e não representam necessariamente o histórico completo.",
+        "O catálogo documental expõe metadados, não valida a veracidade dos documentos.",
+        "A consulta não registra observações nem altera memória."
+      ],
+      "resource_requirements": {
+        "compute": "low_to_moderate",
+        "estimated_runtime_seconds": 2,
+        "estimated_ram_mb": 32
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "payload_policy": "metadata_only"
+      }
+    },
+    {
+      "id": "introspection.self_model_read",
+      "name": "Consulta ao modelo operacional próprio",
+      "purpose": "Construir uma representação operacional do estado e da estrutura do Mahoraga.",
+      "description": "Usa a introspecção sem persistir um novo modelo ou evento.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.introspection",
+      "operations": [
+        "IntrospectionEngine.build_self_model(persist=False)"
+      ],
+      "inputs": {
+        "persist": {
+          "fixed_value": false
+        }
+      },
+      "outputs": {
+        "result": "Modelo operacional construído a partir das informações disponíveis."
+      },
+      "dependencies": [
+        "agent.hardware_intelligence",
+        "agent.store",
+        "agent.tool_intelligence"
+      ],
+      "tools": [],
+      "limitations": [
+        "A ligação futura deve usar um wrapper que force persist=False.",
+        "A função original não deve ser registrada diretamente como capacidade somente de leitura.",
+        "O modelo representa o estado observável, não consciência."
+      ],
+      "resource_requirements": {
+        "compute": "moderate",
+        "estimated_runtime_seconds": 3,
+        "estimated_ram_mb": 48
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "binding_constraint": "wrapper_must_force_persist_false"
+      }
+    },
+    {
+      "id": "introspection.capability_audit",
+      "name": "Auditoria de capacidades",
+      "purpose": "Examinar capacidades registradas e evidências de experimentos.",
+      "description": "Consulta o catálogo e as evidências sem gravar novas observações.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.introspection",
+      "operations": [
+        "IntrospectionEngine.audit_capabilities(persist=False)"
+      ],
+      "inputs": {
+        "limit_experiments": "opcional",
+        "persist": {
+          "fixed_value": false
+        }
+      },
+      "outputs": {
+        "result": "Relatório de auditoria baseado nos registros disponíveis."
+      },
+      "dependencies": [
+        "agent.store",
+        "agent.tool_intelligence"
+      ],
+      "tools": [],
+      "limitations": [
+        "A ligação futura deve usar um wrapper que force persist=False.",
+        "A função original não deve ser registrada diretamente como capacidade somente de leitura.",
+        "A existência de evidências não comprova competência em todas as condições reais."
+      ],
+      "resource_requirements": {
+        "compute": "low_to_moderate",
+        "estimated_runtime_seconds": 2,
+        "estimated_ram_mb": 32
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "binding_constraint": "wrapper_must_force_persist_false"
+      }
+    },
+    {
+      "id": "research.status_read",
+      "name": "Consulta ao estado da pesquisa",
+      "purpose": "Consultar o estado do orquestrador e do catálogo de capacidades.",
+      "description": "Retorna informações de estado sem registrar capacidades ou executar tarefas.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.research_orchestrator",
+      "operations": [
+        "ResearchOrchestrator.status()"
+      ],
+      "inputs": {
+        "parameters": []
+      },
+      "outputs": {
+        "result": "Estado do orquestrador, catálogo e manifesto."
+      },
+      "dependencies": [
+        "agent.store",
+        "agent.capability_manifest"
+      ],
+      "tools": [],
+      "limitations": [
+        "Não sincroniza o manifesto com o banco.",
+        "Não registra vínculos executáveis nem executa tarefas."
+      ],
+      "resource_requirements": {
+        "compute": "low",
+        "estimated_runtime_seconds": 1,
+        "estimated_ram_mb": 16
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound"
+      }
+    },
+    {
+      "id": "identity.persona_context",
+      "name": "Identidade operacional e contexto de personalidade",
+      "purpose": "Disponibilizar perfil persistente, princípios, estilo de comunicação, autoimagem e objetivos do Mahoraga para introspecção e modelos locais ou externos.",
+      "description": "Carrega um perfil JSON versionado e fornece contexto de persona e autoimagem sem efeitos colaterais.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.identity_engine",
+      "operations": [
+        "IdentityEngine.build_persona_context()",
+        "IdentityEngine.build_self_image()",
+        "IdentityEngine.status()"
+      ],
+      "inputs": {
+        "max_chars": "opcional; limite de contexto"
+      },
+      "outputs": {
+        "persona_context": "contexto operacional limitado",
+        "self_image": "perfil e estado cadastral"
+      },
+      "dependencies": [
+        "agent.store",
+        "config/identity_profile.json"
+      ],
+      "tools": [],
+      "limitations": [
+        "Perfil define orientação operacional, não estados subjetivos.",
+        "Domínios criativos refletem maturidade declarada, não domínio comprovado.",
+        "Alterações do perfil exigem revisão versionada."
+      ],
+      "resource_requirements": {
+        "compute": "low",
+        "storage": "read_only"
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "profile_version": "1.0.0"
+      }
+    },
+    {
+      "id": "executive.working_memory",
+      "name": "Controle executivo e memória de trabalho",
+      "purpose": "Manter objetivos persistentes, prioridades, foco, bloqueios e continuidade entre sessões.",
+      "description": "Registra estados de objetivos como eventos append-only e produz contexto de trabalho sem despachar ferramentas.",
+      "version": "0.1.0",
+      "risk": "local_compute",
+      "maturity_state": "implemented",
+      "source_module": "agent.executive_engine",
+      "operations": [
+        "ExecutiveEngine.create_goal()",
+        "ExecutiveEngine.transition_goal()",
+        "ExecutiveEngine.set_focus()",
+        "ExecutiveEngine.snapshot()",
+        "ExecutiveEngine.build_context()"
+      ],
+      "inputs": {
+        "goal": "título, descrição, prioridade e relação pai",
+        "transition": "goal_id e estado permitido"
+      },
+      "outputs": {
+        "working_memory": "snapshot dos objetivos e foco"
+      },
+      "dependencies": [
+        "agent.store",
+        "agent.dharma",
+        "agent.cognitive_engine"
+      ],
+      "tools": [],
+      "limitations": [
+        "Não executa ferramentas nem conclui objetivos automaticamente.",
+        "Histórico de leitura é limitado a 1000 eventos.",
+        "Objetivos registrados não comprovam execução."
+      ],
+      "resource_requirements": {
+        "compute": "low",
+        "storage": "SQLite append-only events"
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "event_sourcing": true
+      }
+    },
+    {
+      "id": "conversation.context_read",
+      "name": "Recuperação de contexto conversacional",
+      "purpose": "Recuperar resumos aprovados, tópico, entidades, decisões e pendências de uma sessão.",
+      "description": "Fornece contexto conversacional estruturado sem ler ou armazenar mensagens brutas.",
+      "version": "0.1.0",
+      "risk": "read_only",
+      "maturity_state": "implemented",
+      "source_module": "agent.conversation_engine",
+      "operations": [
+        "ConversationMemoryEngine.snapshot()",
+        "ConversationMemoryEngine.build_context()",
+        "ConversationMemoryEngine.list_sessions()",
+        "ConversationMemoryEngine.status()"
+      ],
+      "inputs": {
+        "session_id": "opcional",
+        "max_chars": "limite de contexto"
+      },
+      "outputs": {
+        "conversation_context": "resumo e estado estruturado"
+      },
+      "dependencies": [
+        "agent.store",
+        "agent.cognitive_engine"
+      ],
+      "tools": [],
+      "limitations": [
+        "Somente resumos aprovados são recuperados.",
+        "Mensagens brutas não são armazenadas.",
+        "O estado depende dos eventos disponíveis no SQLite."
+      ],
+      "resource_requirements": {
+        "compute": "low",
+        "storage": "database_read"
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "raw_turns_retained": false
+      }
+    },
+    {
+      "id": "conversation.summary_record",
+      "name": "Registro aprovado de continuidade conversacional",
+      "purpose": "Registrar resumo e estrutura de uma sessão após aprovação explícita.",
+      "description": "Persiste resumo, tópico, entidades, decisões e pendências como eventos append-only.",
+      "version": "0.1.0",
+      "risk": "local_compute",
+      "maturity_state": "implemented",
+      "source_module": "agent.conversation_engine",
+      "operations": [
+        "ConversationMemoryEngine.start_session()",
+        "ConversationMemoryEngine.record_exchange()",
+        "ConversationMemoryEngine.close_session()"
+      ],
+      "inputs": {
+        "summary": "obrigatório",
+        "approved": "deve ser true",
+        "open_loops": "lista opcional",
+        "decisions": "lista opcional"
+      },
+      "outputs": {
+        "event_id": "identificador do evento"
+      },
+      "dependencies": [
+        "agent.store",
+        "agent.dharma"
+      ],
+      "tools": [],
+      "limitations": [
+        "Retenção de resumo exige aprovação explícita.",
+        "Não aceita nem persiste mensagens brutas.",
+        "Não altera perfil de personalidade automaticamente."
+      ],
+      "resource_requirements": {
+        "compute": "low",
+        "storage": "SQLite append-only events"
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "raw_turns_retained": false,
+        "approval_required": true
+      }
+    },
+    {
+      "id": "model.local_generation",
+      "name": "Geração de linguagem em modelo local",
+      "purpose": "Gerar respostas com um modelo neural local usando identidade, memória de trabalho e contexto conversacional do Mahoraga.",
+      "description": "Adaptador OpenAI-compatible restrito a IP loopback; geração explícita, sem fallback remoto e sem despacho de ferramentas.",
+      "version": "0.1.0",
+      "risk": "local_compute",
+      "maturity_state": "implemented",
+      "source_module": "agent.model_runtime",
+      "operations": [
+        "LocalModelAdapter.generate()",
+        "IntegratedCore.generate_local_response()"
+      ],
+      "inputs": {
+        "messages": "1 a 32 mensagens estruturadas",
+        "max_tokens": "1 a 4096",
+        "temperature": "0 a 2"
+      },
+      "outputs": {
+        "response": "texto gerado pelo modelo local"
+      },
+      "dependencies": [
+        "config/model_runtime.json",
+        "agent.identity_engine",
+        "agent.executive_engine",
+        "agent.conversation_engine"
+      ],
+      "tools": [],
+      "limitations": [
+        "Desabilitado por padrão.",
+        "Exige um servidor local OpenAI-compatible ativo em IP loopback.",
+        "Não inicia servidor nem baixa modelos.",
+        "Não aceita endpoints externos.",
+        "Não executa tool calls.",
+        "Não persiste a conversa automaticamente."
+      ],
+      "resource_requirements": {
+        "compute": "model_dependent",
+        "storage": "model_files_external"
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "loopback_http",
+        "remote_fallback": false,
+        "tool_calls_enabled": false
+      }
+    },
+    {
+      "id": "model.local_health_check",
+      "name": "Verificação de disponibilidade do modelo local",
+      "purpose": "Verificar explicitamente se o endpoint local está ativo e lista modelos disponíveis.",
+      "description": "Consulta apenas o endpoint loopback configurado; a verificação nunca ocorre automaticamente na inicialização.",
+      "version": "0.1.0",
+      "risk": "local_compute",
+      "maturity_state": "implemented",
+      "source_module": "agent.model_runtime",
+      "operations": [
+        "LocalModelAdapter.health_check()"
+      ],
+      "inputs": {},
+      "outputs": {
+        "status": "disponibilidade e modelos retornados"
+      },
+      "dependencies": [
+        "config/model_runtime.json"
+      ],
+      "tools": [],
+      "limitations": [
+        "A chamada é explícita e pode falhar se o servidor local estiver desligado.",
+        "Nenhuma conexão externa é permitida."
+      ],
+      "resource_requirements": {
+        "compute": "low"
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "loopback_http",
+        "probe_automatic": false
+      }
+    },
+    {
+      "id": "image.procedural_generate",
+      "name": "Geração procedural de imagem",
+      "purpose": "Gerar uma imagem PNG determinística por código sem Blender ou modelo neural.",
+      "description": "Primeiro backend local da ImageGenerationEngine; escrita restrita ao diretório interno de artefatos.",
+      "version": "0.1.0",
+      "risk": "local_compute",
+      "maturity_state": "in_development",
+      "source_module": "agent.image_generation",
+      "operations": [
+        "ImageGenerationEngine.generate_procedural()"
+      ],
+      "inputs": {
+        "width": "inteiro 1..1024",
+        "height": "inteiro 1..1024",
+        "seed": "inteiro de 64 bits"
+      },
+      "outputs": {
+        "artifact": "PNG com SHA-256, dimensões, seed e backend"
+      },
+      "dependencies": [
+        "agent.integration_core",
+        "Python standard library"
+      ],
+      "tools": [],
+      "limitations": [
+        "Somente padrão procedural plasma; não é geração neural nem path tracing.",
+        "Limite máximo de 524.288 pixels.",
+        "Não interpreta prompt natural; recebe dimensões e seed.",
+        "Ainda sem execução CI ou validação Realme."
+      ],
+      "resource_requirements": {
+        "compute": "low_to_moderate",
+        "storage": "local_artifact"
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "blender_required": false,
+        "neural_model_required": false
+      }
+    },
+    {
+      "id": "image.cpu_path_trace",
+      "name": "Renderização por path tracing CPU",
+      "purpose": "Renderizar cenas estruturadas limitadas por path tracing CPU determinístico sem Blender ou modelo neural.",
+      "description": "Backend CPU sequencial com SceneSpec v1, esferas, triângulos, materiais Lambertianos/emissivos, luz pontual com sombras e orçamento estrito.",
+      "version": "0.2.0",
+      "risk": "local_compute",
+      "maturity_state": "implemented",
+      "source_module": "agent.image_generation",
+      "operations": [
+        "ImageGenerationEngine.generate_path_traced()"
+      ],
+      "inputs": {
+        "width": "inteiro 1..128",
+        "height": "inteiro 1..128",
+        "scene": "SceneSpec v1: câmera, até 32 esferas, 64 triângulos e 8 luzes pontuais",
+        "seed": "inteiro signed 64-bit",
+        "samples_per_pixel": "inteiro 1..8",
+        "max_depth": "inteiro 1..4"
+      },
+      "outputs": {
+        "artifact": "PNG RGB com SHA-256, dimensões, hash da cena, parâmetros e renderer"
+      },
+      "dependencies": [
+        "agent.cpu_path_tracer",
+        "agent.image_generation",
+        "Python standard library"
+      ],
+      "tools": [],
+      "limitations": [
+        "Geometria de esferas e triângulos planos; sem malhas indexadas ou BVH.",
+        "Materiais Lambertianos/emissivos e luz pontual direta com sombras; sem luzes de área, MIS, refração ou volumes.",
+        "Execução single-thread; sem tiles, cancelamento, checkpoint ou retomada.",
+        "Máximo de 16.384 pixels e orçamento estimado de 4.194.304 interseções.",
+        "Não ligado ao Orchestrator; manifesto desabilitado.",
+        "Testes adicionados, mas execução CI e validação no Realme pendentes."
+      ],
+      "resource_requirements": {
+        "compute": "high",
+        "memory": "bounded_small_image_buffer",
+        "threads": 1
+      },
+      "validation": {
+        "existing_implementation": true,
+        "runtime_binding_tested": false,
+        "real_world_validation": false
+      },
+      "enabled": false,
+      "metadata": {
+        "runtime_binding": "not_bound",
+        "blender_required": false,
+        "neural_model_required": false,
+        "standard_library_only": true
+      }
+    },
+    {
+      "id": "internal.adopt_next_inquiry",
+      "name": "Adotar próxima investigação interna",
+      "purpose": "Selecionar e adotar no máximo uma consulta interna pendente, sem despachar ferramentas externas.",
+      "description": "Capacidade interna checkpointable para o Companion. Requer habilitação explícita no manifesto.",
+      "version": "0.1.0",
+      "risk": "local_compute",
+      "maturity_state": "implemented",
+      "source_module": "agent.background_capabilities",
+      "operations": [
+        "adopt_next_internal_inquiry"
+      ],
+      "inputs": {},
+      "outputs": {
+        "status": "string",
+        "goal_created": "boolean",
+        "goal_id": "string|null",
+        "tool_dispatch_performed": "boolean"
+      },
+      "dependencies": [
+        "agent.executive_engine",
+        "agent.research_orchestrator"
+      ],
+      "tools": [],
+      "limitations": [
+        "Desabilitada por padrão; não pode ser registrada sem habilitação explícita no manifesto.",
+        "Executa no máximo uma consulta interna por invocação.",
+        "Não despacha ferramentas externas nem escreve no workspace.",
+        "Requer contexto Android e admissão pelo AutonomyGovernor."
+      ],
+      "resource_requirements": {
+        "max_runtime_seconds": 8,
+        "max_ram_mb": 64,
+        "checkpointable": true
+      },
+      "validation": {
+        "registration_contract_tested": false,
+        "individual_tests_passed": false,
+        "integration_tests_passed": false,
+        "real_world_validated": false,
+        "evidence": []
+      },
+      "enabled": false,
+      "metadata": {
+        "binding_type": "explicit_trusted_runtime_registration",
+        "checkpointable": true
+      }
+    }
+  ]
+}

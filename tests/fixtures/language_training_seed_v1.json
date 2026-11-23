@@ -1,0 +1,33 @@
+{
+  "suite_id": "language-training-seed-v1",
+  "version": 1,
+  "split": "training_fixture",
+  "purpose": "Conjunto sintético e versionado exclusivamente para medir uma linha de base reproduzível no CI.",
+  "not_production_data": true,
+  "examples": [
+    {"text":"apresente o panorama operacional completo","intent":"status"},
+    {"text":"consulte o relatório de integridade do núcleo","intent":"status"},
+    {"text":"informe a condição dos serviços internos","intent":"status"},
+    {"text":"quero um resumo dos indicadores operacionais","intent":"status"},
+    {"text":"mostre a situação dos componentes instalados","intent":"status"},
+    {"text":"exiba o diagnóstico da plataforma","intent":"status"},
+    {"text":"verifique a saúde dos processos ativos","intent":"status"},
+    {"text":"como está a disponibilidade dos recursos","intent":"status"},
+    {"text":"forneça um balanço do funcionamento interno","intent":"status"},
+    {"text":"qual é a condição técnica da aplicação","intent":"status"},
+    {"text":"gere um resumo do estado operacional","intent":"status"},
+    {"text":"apresente os dados atuais de execução","intent":"status"},
+    {"text":"examine os elementos da composição visual","intent":"blender.inspect"},
+    {"text":"liste os componentes presentes no projeto tridimensional","intent":"blender.inspect"},
+    {"text":"verifique a estrutura da montagem gráfica","intent":"blender.inspect"},
+    {"text":"observe os elementos da composição","intent":"blender.inspect"},
+    {"text":"faça o levantamento dos objetos carregados no ambiente 3d","intent":"blender.inspect"},
+    {"text":"inspecione a disposição dos elementos visuais","intent":"blender.inspect"},
+    {"text":"confira a organização da composição tridimensional","intent":"blender.inspect"},
+    {"text":"analise a estrutura dos objetos modelados","intent":"blender.inspect"},
+    {"text":"identifique os elementos presentes no cenário","intent":"blender.inspect"},
+    {"text":"revise a disposição dos componentes gráficos","intent":"blender.inspect"},
+    {"text":"examine o conteúdo da montagem digital","intent":"blender.inspect"},
+    {"text":"verifique a cena renderizável do projeto","intent":"blender.inspect"}
+  ]
+}

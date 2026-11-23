@@ -1,0 +1,170 @@
+{
+  "suite_id": "language-training-seed-v2",
+  "version": 2,
+  "split": "training_fixture",
+  "purpose": "Conjunto sintético ampliado para comparar retreinamento controlado; não é dado de produção.",
+  "not_production_data": true,
+  "derived_from": "language-training-seed-v1",
+  "examples": [
+    {
+      "text": "apresente o panorama operacional completo",
+      "intent": "status"
+    },
+    {
+      "text": "consulte o relatório de integridade do núcleo",
+      "intent": "status"
+    },
+    {
+      "text": "informe a condição dos serviços internos",
+      "intent": "status"
+    },
+    {
+      "text": "quero um resumo dos indicadores operacionais",
+      "intent": "status"
+    },
+    {
+      "text": "mostre a situação dos componentes instalados",
+      "intent": "status"
+    },
+    {
+      "text": "exiba o diagnóstico da plataforma",
+      "intent": "status"
+    },
+    {
+      "text": "verifique a saúde dos processos ativos",
+      "intent": "status"
+    },
+    {
+      "text": "como está a disponibilidade dos recursos",
+      "intent": "status"
+    },
+    {
+      "text": "forneça um balanço do funcionamento interno",
+      "intent": "status"
+    },
+    {
+      "text": "qual é a condição técnica da aplicação",
+      "intent": "status"
+    },
+    {
+      "text": "gere um resumo do estado operacional",
+      "intent": "status"
+    },
+    {
+      "text": "apresente os dados atuais de execução",
+      "intent": "status"
+    },
+    {
+      "text": "examine os elementos da composição visual",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "liste os componentes presentes no projeto tridimensional",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "verifique a estrutura da montagem gráfica",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "observe os elementos da composição",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "faça o levantamento dos objetos carregados no ambiente 3d",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "inspecione a disposição dos elementos visuais",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "confira a organização da composição tridimensional",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "analise a estrutura dos objetos modelados",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "identifique os elementos presentes no cenário",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "revise a disposição dos componentes gráficos",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "examine o conteúdo da montagem digital",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "verifique a cena renderizável do projeto",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "apresente o relatório de operação do núcleo",
+      "intent": "status"
+    },
+    {
+      "text": "mostre os indicadores de saúde do sistema",
+      "intent": "status"
+    },
+    {
+      "text": "informe o andamento dos serviços em execução",
+      "intent": "status"
+    },
+    {
+      "text": "consulte a integridade do ambiente operacional",
+      "intent": "status"
+    },
+    {
+      "text": "resuma o desempenho da plataforma instalada",
+      "intent": "status"
+    },
+    {
+      "text": "forneça o panorama dos recursos disponíveis",
+      "intent": "status"
+    },
+    {
+      "text": "qual a condição atual dos processos internos",
+      "intent": "status"
+    },
+    {
+      "text": "verifique os dados de atividade do núcleo",
+      "intent": "status"
+    },
+    {
+      "text": "mostre os elementos carregados no cenário",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "observe a cena e seus objetos",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "verifique os itens presentes no ambiente visual",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "inspecione o conteúdo do projeto gráfico",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "revise a cena do editor tridimensional",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "confira a lista de objetos da montagem",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "examine os componentes visíveis no cenário",
+      "intent": "blender.inspect"
+    },
+    {
+      "text": "identifique o material importado para a composição",
+      "intent": "blender.inspect"
+    }
+  ]
+}

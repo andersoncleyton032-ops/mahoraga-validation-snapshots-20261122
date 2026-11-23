@@ -1,20 +1,26 @@
-# Mahoraga — isolated validation snapshots
+# Mahoraga — Curated Core Validation Lab
 
-This public repository is an isolated validation workspace for selected experimental components from the private `mahoraga-core` repository.
+This public repository is a **curated, sanitized validation snapshot** of selected Mahoraga Core code and experiments. It is not a complete mirror and is not automatically synchronized with the private repository.
 
-The original repository remains private and is not modified by this snapshot workflow.
+## What this snapshot contains
+- A selected slice of the current integrated architecture: `IntegratedCore`, `CognitiveFabric`, `CognitiveEngine`, `ExecutiveEngine`, `KnowledgeStore`, `AutonomyGovernor`, `Dharma`, introspection, identity, learning, metacognition, language, perception, capability adapters and related modules.
+- Selected integration, regression, resource-boundary and adversarial tests for those modules.
+- Non-sensitive capability, identity, model-runtime and neural-stack configuration. All capability entries remain disabled; local model runtime remains disabled and remote access is disallowed.
+- Cognitive interest selection, simulated physiology and bounded digital-evolution experiments from the validated experiment snapshot.\n- A curated persistent digital lifecycle, background work queue, one-shot scheduler and foreground-interactive Companion policy candidate, with strict checkpoint and completion-receipt contracts.\n- A source-only Android WorkManager/Termux bridge candidate with a fixed command path, no network permission and bounded wake requests.
+- Lab-only candidate-governance prototypes, a replay-safe persistent lab-cycle wrapper and a bounded batch scheduler. They record planning/admission decisions in the canonical SQLite store but do not execute candidate code, start background work or promote changes.
 
-## Scope
+## What is deliberately not copied
+- Private continuity records, audit logs, work-session history or internal operational reports.
+- User/project memory data, activity logs, local SQLite databases, model weights, checkpoints, datasets or device-specific identifiers.
+- Original Git history and commit metadata.
+- The Blender Python executor, server and add-on that can run arbitrary Python inside Blender. The client/bridge code is included for static and mocked contract testing only.
+- The original `agent/actions.py` from the current private branch because its default path targets `~/mahoraga`; this lab retains a checkout-scoped version instead.
+- The private repository's entire source tree, branches and PR history.
 
-Only explicitly selected source files and their focused tests will be copied here. This repository does not contain the complete Mahoraga project and does not validate full-system integration.
+See [Source Manifest](docs/SOURCE_MANIFEST.md), [Publication Policy](docs/PUBLICATION_POLICY.md) and [Core Transfer Gate](docs/CORE_TRANSFER_GATE.md).
 
-## Provenance
+## Architecture boundary
+The private core's existing `AutonomyGovernor`, `Dharma`, `KnowledgeStore`, `IntegratedCore` and `CognitiveFabric` remain the reference architecture. Lab-only `EvolutionGovernor`, `AutonomousLabCycle` and `PersistentAutonomousLabCycle` are experiments to compare against those components, not replacements. The persistent wrapper stores cycle-scoped candidate records in the lab's schema-v6 SQLite ledger.
 
-- Source PR #142 head: `e895fadb89865a14be9a61115f9af243eb58d250`
-- Source PR #143 head: `520a3cae969845dc382b3031a10a8a71072bd322`
-
-Snapshot commits have new Git SHAs and do not preserve the source branch history.
-
-## Validation limits
-
-Passing these focused tests demonstrates only that the included tests pass against the included snapshot in the declared CI environments. It does not establish safety, general intelligence, full regression coverage, or integration with the private runtime.
+## Validation
+CI compiles included Python sources and runs the included tests on Python 3.12 and 3.14. Tests on this public snapshot do not prove Android/Termux/Realme behavior, continuous background execution, unattended code evolution, general intelligence or production readiness. The Python queue/scheduler remains platform-neutral; the native Android WorkManager adapter is still absent. The Python lifecycle/Companion/scheduler candidate passed its public CI. The Android WorkManager bridge remains pending its separate Gradle/Android CI run and has not been installed or tested on a device.
