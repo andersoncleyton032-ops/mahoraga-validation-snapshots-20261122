@@ -21,6 +21,7 @@ from .memory import get_store
 from .tool_intelligence import ToolIntelligence
 from .research_orchestrator import ResearchOrchestrator
 from .capability_manifest import CapabilityManifest
+from .procedural_skills import ProceduralSkillRegistry
 from .identity_engine import IdentityEngine
 from .model_runtime import LocalModelAdapter
 from .perception_engine import PerceptionEngine
@@ -116,6 +117,12 @@ class IntegratedCore:
                 self.hardware, "runtime_context", None
             ),
         )
+        self.procedural_skills = ProceduralSkillRegistry(
+            self.root / "config" / "procedural_skills.json",
+            self.capability_manifest,
+            orchestrator=self.research_orchestrator,
+            store=self.store,
+        )
         self.blender_bridge = BlenderBridge(self.store, self.dharma)
         self.blender_intelligence = BlenderIntelligence(
             bridge=self.blender_bridge,
@@ -145,6 +152,13 @@ class IntegratedCore:
             "orchestrator_store": self.research_orchestrator.store is self.store,
             "orchestrator_dharma": self.research_orchestrator.dharma is self.dharma,
             "orchestrator_autonomy": self.research_orchestrator.autonomy is self.autonomy,
+            "procedural_skills_store": self.procedural_skills.store is self.store,
+            "procedural_skills_manifest": (
+                self.procedural_skills.capability_manifest is self.capability_manifest
+            ),
+            "procedural_skills_orchestrator": (
+                self.procedural_skills.orchestrator is self.research_orchestrator
+            ),
             "blender_bridge_store": self.blender_bridge.store is self.store,
             "blender_bridge_dharma": self.blender_bridge.dharma is self.dharma,
             "blender_intelligence_bridge": self.blender_intelligence.bridge is self.blender_bridge,
@@ -1531,6 +1545,7 @@ class IntegratedCore:
                     for item in research_status.get("persistent_capabilities", [])
                 ],
             },
+            "procedural_skills": self.procedural_skills.status(),
             "integration": {
                 "shared_store": True,
                 "shared_dharma": True,
