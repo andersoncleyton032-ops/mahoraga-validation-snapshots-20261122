@@ -52,9 +52,9 @@ public final class WorkScheduler {
         );
     }
 
-    public static void enqueueNext(Context context, int delaySeconds) {
+    public static boolean enqueueNext(Context context, int delaySeconds) {
         Context app = context.getApplicationContext();
-        if (!isEnabled(app) || !WorkPolicy.isValidNextDelay(delaySeconds)) return;
+        if (!isEnabled(app) || !WorkPolicy.isValidNextDelay(delaySeconds)) return false;
         OneTimeWorkRequest request = buildOneShot(delaySeconds);
         WorkManager.getInstance(app)
                 .beginUniqueWork(
@@ -63,6 +63,7 @@ public final class WorkScheduler {
                         request
                 )
                 .enqueue();
+        return true;
     }
 
     private static void enqueuePeriodicPoll(Context context) {
