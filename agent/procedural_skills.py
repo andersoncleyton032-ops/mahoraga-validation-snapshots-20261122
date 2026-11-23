@@ -59,11 +59,15 @@ class ProceduralSkillRegistry:
         "checkpoint_required",
     }
 
-    def __init__(self, path, capability_manifest, *, orchestrator=None, store=None):
+    def __init__(
+        self, path, capability_manifest, *, orchestrator=None, store=None,
+        evidence_verifier=None,
+    ):
         self.path = Path(path)
         self.capability_manifest = capability_manifest
         self.orchestrator = orchestrator
         self.store = store
+        self.evidence_verifier = evidence_verifier
         self._definitions: dict[str, dict] = {}
         self._state = "missing"
         self._error = None
@@ -385,6 +389,22 @@ class ProceduralSkillRegistry:
             blockers.append("skill_disabled")
         if skill["maturity_state"] not in {"operational", "specialized"}:
             blockers.append("maturity_not_operational")
+        else:
+            verifier = getattr(self.evidence_verifier, "verify_local", None)
+            if not callable(verifier):
+                blockers.append("evidence_verifier_unavailable")
+            else:
+                for reference in skill["evidence"]:
+                    try:
+                        verification = verifier(reference)
+                    except Exception:
+                        verification = None
+                    if (
+                        not isinstance(verification, dict)
+                        or verification.get("valid") is not True
+                        or verification.get("reference") != reference
+                    ):
+                        blockers.append(f"evidence_unverified:{reference}")
         registered = set()
         if self.orchestrator is None:
             blockers.append("orchestrator_unavailable")
