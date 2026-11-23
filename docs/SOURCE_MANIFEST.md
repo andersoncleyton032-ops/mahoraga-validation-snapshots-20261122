@@ -227,4 +227,4 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Private source head at import: `40c25f01fb8d7b356fa53fe93f8c9ad522663d10`.
 - Bridge Activity now displays the manual prerequisites: Termux >=0.109, RUN_COMMAND permission, `allow-external-apps=true`, and `$PREFIX/bin/timeout`.
 - README now accurately distinguishes prerequisites checked by the bridge from `allow-external-apps`, which remains a manual Termux property. No setting or permission is changed automatically.
-- Validation status: pending Android CI for this UI/documentation update.
+- Python workflow run #384 (`45089693314`) passed on Python 3.12/3.14. Android workflow run #62 (`45089693346`) is validating the Activity/README update.
