@@ -486,3 +486,68 @@ def test_integrated_core_exposes_cognitive_mathematics_component(tmp_path):
     assert solved["solution"]["exact"] == "7/3"
     assert solved["verification"]["equal"] is True
     assert core.fabric.connectome_snapshot()["node_count"] >= 21
+
+
+
+def test_integrated_core_connects_procedural_skill_executor_and_reports_limits(tmp_path):
+    core = make_core(tmp_path)
+
+    executor = core.procedural_skill_executor
+    assert executor.registry is core.procedural_skills
+    assert executor.adapters is core.read_only_capability_adapters
+    assert executor.orchestrator is core.research_orchestrator
+    assert executor.store is core.store
+
+    snapshot = core.inspect_cognitive_fabric()
+    assert "procedural_skill_executor" in snapshot["nodes"]
+    relationships = {
+        item["relationship_id"]: item
+        for item in snapshot["verified_structural_edges"]
+    }
+    for relationship_id in (
+        "procedural_executor_registry",
+        "procedural_executor_adapters",
+        "procedural_executor_orchestrator",
+        "procedural_executor_store",
+    ):
+        assert relationships[relationship_id]["verified"] is True
+        assert relationships[relationship_id]["source"] == "procedural_skill_executor"
+
+    report = core.build_report()
+    execution = report["procedural_skill_execution"]
+    assert execution["execution_path_implemented"] is True
+    assert execution["supported_work_mode"] == "foreground"
+    assert execution["background_execution_supported"] is False
+    assert execution["network_allowed"] is False
+    assert execution["workspace_writes_allowed"] is False
+
+
+
+def test_production_procedural_skill_remains_blocked_without_enabling_manifest(tmp_path):
+    from pathlib import Path
+    import shutil
+
+    source_root = Path(__file__).resolve().parents[1]
+    config = tmp_path / "config"
+    config.mkdir()
+    for name in ("capability_manifest.json", "procedural_skills.json"):
+        shutil.copyfile(source_root / "config" / name, config / name)
+
+    store = KnowledgeStore(tmp_path / "production-default.sqlite3")
+    core = IntegratedCore(
+        root=tmp_path,
+        store=store,
+        hardware=FakeHardware(),
+    )
+
+    result = core.execute_procedural_skill(
+        "mahoraga.system_audit",
+        run_id="production-disabled-001",
+    )
+
+    assert core.capability_manifest.status()["enabled_count"] == 0
+    assert core.procedural_skills.status()["enabled_count"] == 0
+    assert result["status"] == "blocked"
+    assert result["execution_performed"] is False
+    assert store.list_capabilities() == []
+    assert store.count_events("procedural_skill.blocked") == 1
