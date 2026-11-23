@@ -342,6 +342,24 @@ class ProceduralSkillExecutor:
                     "checkpoint_required": step["checkpoint_required"],
                     "execution_performed": True,
                 })
+                if time.monotonic() - started >= max_runtime:
+                    reason = "skill_runtime_budget_exhausted_after_step"
+                    self._record("procedural_skill.deferred", {
+                        "skill_id": skill_id,
+                        "run_id": run_id,
+                        "completed_steps": completed_steps,
+                        "reason": reason,
+                        "execution_performed": True,
+                    }, severity="warning")
+                    return {
+                        "status": "deferred",
+                        "skill_id": skill_id,
+                        "run_id": run_id,
+                        "completed_steps": completed_steps,
+                        "partial_results": step_results,
+                        "reason": reason,
+                        "execution_performed": True,
+                    }
             except Exception as exc:
                 reason = f"{type(exc).__name__}: {str(exc)[:240]}"
                 self._record("procedural_skill.failed", {
@@ -369,7 +387,8 @@ class ProceduralSkillExecutor:
             "run_id": run_id,
             "completed_steps": completed_steps,
             "step_results": step_results,
-            "artifacts": list(skill["expected_artifacts"]),
+            "declared_artifact_types": list(skill["expected_artifacts"]),
+            "artifact_materialization": "not_performed",
             "provenance": skill["provenance"],
             "duration_seconds": round(time.monotonic() - started, 6),
             "execution_performed": True,
