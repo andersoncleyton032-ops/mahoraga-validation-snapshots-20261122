@@ -180,3 +180,11 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Current upstream Termux target SDK 28 does not activate the gate; the check prevents silently assuming the same exception after a future Termux target SDK increase.
 - Added tests for Android API/target SDK combinations and documented the compatibility gate in the Android README.
 - Validation status: **pending CI for this exact target-SDK gate**.
+
+
+### Queue snapshot surfaced to WorkManager and Bridge UI — 2026-11-22
+- Private source branch head at import: `d6bf02226e309937c3c654f1f56fd99756f0753f`.
+- `MahoragaOneShotWorker` now preserves the Python queue summary in WorkManager output: revision, queued, claimed, active_items, recently_finished and pending.
+- Bridge Activity displays the last WorkManager-reported queue counts and revision alongside task status and receipt validity.
+- Added unit tests for queue snapshot propagation and for not inventing values when a queue object is absent.
+- This is still a snapshot carried by the last WorkManager output; it is not a live query of SQLite. CI for this exact update is pending.
