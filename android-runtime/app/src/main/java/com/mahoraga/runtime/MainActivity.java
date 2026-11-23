@@ -1,14 +1,21 @@
 package com.mahoraga.runtime;
 
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Bundle;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
+
 public final class MainActivity extends Activity {
     private TextView status;
+    private TextView oneShotStatus;
+    private TextView pollStatus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +47,19 @@ public final class MainActivity extends Activity {
         status.setText("\nEstado: desativado.");
         layout.addView(status);
 
+        oneShotStatus = new TextView(this);
+        oneShotStatus.setText("Execução única: ainda sem leitura.");
+        layout.addView(oneShotStatus);
+
+        pollStatus = new TextView(this);
+        pollStatus.setText("Polling periódico: ainda sem leitura.");
+        layout.addView(pollStatus);
+
+        Button refresh = new Button(this);
+        refresh.setText("Atualizar estado das execuções");
+        refresh.setOnClickListener(view -> refreshWorkStatus());
+        layout.addView(refresh);
+
         Button start = new Button(this);
         start.setText("Ativar ciclo em segundo plano");
         start.setOnClickListener(view -> startCycle());
@@ -54,6 +74,7 @@ public final class MainActivity extends Activity {
         if (WorkScheduler.isEnabled(this)) {
             status.setText("\nEstado: agendamento habilitado.");
         }
+        refreshWorkStatus();
     }
 
     private void startCycle() {
@@ -73,6 +94,62 @@ public final class MainActivity extends Activity {
                 "\nAgendamento solicitado. O Android decide os horários reais; "
                 + "a primeira execução depende da disponibilidade de recursos e das políticas do sistema."
         );
+        refreshWorkStatus();
+    }
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshWorkStatus();
+    }
+
+    private void refreshWorkStatus() {
+        queryWorkStatus(WorkScheduler.ONE_SHOT_WORK, oneShotStatus, "Execução única");
+        queryWorkStatus(WorkScheduler.PERIODIC_POLL_WORK, pollStatus, "Polling periódico");
+    }
+
+    private void queryWorkStatus(String uniqueName, TextView target, String label) {
+        var future = WorkManager.getInstance(this).getWorkInfosForUniqueWork(uniqueName);
+        future.addListener(() -> {
+            String value;
+            try {
+                var infos = future.get();
+                if (infos == null || infos.isEmpty()) {
+                    value = label + ": sem trabalho registrado.";
+                } else {
+                    StringBuilder builder = new StringBuilder(label).append(":");
+                    int shown = 0;
+                    for (WorkInfo info : infos) {
+                        if (shown++ >= 4) break;
+                        var output = info.getOutputData();
+                        builder.append("\n")
+                                .append(info.getState())
+                                .append(" | tentativas=")
+                                .append(info.getRunAttemptCount());
+                        appendField(builder, "status", output.getString("status"));
+                        appendField(builder, "task", output.getString("task_id"));
+                        appendField(builder, "wake", output.getString("wake_status"));
+                        appendField(builder, "erro", output.getString("error_code"));
+                        if (output.getKeyValueMap().containsKey("completion_receipt_valid")) {
+                            builder.append(" | recibo=")
+                                    .append(output.getBoolean("completion_receipt_valid", false));
+                        }
+                    }
+                    value = builder.toString();
+                }
+            } catch (Exception failure) {
+                value = label + ": falha ao consultar WorkManager.";
+            }
+            String finalValue = value;
+            new Handler(Looper.getMainLooper()).post(() -> target.setText(finalValue));
+        }, Runnable::run);
+    }
+
+    private static void appendField(StringBuilder builder, String label, String value) {
+        if (value != null && !value.isBlank()) {
+            builder.append(" | ").append(label).append("=").append(value);
+        }
     }
 
     private void stopCycle() {
@@ -81,5 +158,6 @@ public final class MainActivity extends Activity {
                 "\nNovas execuções canceladas. Uma invocação Termux já iniciada "
                 + "pode concluir seu checkpoint limitado."
         );
+        refreshWorkStatus();
     }
 }
