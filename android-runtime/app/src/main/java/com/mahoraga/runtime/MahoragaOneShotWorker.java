@@ -70,8 +70,20 @@ public final class MahoragaOneShotWorker extends Worker {
             }
 
             JSONObject queue = result.optJSONObject("queue");
+            boolean hasQueue = queue != null;
             return Result.success(buildOutputData(
-                    status, taskId, executionPerformed, receiptValid, wakeStatus, queue
+                    status,
+                    taskId,
+                    executionPerformed,
+                    receiptValid,
+                    wakeStatus,
+                    hasQueue,
+                    hasQueue ? queue.optInt("revision", -1) : -1,
+                    hasQueue ? queue.optInt("queued", -1) : -1,
+                    hasQueue ? queue.optInt("claimed", -1) : -1,
+                    hasQueue ? queue.optInt("active_items", -1) : -1,
+                    hasQueue ? queue.optInt("recently_finished", -1) : -1,
+                    hasQueue && queue.optBoolean("pending", false)
             ));
         } catch (JSONException malformed) {
             return Result.retry();
@@ -85,7 +97,13 @@ public final class MahoragaOneShotWorker extends Worker {
             boolean executionPerformed,
             boolean receiptValid,
             String wakeStatus,
-            JSONObject queue
+            boolean hasQueueSnapshot,
+            int queueRevision,
+            int queueQueued,
+            int queueClaimed,
+            int queueActiveItems,
+            int queueRecentlyFinished,
+            boolean queuePending
     ) {
         Data.Builder output = new Data.Builder()
                 .putString("status", status)
@@ -93,13 +111,13 @@ public final class MahoragaOneShotWorker extends Worker {
                 .putBoolean("execution_performed", executionPerformed)
                 .putBoolean("completion_receipt_valid", receiptValid)
                 .putString("wake_status", wakeStatus);
-        if (queue != null) {
-            output.putInt("queue_revision", queue.optInt("revision", -1))
-                    .putInt("queue_queued", queue.optInt("queued", -1))
-                    .putInt("queue_claimed", queue.optInt("claimed", -1))
-                    .putInt("queue_active_items", queue.optInt("active_items", -1))
-                    .putInt("queue_recently_finished", queue.optInt("recently_finished", -1))
-                    .putBoolean("queue_pending", queue.optBoolean("pending", false));
+        if (hasQueueSnapshot) {
+            output.putInt("queue_revision", queueRevision)
+                    .putInt("queue_queued", queueQueued)
+                    .putInt("queue_claimed", queueClaimed)
+                    .putInt("queue_active_items", queueActiveItems)
+                    .putInt("queue_recently_finished", queueRecentlyFinished)
+                    .putBoolean("queue_pending", queuePending);
         }
         return output.build();
     }
