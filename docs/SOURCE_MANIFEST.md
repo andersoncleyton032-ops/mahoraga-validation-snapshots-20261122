@@ -108,7 +108,7 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - No device installation, permission grant, Termux property change, battery-setting change, Android system modification or network access has been performed.
 
 
-### Worker lease fencing hardening — 2026-11-23
+### Worker lease fencing hardening — 2026-11-22
 - Private source repository: `andersoncleyton032-ops/mahoraga-core`.
 - Private source branch: `hardening/worker-fencing-and-recovery-20261123`.
 - Private source head after this change: `54f03366744d74b809409818b38459a848a89118`.
@@ -116,5 +116,6 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - Included changes: `scripts/mahoraga_background_worker.py` now creates a unique namespaced worker identity per invocation instead of reusing the constant `android-workmanager`; `tests/test_android_workmanager_wake.py` verifies uniqueness and bounded identifier length.
 - Rationale: queue ownership is fenced by `worker_id`. Reusing one identity across invocations could allow an older process to appear as the current owner after lease reclamation. Unique identities prevent stale invocations from completing/releasing a lease claimed by a later invocation.
 - Public snapshot copies exactly match the private source blobs for both changed files.
-- Validation status at import: **pending CI**. This change is not yet proven to prevent duplicate side effects from a process that continues running after the Android-side timeout; process cancellation and lease-duration alignment remain open.
+- Python workflow run #337 (`45086922248`): Python 3.12 and 3.14 source compilation and all included tests passed. Android workflow run #15 (`45086922251`) was still in progress when this manifest update was prepared.
+- This change is not yet proven to prevent duplicate side effects from a process that continues running after the Android-side timeout; process cancellation and lease-duration alignment remain open.
 - No Android app, Termux settings, permissions, device data or private repository history were changed or published.
