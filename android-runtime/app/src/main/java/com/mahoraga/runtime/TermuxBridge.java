@@ -42,6 +42,8 @@ public final class TermuxBridge {
     private static final String RESULT_ERR = "err";
     private static final String RESULT_ERRMSG = "errmsg";
     private static final long RESULT_TIMEOUT_SECONDS = 45L;
+    private static final int COMMAND_TIMEOUT_SECONDS = 30;
+    private static final int COMMAND_KILL_GRACE_SECONDS = 2;
     private static final int MAX_STDOUT_CHARS = 64 * 1024;
 
     private TermuxBridge() {}
@@ -88,10 +90,13 @@ public final class TermuxBridge {
                 new File(projectRoot, "scripts"),
                 "mahoraga_background_worker.py"
         ).getAbsolutePath();
-        String pythonPath = new File(
-                new File(termuxInfo.dataDir, "files/usr/bin"),
-                "python"
-        ).getAbsolutePath();
+        File termuxBin = new File(termuxInfo.dataDir, "files/usr/bin");
+        String pythonPath = new File(termuxBin, "python").getAbsolutePath();
+        String timeoutPath = new File(termuxBin, "timeout").getAbsolutePath();
+        File timeoutExecutable = new File(timeoutPath);
+        if (!timeoutExecutable.isFile() || !timeoutExecutable.canExecute()) {
+            return ExecutionResult.failure("termux_timeout_utility_missing", false);
+        }
 
         String requestId = UUID.randomUUID().toString();
         CompletableFuture<Bundle> future;
@@ -116,8 +121,8 @@ public final class TermuxBridge {
 
         Intent command = new Intent(ACTION_RUN_COMMAND)
                 .setClassName(TERMUX_PACKAGE, RUN_COMMAND_SERVICE)
-                .putExtra(EXTRA_COMMAND_PATH, pythonPath)
-                .putExtra(EXTRA_ARGUMENTS, new String[]{scriptPath})
+                .putExtra(EXTRA_COMMAND_PATH, timeoutPath)
+                .putExtra(EXTRA_ARGUMENTS, buildTimeoutArguments(pythonPath, scriptPath))
                 .putExtra(EXTRA_WORKDIR, projectRoot)
                 .putExtra(EXTRA_BACKGROUND, true)
                 .putExtra(EXTRA_PENDING_INTENT, resultPendingIntent)
@@ -163,6 +168,17 @@ public final class TermuxBridge {
         }
     }
 
+
+
+    static String[] buildTimeoutArguments(String pythonPath, String scriptPath) {
+        return new String[]{
+                "--signal=TERM",
+                "--kill-after=" + COMMAND_KILL_GRACE_SECONDS + "s",
+                COMMAND_TIMEOUT_SECONDS + "s",
+                pythonPath,
+                scriptPath
+        };
+    }
 
     static boolean usesForegroundService(int sdkInt) {
         return sdkInt >= Build.VERSION_CODES.O;
