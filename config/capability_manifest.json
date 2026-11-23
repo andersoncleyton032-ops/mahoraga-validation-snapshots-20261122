@@ -725,6 +725,54 @@
         "neural_model_required": false,
         "standard_library_only": true
       }
+    },
+    {
+      "id": "internal.adopt_next_inquiry",
+      "name": "Adotar próxima investigação interna",
+      "purpose": "Selecionar e adotar no máximo uma consulta interna pendente, sem despachar ferramentas externas.",
+      "description": "Capacidade interna checkpointable para o Companion. Requer habilitação explícita no manifesto.",
+      "version": "0.1.0",
+      "risk": "local_compute",
+      "maturity_state": "implemented",
+      "source_module": "agent.background_capabilities",
+      "operations": [
+        "adopt_next_internal_inquiry"
+      ],
+      "inputs": {},
+      "outputs": {
+        "status": "string",
+        "goal_created": "boolean",
+        "goal_id": "string|null",
+        "tool_dispatch_performed": "boolean"
+      },
+      "dependencies": [
+        "agent.executive_engine",
+        "agent.research_orchestrator"
+      ],
+      "tools": [],
+      "limitations": [
+        "Desabilitada por padrão; não pode ser registrada sem habilitação explícita no manifesto.",
+        "Executa no máximo uma consulta interna por invocação.",
+        "Não despacha ferramentas externas nem escreve no workspace.",
+        "Requer contexto Android e admissão pelo AutonomyGovernor."
+      ],
+      "resource_requirements": {
+        "max_runtime_seconds": 8,
+        "max_ram_mb": 64,
+        "checkpointable": true
+      },
+      "validation": {
+        "registration_contract_tested": false,
+        "individual_tests_passed": false,
+        "integration_tests_passed": false,
+        "real_world_validated": false,
+        "evidence": []
+      },
+      "enabled": false,
+      "metadata": {
+        "binding_type": "explicit_trusted_runtime_registration",
+        "checkpointable": true
+      }
     }
   ]
 }
