@@ -169,6 +169,20 @@ public final class CapabilityStateTest {
         expectInvalidReport(capabilities);
     }
 
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public void reportRejectsNonStringEnvelopeKeys() {
+        Map invalidDevice = new LinkedHashMap();
+        invalidDevice.put(7, "not-a-json-object-key");
+        try {
+            new CapabilityReport(invalidDevice, new LinkedHashMap<>());
+            throw new AssertionError("Non-string report key was accepted.");
+        } catch (IllegalArgumentException expected) {
+            assertNotNull(expected);
+        }
+    }
+
     private static Map<String, Object> capabilityEntry(Map<String, Object> evidence) {
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("status", CapabilityState.Status.AVAILABLE.name());
