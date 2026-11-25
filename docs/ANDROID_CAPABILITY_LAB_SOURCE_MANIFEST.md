@@ -41,4 +41,7 @@ The current source was refreshed from private PR #275, branch `implementation/an
 The previous public run `45555686041` validated the earlier four-test Android revision. The four new JVM tests and rebuilt APK have **not** yet been executed. The current public PR head was updated through the repository connector, but no workflow run is associated with that new head; do not carry forward the previous build result as evidence for this revision.
 
 
-The latest source also rejects cyclic evidence, nesting beyond 32 levels, more than 50,000 JSON nodes, and non-string keys. Current Android suite: 11 JVM tests + 5 Python contracts; seven JVM tests were added after the last successful public Gradle run. Current revision remains unvalidated.
+The latest source also rejects cyclic evidence, nesting beyond 32 levels, more than 50,000 JSON nodes, and non-string keys. Current Android suite: 13 JVM tests + 5 Python contracts; nine JVM tests were added after the last successful public Gradle run. Current revision remains unvalidated.
+
+
+Final test inventory correction: 13 JVM tests + 5 Python contracts. Nine JVM tests were added after the last successful public Gradle run; current revision is still pending execution.
