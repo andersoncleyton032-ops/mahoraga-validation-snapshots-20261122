@@ -99,8 +99,8 @@ def test_rejects_shizuku_manifest_policy_violations(replacement, expected):
         )
     elif replacement.startswith("<provider"):
         xml = xml.replace(
-            '    <provider\n',
-            '    <provider\n' + replacement + "\n    <provider\n",
+            '  <application android:name=".ProbeApplication" android:allowBackup="false">',
+            '  <application android:name=".ProbeApplication" android:allowBackup="false">\n    ' + replacement,
         )
     elif replacement.startswith("<activity"):
         xml = xml.replace(
