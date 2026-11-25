@@ -58,3 +58,20 @@ def test_workmanager_is_not_packaged_and_probes_do_not_start_capture_or_binder()
         "requestPermissions(",
     ):
         assert forbidden not in probe
+
+
+
+def test_activity_does_not_request_permissions_or_start_background_work():
+    activity = (
+        ROOT / "android-capability-lab" / "app" / "src" / "main" / "java"
+        / "com" / "mahoraga" / "capabilitylab" / "MainActivity.java"
+    ).read_text(encoding="utf-8")
+
+    for forbidden in (
+        "requestPermissions(",
+        "startService(",
+        "startForegroundService(",
+        "registerListener(",
+        "bindService(",
+    ):
+        assert forbidden not in activity
