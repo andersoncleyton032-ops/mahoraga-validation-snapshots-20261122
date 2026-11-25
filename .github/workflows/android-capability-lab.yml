@@ -1,0 +1,39 @@
+name: Mahoraga Android Capability Lab
+
+on:
+  pull_request:
+    paths:
+      - "android-capability-lab/**"
+      - "tests/test_android_capability_lab_manifest.py"
+      - ".github/workflows/android-capability-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-capability-lab-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-capability-lab:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.5.2"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Run unit tests and assemble APK
+        working-directory: android-capability-lab
+        run: gradle :app:testDebugUnitTest :app:assembleDebug --stacktrace
