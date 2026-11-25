@@ -83,6 +83,7 @@ public final class CapabilityStateTest {
         CapabilityReport report = new CapabilityReport(new LinkedHashMap<>(), capabilities);
 
         Map<String, Object> first = report.toMap();
+        first.put("unexpected", "output-only");
         ((Map<String, Object>) first.get("device")).put("model", "output-only");
         Map<?, ?> capabilityMap = (Map<?, ?>) first.get("capabilities");
         Map<?, ?> sensor = (Map<?, ?>) capabilityMap.get("sensor_inventory");
