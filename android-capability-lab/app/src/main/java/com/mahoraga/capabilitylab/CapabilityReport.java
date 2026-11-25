@@ -30,7 +30,7 @@ public final class CapabilityReport {
 
     public CapabilityReport(Map<String, Object> device, Map<String, Object> capabilities) {
         IdentityHashMap<Object, Boolean> active = new IdentityHashMap<>();
-        int[] budget = {0};
+        int[] budget = {2};
         this.device = immutableObject(device, "device", active, budget);
         this.capabilities = immutableObject(capabilities, "capabilities", active, budget);
         validateCapabilities(this.capabilities);
