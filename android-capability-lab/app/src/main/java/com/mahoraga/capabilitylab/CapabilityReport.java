@@ -29,8 +29,10 @@ public final class CapabilityReport {
     private final String generatedAt;
 
     public CapabilityReport(Map<String, Object> device, Map<String, Object> capabilities) {
-        this.device = immutableObject(device, "device");
-        this.capabilities = immutableObject(capabilities, "capabilities");
+        IdentityHashMap<Object, Boolean> active = new IdentityHashMap<>();
+        int[] budget = {0};
+        this.device = immutableObject(device, "device", active, budget);
+        this.capabilities = immutableObject(capabilities, "capabilities", active, budget);
         validateCapabilities(this.capabilities);
         this.generatedAt = Instant.now().toString();
     }
@@ -82,13 +84,14 @@ public final class CapabilityReport {
     }
 
     private static Map<String, Object> immutableObject(
-            Map<String, Object> source, String path) {
+            Map<String, Object> source,
+            String path,
+            IdentityHashMap<Object, Boolean> active,
+            int[] budget) {
         if (source == null) {
             throw new IllegalArgumentException(path + " must not be null.");
         }
         Map<String, Object> result = new LinkedHashMap<>();
-        IdentityHashMap<Object, Boolean> active = new IdentityHashMap<>();
-        int[] budget = {0};
         for (Map.Entry<?, ?> item : ((Map<?, ?>) source).entrySet()) {
             if (!(item.getKey() instanceof String)
                     || ((String) item.getKey()).trim().isEmpty()) {
