@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
+from types import ModuleType
 from types import SimpleNamespace
 
 import pytest
 
 from agent.store import KnowledgeStore
 from agent.visual_document_store import VisualDocumentStore
-from scripts.visual_document_lab import VisualDocumentLab
+from scripts.visual_document_lab import VisualDocumentLab, main as visual_lab_main
 
 
 class HeadlessCore:
@@ -78,3 +80,121 @@ def test_visual_lab_never_calls_executor_when_manifest_gate_blocks(tmp_path, mon
     assert report["execution"]["status"] == "backend_not_governed"
     assert report["execution"]["execution_performed"] is False
     assert report["capability_activation_performed"] is False
+
+
+class SelectedHeadlessCore(HeadlessCore):
+    """Test-only selector/executor fixture; it never renders or activates a capability."""
+
+    def __init__(self, database: Path):
+        super().__init__(database)
+        self.execution_calls = []
+
+    def inspect_visual_backend_selection(self, task_spec):
+        return {
+            "status": "selected",
+            "backend_id": "test.fake.visual.backend",
+            "execution_performed": False,
+        }
+
+    def execute_image_task(self, *args, **kwargs):
+        self.execution_calls.append((args, kwargs))
+        return {
+            "status": "delegated_to_test_fixture",
+            "execution_performed": True,
+        }
+
+
+def test_visual_lab_delegates_provenance_only_after_test_selector_selects(tmp_path):
+    core = SelectedHeadlessCore(tmp_path / "memory.sqlite3")
+    lab = VisualDocumentLab(core)
+    created = lab.create_demo("lab.test.positive-gate")
+
+    report = lab.run(
+        "lab.test.positive-gate",
+        task_id="task.lab.positive-gate",
+        execute=True,
+        estimated_ram_mb=128,
+        estimated_seconds=2.5,
+    )
+
+    assert len(core.execution_calls) == 1
+    args, kwargs = core.execution_calls[0]
+    assert args[0].task_id == "task.lab.positive-gate"
+    assert kwargs["estimated_ram_mb"] == 128
+    assert kwargs["estimated_seconds"] == 2.5
+    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"] == created["sha256"]
+    assert report["execution"]["status"] == "delegated_to_test_fixture"
+    assert report["capability_activation_performed"] is False
+
+
+def test_visual_lab_requires_resource_estimates_before_delegation(tmp_path):
+    core = SelectedHeadlessCore(tmp_path / "memory.sqlite3")
+    lab = VisualDocumentLab(core)
+    lab.create_demo("lab.test.missing-estimates")
+
+    with pytest.raises(ValueError, match="estimated-ram-mb"):
+        lab.run(
+            "lab.test.missing-estimates",
+            task_id="task.lab.missing-estimates",
+            execute=True,
+        )
+
+    assert core.execution_calls == []
+
+
+@pytest.mark.parametrize("document_exists", [True, False])
+def test_visual_lab_cli_closes_core_after_success_or_command_error(
+    tmp_path, monkeypatch, capsys, document_exists,
+):
+    instances = []
+    document = SimpleNamespace(
+        document_id="lab.cli.test",
+        layers=(),
+        elements=(),
+        SCHEMA="mahoraga.visual_document.v1",
+        to_dict=lambda: {"document_id": "lab.cli.test"},
+    )
+    stored = SimpleNamespace(
+        document=document,
+        revision=1,
+        sha256="a" * 64,
+        parent_sha256=None,
+        status="ready",
+    )
+
+    class FakeVisualDocumentStore:
+        def get(self, document_id):
+            return stored if document_exists else None
+
+        def list_revisions(self, document_id):
+            return []
+
+    class FakeCore:
+        def __init__(self, root, store):
+            self.visual_documents = FakeVisualDocumentStore()
+            self.closed = False
+            instances.append(self)
+
+        def close(self):
+            self.closed = True
+
+    integration_module = ModuleType("agent.integration_core")
+    integration_module.IntegratedCore = FakeCore
+    monkeypatch.setitem(sys.modules, "agent.integration_core", integration_module)
+    monkeypatch.setattr("agent.store.KnowledgeStore", lambda database: object())
+
+    argv = [
+        "--root", str(tmp_path),
+        "--database", str(tmp_path / "cli.sqlite3"),
+        "inspect",
+        "--document-id", "lab.cli.test",
+    ]
+    if document_exists:
+        assert visual_lab_main(argv) == 0
+        assert '"document_id": "lab.cli.test"' in capsys.readouterr().out
+    else:
+        with pytest.raises(ValueError, match="não encontrado"):
+            visual_lab_main(argv)
+
+    assert len(instances) == 1
+    assert instances[0].closed is True
