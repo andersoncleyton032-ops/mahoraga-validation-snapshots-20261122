@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'experiments/**'
+      - 'android-capability-lab/**'
+      - 'docs/architecture/ANDROID_CAPABILITY_LAB_V1.md'
       - 'tests/**'
       - '.github/workflows/snapshot-tests.yml'
   push:
@@ -43,3 +45,38 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run all included focused tests
         run: python -m pytest -q tests/
+
+  android-capability-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out curated snapshot
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.6.0"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Run unit tests and assemble debug APK
+        run: gradle -p android-capability-lab --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Generate APK checksum
+        run: sha256sum android-capability-lab/app/build/outputs/apk/debug/app-debug.apk > android-capability-lab/app/build/outputs/apk/debug/app-debug.apk.sha256
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-capability-lab-debug
+          path: |
+            android-capability-lab/app/build/outputs/apk/debug/app-debug.apk
+            android-capability-lab/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
