@@ -87,3 +87,18 @@ The report contract was subsequently hardened with deep immutability and JSON/st
 
 
 The current report contract also rejects cyclic or excessively nested evidence and non-string object keys. Current test inventory: 13 JVM tests and 5 Python contract tests. The prior public build predates these nine additional JVM tests; current revision remains unvalidated until a new Gradle run.
+
+
+## Execução comprovada — 25/11/2026
+
+Validação pública curada PR #17, run `45598848336`, usando os arquivos Android atuais:
+- Python 3.12: 109 passed.
+- Python 3.14: 109 passed.
+- `:app:testDebugUnitTest`: task concluída com sucesso.
+- `:app:assembleDebug`: BUILD SUCCESSFUL.
+- APK artifact ID `15013849984`; SHA-256 do APK `5a7bac490befd0368d402c38521fd5ea561e33e8e23ee24715e3f379cbb4ba45`.
+- O binário `AndroidManifest.xml` extraído do APK foi analisado: zero tags `uses-permission`, zero serviços/receivers/providers; apenas visibilidade de pacote para Termux e Shizuku e a Activity launcher.
+- O arquivo de teste contém 13 métodos `@Test`; o Gradle test task passou. Este run não publicou XML JUnit, portanto a contagem de testes executados ainda não foi confirmada por relatório XML. O workflow foi atualizado para publicar esses relatórios em execuções futuras.
+- Nenhum APK foi instalado; nenhuma validação no Realme foi realizada.
+
+The Android workflow now also summarizes and uploads JUnit XML test reports, so subsequent runs can confirm the exact JVM test count rather than relying only on task success.
