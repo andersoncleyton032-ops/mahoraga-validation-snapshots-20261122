@@ -2,9 +2,9 @@ package com.mahoraga.capabilitylab;
 
 import org.json.JSONObject;
 
-import java.time.Instant;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -89,11 +89,12 @@ public final class CapabilityReport {
         Map<String, Object> result = new LinkedHashMap<>();
         IdentityHashMap<Object, Boolean> active = new IdentityHashMap<>();
         int[] budget = {0};
-        for (Map.Entry<String, Object> item : source.entrySet()) {
-            String key = item.getKey();
-            if (key == null || key.trim().isEmpty()) {
-                throw new IllegalArgumentException(path + " contains an empty key.");
+        for (Map.Entry<?, ?> item : ((Map<?, ?>) source).entrySet()) {
+            if (!(item.getKey() instanceof String)
+                    || ((String) item.getKey()).trim().isEmpty()) {
+                throw new IllegalArgumentException(path + " contains a non-string/empty key.");
             }
+            String key = (String) item.getKey();
             result.put(key, immutableJsonValue(
                     item.getValue(), path + "." + key, 0, active, budget));
         }
