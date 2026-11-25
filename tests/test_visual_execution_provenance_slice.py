@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from agent.cancellation import CancellationToken
 from agent.image_generation import ImageGenerationEngine, ImageGenerationError
 from agent.image_task import VisualResourceBudget
 from agent.image_task_executor import ImageTaskExecutionError, ProceduralImageTaskExecutor
