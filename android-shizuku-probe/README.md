@@ -17,7 +17,8 @@ APK separado do Android Capability Lab v0.1.
 - Não inicia UserService (planejado para alpha2).
 - Não modifica arquivos, configurações ou estado do sistema.
 - Não usa rede, câmera, microfone, sensores ou armazenamento persistente.
-- Não solicita permissões Android adicionais.
+- O provider oficial adiciona somente a permissão customizada `moe.shizuku.manager.permission.API_V23`, declarada como runtime permission pelo app Shizuku. Ela só é solicitada pelo fluxo explícito do botão.
+- Não solicita permissões de sistema como INTERNET, WRITE_SECURE_SETTINGS ou INTERACT_ACROSS_USERS_FULL. Esta última aparece apenas como proteção do componente provider, não como `uses-permission`.
 
 ## Dependências
 
