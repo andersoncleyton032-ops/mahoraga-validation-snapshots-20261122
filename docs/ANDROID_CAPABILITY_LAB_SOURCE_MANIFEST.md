@@ -48,3 +48,14 @@ Final test inventory correction: 13 JVM tests + 5 Python contracts. Nine JVM tes
 
 
 Latest source checkpoints: CapabilityReport code `9290fffffb49fb4ce8ae263281c8846cfff6e3d9`; JVM tests `3fe5b0ae9d570dfcc1d418ae83bcd2d61e665107`. Both source files are byte-identical to private PR #275. Current inventory: 13 JVM + 5 Python contracts. No workflow run exists for current public head `17e45ae71786ffab5e8781b4731197502732a0b8`; do not claim current tests/build passed.
+
+
+## Final public validation — run #45600075401
+
+- Python 3.12 and 3.14: 122/122 passed each.
+- Android JUnit report artifact #15014814219: 13 tests, 0 skipped, 0 failures, 0 errors.
+- Gradle `:app:testDebugUnitTest` and `:app:assembleDebug`: BUILD SUCCESSFUL.
+- Built APK manifest policy: passed. No permissions, services, receivers, providers or activity aliases; Termux/Shizuku query allowlist; single exported launcher Activity; backups disabled.
+- APK artifact #15016035633; SHA-256 `6416799bdbf977b8c5bfc04111c6ec5ec9f0f1bce1a7dff0d224c79f8936c921`.
+- Retry helper and manifest policy helper are now part of the source snapshot and their Python tests are included in the 122-test matrix.
+- No installation or Realme runtime validation.
