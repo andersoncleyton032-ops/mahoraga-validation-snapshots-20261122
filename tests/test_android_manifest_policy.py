@@ -63,6 +63,10 @@ def test_accepts_read_only_capability_lab_manifest():
             '<activity android:name="com.mahoraga.capabilitylab.MainActivity" android:exported="false">',
             "launcher Activity must explicitly set",
         ),
+        (
+            '<activity android:name="com.example.Other" android:exported="true">',
+            "unexpected launcher Activity",
+        ),
     ],
 )
 def test_rejects_manifest_policy_violations(replacement, expected):
