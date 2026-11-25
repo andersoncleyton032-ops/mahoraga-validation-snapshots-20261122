@@ -12,6 +12,7 @@ def test_aidl_exposes_only_typed_identity_operation_and_lifecycle():
     callback = (AIDL_ROOT / "IProbeCallback.aidl").read_text(encoding="utf-8")
 
     assert "getProtocolVersion()" in service
+    assert "import com.mahoraga.shizukuprobe.IProbeCallback;" in service
     assert "runIdentityProbe(String requestId, IProbeCallback callback)" in service
     assert "cancelIdentityProbe(String requestId)" in service
     assert "destroy() = 16777114" in service
