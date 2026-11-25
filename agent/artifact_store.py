@@ -89,20 +89,28 @@ class ArtifactStore:
         self.descriptor_root = self.root / "descriptors"
         self._ensure_layout()
 
+    @staticmethod
+    def _validate_private_directory(directory: Path) -> None:
+        if (
+            directory.is_symlink()
+            or not directory.is_dir()
+            or directory.resolve(strict=True) != directory
+        ):
+            raise ArtifactStoreError("Diretório do ArtifactStore não é canônico e seguro.")
+        if stat.S_IMODE(directory.stat().st_mode) & 0o077:
+            raise ArtifactStoreError(
+                "Diretório do ArtifactStore precisa ser privado (permissões 0700)."
+            )
+
     def _ensure_layout(self) -> None:
         try:
             self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-            for directory in (self.root, self.blob_root, self.descriptor_root):
-                if (
-                    directory.is_symlink()
-                    or not directory.is_dir()
-                    or directory.resolve(strict=True) != directory
-                ):
-                    raise ArtifactStoreError("Diretório do ArtifactStore não é canônico e seguro.")
-                if stat.S_IMODE(directory.stat().st_mode) & 0o077:
-                    raise ArtifactStoreError(
-                        "Diretório do ArtifactStore precisa ser privado (permissões 0700)."
-                    )
+            # Validate the root before creating children: an existing insecure
+            # root must be rejected without modifying its permissions or contents.
+            self._validate_private_directory(self.root)
+            for directory in (self.blob_root, self.descriptor_root):
+                directory.mkdir(exist_ok=True, mode=0o700)
+                self._validate_private_directory(directory)
         except ArtifactStoreError:
             raise
         except OSError as exc:
