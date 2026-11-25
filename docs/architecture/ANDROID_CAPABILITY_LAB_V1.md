@@ -49,7 +49,7 @@ gradle :app:testDebugUnitTest
 gradle :app:assembleDebug
 ```
 
-The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both commands when the module changes or by manual dispatch. Thirteen JVM tests cover the capability-state classifier, report immutability, stable timestamps, JSON compatibility and malformed status/detail rejection. Build and tests have not been executed: the first Actions run failed before steps and its job logs were unavailable (`BlobNotFound`).
+The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both commands when the module changes or by manual dispatch. Thirteen JVM tests cover the capability-state classifier, report immutability, stable timestamps, JSON compatibility and malformed status/detail rejection. Private Actions continues to fail before runner steps; public snapshot validation now provides the build/test evidence.
 
 ## Follow-up sequence
 
@@ -62,7 +62,7 @@ The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both 
 7. Install on the Realme only after build, manifest and emulator evidence are reviewed and the user explicitly authorizes device installation.
 
 
-The repository also contains `tests/test_android_capability_lab_manifest.py` with four Python contract tests. They verify that the manifest requests no permissions, declares no background components, exposes only the two explicit package queries, and that the v0.1 probe does not package WorkManager or invoke capture/Binder APIs. Together with thirteen JVM tests and five Python contracts, eighteen tests are written; none has execution evidence yet.
+The repository also contains `tests/test_android_capability_lab_manifest.py` with four Python contract tests. They verify that the manifest requests no permissions, declares no background components, exposes only the two explicit package queries, and that the v0.1 probe does not package WorkManager or invoke capture/Binder APIs. Together with thirteen JVM tests and five Python contracts, eighteen Android Capability Lab contract tests are written; the public run #45600075401 executed all 13 JVM tests and the five Python contracts within the 122-test Python matrix.
 
 
 A fifth Python contract test additionally verifies that the Activity does not request permissions, start services, register sensor listeners or bind services. Total Android Lab tests now written: sixteen (thirteen JVM + five Python). The earlier curated run validated the previous four-JVM-test version; the eleven-test refinement has not yet been executed.
@@ -104,3 +104,16 @@ Validação pública curada PR #17, run `45598848336`, usando os arquivos Androi
 - O binário `AndroidManifest.xml` extraído do APK foi analisado: zero tags `uses-permission`, zero serviços/receivers/providers; apenas visibilidade de pacote para Termux e Shizuku e a Activity launcher.
 - O arquivo de teste contém 13 métodos `@Test`; o Gradle test task passou. Este run não publicou XML JUnit, portanto a contagem de testes executados ainda não foi confirmada por relatório XML. O workflow foi atualizado para publicar esses relatórios em execuções futuras.
 - Nenhum APK foi instalado; nenhuma validação no Realme foi realizada.
+
+
+## Validação final do snapshot público — run #45600075401
+
+- Python 3.12: 122 passed; Python 3.14: 122 passed.
+- JUnit XML: 13 tests, 0 skipped, 0 failures, 0 errors.
+- `:app:testDebugUnitTest` e `:app:assembleDebug`: BUILD SUCCESSFUL.
+- `verify_android_manifest_policy.py`: `policy_passed=true`; zero permissões, zero services/receivers/providers/aliases, allowlist de queries Termux/Shizuku e launcher Activity única.
+- JUnit artifact #15014814219.
+- APK artifact #15016035633; SHA-256 `6416799bdbf977b8c5bfc04111c6ec5ec9f0f1bce1a7dff0d224c79f8936c921`.
+- O workflow usa `retry_gradle.py` para 429/5xx transitórios e agora publica JUnit XML.
+- Nenhum APK foi instalado e o Realme não foi validado em runtime.
+- O runner privado continua bloqueado antes dos steps (run #45600387211); a evidência de build vem do snapshot público isolado.
