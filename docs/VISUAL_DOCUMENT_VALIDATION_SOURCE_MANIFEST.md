@@ -21,3 +21,10 @@
 - Fixtures are synthetic; no user/device identifiers or personal data are included.
 - The three visual test files comprise 80 of the original 86 targeted tests. The remaining six (three executor, two image-generation/provenance and one full IntegratedCore integration test) are intentionally excluded because they require the full private integration dependency graph. Four new VisualDocumentLab tests are also excluded from this curated slice.
 - This curated snapshot does not validate IntegratedCore, the governed renderer, the VisualDocumentLab harness, the full private test suite or Android/Realme runtime behavior.
+
+
+## Validation corrections (25/11/2026)
+
+- Updated visual source head: `a07b7f10493b316271753da25707275899e7dc77`.
+- Corrected two stale test-message expectations to assert the actual parent-cycle and non-JSON-type errors; compiler-version message matching is now case-insensitive.
+- Fixed a numerical edge case in `VisualSceneCompiler._rotate`: components with absolute value below `1e-12` are canonicalized to zero, preventing trigonometric residue from leaking into scene transforms/hashes.
