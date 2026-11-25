@@ -49,7 +49,7 @@ gradle :app:testDebugUnitTest
 gradle :app:assembleDebug
 ```
 
-The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both commands when the module changes or by manual dispatch. Eleven JVM tests cover the capability-state classifier, report immutability, stable timestamps, JSON compatibility and malformed status/detail rejection. Build and tests have not been executed: the first Actions run failed before steps and its job logs were unavailable (`BlobNotFound`).
+The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both commands when the module changes or by manual dispatch. Twelve JVM tests cover the capability-state classifier, report immutability, stable timestamps, JSON compatibility and malformed status/detail rejection. Build and tests have not been executed: the first Actions run failed before steps and its job logs were unavailable (`BlobNotFound`).
 
 ## Follow-up sequence
 
@@ -62,10 +62,10 @@ The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both 
 7. Install on the Realme only after build, manifest and emulator evidence are reviewed and the user explicitly authorizes device installation.
 
 
-The repository also contains `tests/test_android_capability_lab_manifest.py` with four Python contract tests. They verify that the manifest requests no permissions, declares no background components, exposes only the two explicit package queries, and that the v0.1 probe does not package WorkManager or invoke capture/Binder APIs. Together with eleven JVM tests and five Python contracts, sixteen tests are written; none has execution evidence yet.
+The repository also contains `tests/test_android_capability_lab_manifest.py` with four Python contract tests. They verify that the manifest requests no permissions, declares no background components, exposes only the two explicit package queries, and that the v0.1 probe does not package WorkManager or invoke capture/Binder APIs. Together with twelve JVM tests and five Python contracts, sixteen tests are written; none has execution evidence yet.
 
 
-A fifth Python contract test additionally verifies that the Activity does not request permissions, start services, register sensor listeners or bind services. Total Android Lab tests now written: sixteen (eleven JVM + five Python). The earlier curated run validated the previous four-JVM-test version; the eleven-test refinement has not yet been executed.
+A fifth Python contract test additionally verifies that the Activity does not request permissions, start services, register sensor listeners or bind services. Total Android Lab tests now written: sixteen (twelve JVM + five Python). The earlier curated run validated the previous four-JVM-test version; the eleven-test refinement has not yet been executed.
 
 
 ## Build evidence — curated public runner
