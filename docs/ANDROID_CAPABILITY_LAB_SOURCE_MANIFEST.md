@@ -20,3 +20,6 @@
 - Tests are synthetic and generic. No personal or device-specific fixture is copied.
 - This curated PR validates only the selected Android Capability Lab and its manifest contract. It does not validate the private visual 90-test suite or full-system integration.
 - Build/test evidence must be recorded against the exact resulting public snapshot head. No APK is installed on a device.
+
+
+A fifth Python contract test verifies the Activity does not request permissions, start services, register sensor listeners or bind services. Total tests in this selected snapshot: four JVM + five Python contract tests.
