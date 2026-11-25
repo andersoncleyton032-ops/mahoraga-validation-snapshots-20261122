@@ -91,8 +91,15 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
         violations.append(
             f"expected exactly one MAIN/LAUNCHER Activity, found {len(launcher_activities)}"
         )
-    elif launcher_activities[0].get(ANDROID_NS + "exported") != "true":
-        violations.append("launcher Activity must explicitly set android:exported=true")
+    else:
+        launcher_name = launcher_activities[0].get(ANDROID_NS + "name")
+        if launcher_name not in {
+            ".MainActivity",
+            "com.mahoraga.capabilitylab.MainActivity",
+        }:
+            violations.append(f"unexpected launcher Activity: {launcher_name!r}")
+        if launcher_activities[0].get(ANDROID_NS + "exported") != "true":
+            violations.append("launcher Activity must explicitly set android:exported=true")
 
     return {
         "package": package,
