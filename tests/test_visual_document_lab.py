@@ -1,0 +1,200 @@
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+from types import ModuleType
+from types import SimpleNamespace
+
+import pytest
+
+from agent.store import KnowledgeStore
+from agent.visual_document_store import VisualDocumentStore
+from scripts.visual_document_lab import VisualDocumentLab, main as visual_lab_main
+
+
+class HeadlessCore:
+    def __init__(self, database: Path):
+        self.store = KnowledgeStore(database)
+        self.visual_documents = VisualDocumentStore(self.store)
+        self.image_task_executor = SimpleNamespace(
+            execute=lambda *args, **kwargs: pytest.fail("executor should remain gated")
+        )
+
+    def inspect_visual_backend_selection(self, task_spec):
+        return {
+            "status": "blocked",
+            "reason": "headless_test_selector_blocks",
+            "execution_performed": False,
+        }
+
+    def execute_image_task(self, *args, **kwargs):
+        return self.image_task_executor.execute(*args, **kwargs)
+
+
+def make_lab(tmp_path: Path) -> tuple[VisualDocumentLab, HeadlessCore]:
+    core = HeadlessCore(tmp_path / "memory.sqlite3")
+    return VisualDocumentLab(core), core
+
+
+def test_visual_lab_creates_three_immutable_revisions_and_compiles(tmp_path):
+    lab, core = make_lab(tmp_path)
+
+    created = lab.create_demo("lab.test.scene")
+    report = lab.run("lab.test.scene", task_id="task.lab.test")
+
+    assert created["revision"] == 3
+    assert len(core.visual_documents.list_revisions("lab.test.scene")) == 3
+    assert report["compile"]["status"] == "ready_for_governed_executor"
+    assert report["compile"]["execution_started"] is False
+    assert report["compile"]["source_document_sha256"] == created["sha256"]
+    assert report["compile"]["render_provenance"]["source_provenance_authenticated"] is False
+
+
+def test_visual_lab_edit_appends_revision_and_preserves_parent_hash(tmp_path):
+    lab, core = make_lab(tmp_path)
+    lab.create_demo("lab.test.edit")
+
+    edited = lab.edit_transform(
+        "lab.test.edit", "element.sphere", (1.0, 2.0, 3.0),
+    )
+    loaded = core.visual_documents.get("lab.test.edit")
+
+    assert edited["revision"] == 4
+    assert loaded is not None
+    assert loaded.parent_sha256 is not None
+    sphere = next(item for item in loaded.document.elements if item.element_id == "element.sphere")
+    assert sphere.transform.translation == (1.0, 2.0, 3.0)
+
+
+def test_visual_lab_never_calls_executor_when_manifest_gate_blocks(tmp_path, monkeypatch):
+    lab, core = make_lab(tmp_path)
+
+    def forbidden_execute(*args, **kwargs):
+        pytest.fail("executor must not be called when selector blocks")
+
+    monkeypatch.setattr(core.image_task_executor, "execute", forbidden_execute)
+    lab.create_demo("lab.test.blocked")
+    report = lab.run("lab.test.blocked", task_id="task.lab.blocked", execute=True)
+
+    assert report["backend_selection"]["status"] == "blocked"
+    assert report["execution"]["status"] == "backend_not_governed"
+    assert report["execution"]["execution_performed"] is False
+    assert report["capability_activation_performed"] is False
+
+
+class SelectedHeadlessCore(HeadlessCore):
+    """Test-only selector/executor fixture; it never renders or activates a capability."""
+
+    def __init__(self, database: Path):
+        super().__init__(database)
+        self.execution_calls = []
+
+    def inspect_visual_backend_selection(self, task_spec):
+        return {
+            "status": "selected",
+            "backend_id": "test.fake.visual.backend",
+            "execution_performed": False,
+        }
+
+    def execute_image_task(self, *args, **kwargs):
+        self.execution_calls.append((args, kwargs))
+        return {
+            "status": "delegated_to_test_fixture",
+            "execution_performed": True,
+        }
+
+
+def test_visual_lab_delegates_provenance_only_after_test_selector_selects(tmp_path):
+    core = SelectedHeadlessCore(tmp_path / "memory.sqlite3")
+    lab = VisualDocumentLab(core)
+    created = lab.create_demo("lab.test.positive-gate")
+
+    report = lab.run(
+        "lab.test.positive-gate",
+        task_id="task.lab.positive-gate",
+        execute=True,
+        estimated_ram_mb=128,
+        estimated_seconds=2.5,
+    )
+
+    assert len(core.execution_calls) == 1
+    args, kwargs = core.execution_calls[0]
+    assert args[0].task_id == "task.lab.positive-gate"
+    assert kwargs["estimated_ram_mb"] == 128
+    assert kwargs["estimated_seconds"] == 2.5
+    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"] == created["sha256"]
+    assert report["execution"]["status"] == "delegated_to_test_fixture"
+    assert report["capability_activation_performed"] is False
+
+
+def test_visual_lab_requires_resource_estimates_before_delegation(tmp_path):
+    core = SelectedHeadlessCore(tmp_path / "memory.sqlite3")
+    lab = VisualDocumentLab(core)
+    lab.create_demo("lab.test.missing-estimates")
+
+    with pytest.raises(ValueError, match="estimated-ram-mb"):
+        lab.run(
+            "lab.test.missing-estimates",
+            task_id="task.lab.missing-estimates",
+            execute=True,
+        )
+
+    assert core.execution_calls == []
+
+
+@pytest.mark.parametrize("document_exists", [True, False])
+def test_visual_lab_cli_closes_core_after_success_or_command_error(
+    tmp_path, monkeypatch, capsys, document_exists,
+):
+    instances = []
+    document = SimpleNamespace(
+        document_id="lab.cli.test",
+        layers=(),
+        elements=(),
+        SCHEMA="mahoraga.visual_document.v1",
+        to_dict=lambda: {"document_id": "lab.cli.test"},
+    )
+    stored = SimpleNamespace(
+        document=document,
+        revision=1,
+        sha256="a" * 64,
+        parent_sha256=None,
+        status="ready",
+    )
+
+    class FakeVisualDocumentStore:
+        def get(self, document_id):
+            return stored if document_exists else None
+
+        def list_revisions(self, document_id):
+            return []
+
+    class FakeCore:
+        def __init__(self, root, store):
+            self.visual_documents = FakeVisualDocumentStore()
+            self.closed = False
+            instances.append(self)
+
+        def close(self):
+            self.closed = True
+
+    integration_module = ModuleType("agent.integration_core")
+    integration_module.IntegratedCore = FakeCore
+    monkeypatch.setitem(sys.modules, "agent.integration_core", integration_module)
+    monkeypatch.setattr("agent.store.KnowledgeStore", lambda database: object())
+
+    argv = [
+        "--root", str(tmp_path),
+        "--database", str(tmp_path / "cli.sqlite3"),
+        "inspect",
+        "--document-id", "lab.cli.test",
+    ]
+    if document_exists:
+        assert visual_lab_main(argv) == 0
+        assert '"document_id": "lab.cli.test"' in capsys.readouterr().out
+    else:
+        with pytest.raises(ValueError, match="não encontrado"):
+            visual_lab_main(argv)
+
+    assert len(instances) == 1
+    assert instances[0].closed is True
