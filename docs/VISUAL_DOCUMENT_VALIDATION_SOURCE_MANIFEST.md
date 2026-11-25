@@ -44,3 +44,10 @@
 
 - Added `agent/image_asset.py` and `agent/image_asset_verifier.py` because the selected executor calls the same verifier used by the production image-generation path. The verifier uses the local CPU path tracer, ImageGenerationEngine and cancellation token; no external service or arbitrary command is introduced.
 - This closes a missing dependency in the first curated executor slice. The two executor tests that previously failed at import time can now reach the actual stored-artifact verification path.
+
+
+## VisualDocumentLab headless harness slice
+
+- Added `scripts/visual_document_lab.py` after moving IntegratedCore/KnowledgeStore imports into the CLI entrypoint. Importing the orchestration class no longer eagerly imports the full core graph; the CLI still constructs the real IntegratedCore at runtime.
+- Added three headless harness tests in `tests/test_visual_document_lab.py`, using the real KnowledgeStore and VisualDocumentStore with an injected test core/blocked selector. They validate three immutable revisions and compile provenance, transform revision ancestry, and the guarantee that a blocked selector never calls the executor.
+- The original full IntegratedCore provenance-forwarding test remains in the private suite as `tests/test_visual_document_lab_integration.py` and is not copied into this curated snapshot because it requires the full integration dependency graph.
