@@ -59,3 +59,16 @@ Latest source checkpoints: CapabilityReport code `9290fffffb49fb4ce8ae263281c884
 - APK artifact #15016035633; SHA-256 `6416799bdbf977b8c5bfc04111c6ec5ec9f0f1bce1a7dff0d224c79f8936c921`.
 - Retry helper and manifest policy helper are now part of the source snapshot and their Python tests are included in the 122-test matrix.
 - No installation or Realme runtime validation.
+
+
+## Shizuku Probe v0.2-alpha1 — public validation run #45602931133
+
+- Separate module: `android-shizuku-probe`, package `com.mahoraga.shizukuprobe`, version `0.2.0-alpha1`.
+- Shizuku API/provider 13.1.5; Shizuku app release observed at 13.6.0. Version skew is documented and Android 16 runtime compatibility remains unproven.
+- Python matrix: 132 passed on Python 3.12 and 3.14.
+- Shizuku JVM tests: 8/8, 0 skipped/failures/errors; JUnit artifact #15016771464.
+- Shizuku Gradle test and APK assembly: BUILD SUCCESSFUL.
+- APK manifest policy: passed. The only merged `uses-permission` is the Shizuku-specific runtime permission `moe.shizuku.manager.permission.API_V23` contributed by the official provider AAR. The provider is `rikka.shizuku.ShizukuProvider`, protected by `android.permission.INTERACT_ACROSS_USERS_FULL`; package visibility is limited to Shizuku; no background services/receivers/aliases; Sui auto-initialization is disabled.
+- APK artifact #15016252268; SHA-256 `1826eb3c47fbff64e3caf04f1cc0370af59795a0506583aedf5a015c06f45a40`.
+- Device installation and Binder/permission/UID 2000 runtime validation are still pending. Do not start alpha2 UserService before that evidence.
+- Manual test protocol: `docs/testing/SHIZUKU_PROBE_ALPHA1_DEVICE_TEST.md`.
