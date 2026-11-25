@@ -36,6 +36,9 @@ A fifth Python contract test verifies the Activity does not request permissions,
 
 The current source was refreshed from private PR #275, branch `implementation/android-capability-lab-20261125-final`, code HEAD `39adf07e2b3aab07d499fb47020539768706a205`.
 
-`CapabilityReport` now recursively copies and freezes nested maps/lists, validates capability status against the enum, requires non-empty detail, rejects non-JSON values and non-finite numbers, and fixes `generated_at` at construction time. The JVM suite increased from four to eight tests.
+`CapabilityReport` now recursively copies and freezes nested maps/lists, validates capability status against the enum, requires non-empty detail, rejects non-JSON values and non-finite numbers, and fixes `generated_at` at construction time. The JVM suite increased from four to eleven tests.
 
 The previous public run `45555686041` validated the earlier four-test Android revision. The four new JVM tests and rebuilt APK have **not** yet been executed. The current public PR head was updated through the repository connector, but no workflow run is associated with that new head; do not carry forward the previous build result as evidence for this revision.
+
+
+The latest source also rejects cyclic evidence, nesting beyond 32 levels, more than 50,000 JSON nodes, and non-string keys. Current Android suite: 11 JVM tests + 5 Python contracts; seven JVM tests were added after the last successful public Gradle run. Current revision remains unvalidated.
