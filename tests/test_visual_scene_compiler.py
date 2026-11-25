@@ -512,7 +512,7 @@ def test_visual_render_provenance_rejects_malformed_compiler_version() -> None:
     )
 
     digest = "f" * 64
-    with pytest.raises(VisualSceneCompilationError, match="versão do compilador"):
+    with pytest.raises(VisualSceneCompilationError, match="(?i)versão do compilador"):
         VisualRenderProvenance(
             source_document_sha256=digest,
             scene_spec_sha256=digest,
