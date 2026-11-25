@@ -33,4 +33,4 @@ O app Shizuku observado mais recente é v13.6.0, enquanto os artefatos API/provi
 gradle -p android-shizuku-probe :app:testDebugUnitTest :app:assembleDebug
 ```
 
-Build automatizado não autoriza instalação automática. O APK deve ser revisado e o teste de runtime no Realme deve ser uma etapa explícita posterior.
+A política do manifesto permite exclusivamente a permissão customizada Shizuku API_V23 trazida pelo artefato provider; qualquer outra permissão é bloqueada. Build automatizado não autoriza instalação automática. O APK deve ser revisado e o teste de runtime no Realme deve ser uma etapa explícita posterior.
