@@ -1,0 +1,103 @@
+name: Shizuku UserService Alpha2 Validation
+
+on:
+  pull_request:
+    paths:
+      - "android-shizuku-probe/**"
+      - "scripts/verify_shizuku_probe_alpha2_manifest_policy.py"
+      - "tests/test_shizuku_probe_alpha2_manifest_policy.py"
+      - "tests/test_shizuku_probe_alpha2_contract.py"
+      - ".github/workflows/shizuku-alpha2-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shizuku-alpha2-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shizuku-alpha2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run alpha2 contract and manifest tests
+        run: |
+          python -m pip install pytest==9.2.0
+          python -m pytest tests/test_shizuku_probe_alpha2_manifest_policy.py tests/test_shizuku_probe_alpha2_contract.py -q
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.6.0"
+      - name: Accept Android SDK licenses and install API 36
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK_ROOT/cmdline-tools"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
+          set -o pipefail
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
+      - name: Run Shizuku JVM tests and assemble alpha2 APK
+        run: python3 scripts/retry_gradle.py -p android-shizuku-probe --no-daemon :app:testDebugUnitTest :app:assembleDebug --stacktrace
+      - name: Verify alpha2 binary manifest policy
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          apkanalyzer manifest print android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > /tmp/mahoraga-shizuku-alpha2-manifest.xml
+          python3 scripts/verify_shizuku_probe_alpha2_manifest_policy.py /tmp/mahoraga-shizuku-alpha2-manifest.xml
+      - name: Summarize JVM test results
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          import xml.etree.ElementTree as ET
+          reports = sorted(Path("android-shizuku-probe/app/build/test-results/testDebugUnitTest").glob("*.xml"))
+          if not reports:
+              print("JVM_TEST_REPORTS=0")
+              raise SystemExit(0)
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          for report in reports:
+              root = ET.parse(report).getroot()
+              suites = list(root.findall("testsuite")) if root.tag == "testsuites" else [root]
+              for suite in suites:
+                  for key in totals:
+                      totals[key] += int(suite.attrib.get(key, "0"))
+          print("JVM_TESTS={tests} JVM_FAILURES={failures} JVM_ERRORS={errors} JVM_SKIPPED={skipped}".format(**totals))
+          if totals["failures"] or totals["errors"]:
+              sys.exit(1)
+          PY
+      - name: Upload alpha2 JVM reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-shizuku-alpha2-junit
+          path: android-shizuku-probe/app/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Generate alpha2 APK checksum
+        run: sha256sum android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
+      - name: Upload alpha2 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-shizuku-alpha2-debug
+          path: |
+            android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk
+            android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
