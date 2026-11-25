@@ -144,6 +144,31 @@ public final class CapabilityStateTest {
         expectInvalidReport(capabilities);
     }
 
+
+    @Test
+    public void reportRejectsCyclicEvidence() {
+        Map<String, Object> cyclic = new LinkedHashMap<>();
+        cyclic.put("self", cyclic);
+        Map<String, Object> capabilities = new LinkedHashMap<>();
+        capabilities.put("sensor_inventory", capabilityEntry(cyclic));
+
+        expectInvalidReport(capabilities);
+    }
+
+    @Test
+    public void reportRejectsExcessivelyNestedEvidence() {
+        Map<String, Object> nested = new LinkedHashMap<>();
+        for (int index = 0; index < 40; index++) {
+            Map<String, Object> parent = new LinkedHashMap<>();
+            parent.put("nested", nested);
+            nested = parent;
+        }
+        Map<String, Object> capabilities = new LinkedHashMap<>();
+        capabilities.put("sensor_inventory", capabilityEntry(nested));
+
+        expectInvalidReport(capabilities);
+    }
+
     private static Map<String, Object> capabilityEntry(Map<String, Object> evidence) {
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("status", CapabilityState.Status.AVAILABLE.name());
