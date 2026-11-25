@@ -3,8 +3,11 @@ package com.mahoraga.capabilitylab;
 import org.json.JSONObject;
 
 import java.time.Instant;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +20,9 @@ import java.util.Map;
  */
 public final class CapabilityReport {
     public static final String SCHEMA = "mahoraga.android_capability_report.v1";
+
+    private static final int MAX_JSON_DEPTH = 32;
+    private static final int MAX_JSON_NODES = 50000;
 
     private final Map<String, Object> device;
     private final Map<String, Object> capabilities;
@@ -81,49 +87,87 @@ public final class CapabilityReport {
             throw new IllegalArgumentException(path + " must not be null.");
         }
         Map<String, Object> result = new LinkedHashMap<>();
+        IdentityHashMap<Object, Boolean> active = new IdentityHashMap<>();
+        int[] budget = {0};
         for (Map.Entry<String, Object> item : source.entrySet()) {
             String key = item.getKey();
             if (key == null || key.trim().isEmpty()) {
                 throw new IllegalArgumentException(path + " contains an empty key.");
             }
-            result.put(key, immutableJsonValue(item.getValue(), path + "." + key));
+            result.put(key, immutableJsonValue(
+                    item.getValue(), path + "." + key, 0, active, budget));
         }
         return Collections.unmodifiableMap(result);
     }
 
-    private static Object immutableJsonValue(Object value, String path) {
+    private static Object immutableJsonValue(
+            Object value,
+            String path,
+            int depth,
+            IdentityHashMap<Object, Boolean> active,
+            int[] budget) {
+        budget[0]++;
+        if (depth > MAX_JSON_DEPTH || budget[0] > MAX_JSON_NODES) {
+            throw new IllegalArgumentException(path + " exceeds the report complexity budget.");
+        }
         if (value == null || value instanceof String || value instanceof Boolean) {
             return value;
         }
-        if (value instanceof Number) {
-            if (value instanceof Double && !Double.isFinite((Double) value)) {
+        if (value instanceof Byte || value instanceof Short
+                || value instanceof Integer || value instanceof Long
+                || value instanceof BigInteger || value instanceof BigDecimal) {
+            return value;
+        }
+        if (value instanceof Double) {
+            if (!Double.isFinite((Double) value)) {
                 throw new IllegalArgumentException(path + " must be finite.");
             }
-            if (value instanceof Float && !Float.isFinite((Float) value)) {
+            return value;
+        }
+        if (value instanceof Float) {
+            if (!Float.isFinite((Float) value)) {
                 throw new IllegalArgumentException(path + " must be finite.");
             }
             return value;
         }
         if (value instanceof Map) {
-            Map<?, ?> source = (Map<?, ?>) value;
-            Map<String, Object> result = new LinkedHashMap<>();
-            for (Map.Entry<?, ?> item : source.entrySet()) {
-                if (!(item.getKey() instanceof String)
-                        || ((String) item.getKey()).trim().isEmpty()) {
-                    throw new IllegalArgumentException(path + " contains a non-string/empty key.");
-                }
-                String key = (String) item.getKey();
-                result.put(key, immutableJsonValue(item.getValue(), path + "." + key));
+            if (active.put(value, Boolean.TRUE) != null) {
+                throw new IllegalArgumentException(path + " contains a cyclic JSON object.");
             }
-            return Collections.unmodifiableMap(result);
+            try {
+                Map<?, ?> source = (Map<?, ?>) value;
+                Map<String, Object> result = new LinkedHashMap<>();
+                for (Map.Entry<?, ?> item : source.entrySet()) {
+                    if (!(item.getKey() instanceof String)
+                            || ((String) item.getKey()).trim().isEmpty()) {
+                        throw new IllegalArgumentException(
+                                path + " contains a non-string/empty key.");
+                    }
+                    String key = (String) item.getKey();
+                    result.put(key, immutableJsonValue(
+                            item.getValue(), path + "." + key, depth + 1, active, budget));
+                }
+                return Collections.unmodifiableMap(result);
+            } finally {
+                active.remove(value);
+            }
         }
         if (value instanceof List) {
-            List<?> source = (List<?>) value;
-            List<Object> result = new ArrayList<>(source.size());
-            for (int index = 0; index < source.size(); index++) {
-                result.add(immutableJsonValue(source.get(index), path + "[" + index + "]"));
+            if (active.put(value, Boolean.TRUE) != null) {
+                throw new IllegalArgumentException(path + " contains a cyclic JSON array.");
             }
-            return Collections.unmodifiableList(result);
+            try {
+                List<?> source = (List<?>) value;
+                List<Object> result = new ArrayList<>(source.size());
+                for (int index = 0; index < source.size(); index++) {
+                    result.add(immutableJsonValue(
+                            source.get(index), path + "[" + index + "]",
+                            depth + 1, active, budget));
+                }
+                return Collections.unmodifiableList(result);
+            } finally {
+                active.remove(value);
+            }
         }
         throw new IllegalArgumentException(
                 path + " contains a value that is not JSON-compatible: "
