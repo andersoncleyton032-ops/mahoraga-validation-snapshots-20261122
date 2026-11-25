@@ -23,3 +23,10 @@
 
 
 A fifth Python contract test verifies the Activity does not request permissions, start services, register sensor listeners or bind services. Total tests in this selected snapshot: four JVM + five Python contract tests.
+
+
+## Build workflow correction (25/11/2026)
+
+- Updated private source head for Gradle configuration: `93d0f8c325b7564a897ddd3d8176abed2f91fa2f`.
+- Removed `unitTests.returnDefaultValues` from the AGP 9.5.2 Kotlin DSL because the configured DSL does not expose that property; the four JVM tests use pure Java logic and do not need Android stub defaults.
+- Replaced the incompatible `android-actions/setup-android@v3` step with direct use of the runner's preinstalled `sdkmanager`; license acceptance and API 36 installation succeeded in run #45554159248.
