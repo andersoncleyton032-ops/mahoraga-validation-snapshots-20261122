@@ -15,6 +15,7 @@ ANDROID = "http://schemas.android.com/apk/res/android"
 def valid_manifest() -> str:
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="{ANDROID}" package="com.mahoraga.shizukuprobe">
+  <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
   <queries>
     <package android:name="moe.shizuku.privileged.api" />
   </queries>
@@ -40,7 +41,7 @@ def valid_manifest() -> str:
 def test_accepts_only_the_expected_shizuku_provider_and_launcher():
     report = validate_manifest(valid_manifest())
     assert report["policy_passed"] is True
-    assert report["permissions"] == []
+    assert report["permissions"] == ["moe.shizuku.manager.permission.API_V23"]
     assert report["forbidden_components"] == []
     assert report["provider_count"] == 1
     assert report["activity_count"] == 1
@@ -51,7 +52,7 @@ def test_accepts_only_the_expected_shizuku_provider_and_launcher():
     [
         (
             '<uses-permission android:name="android.permission.INTERNET" />',
-            "manifest must not request Android permissions",
+            "uses-permission must be limited to Shizuku API_V23",
         ),
         (
             '<package android:name="com.example.unexpected" />',
