@@ -25,4 +25,6 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    // Local JVM tests need a real JSON implementation; android.jar exposes stub methods.
+    testImplementation("org.json:json:20260814")
 }
