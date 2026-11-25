@@ -20,9 +20,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    testOptions {
-        unitTests.returnDefaultValues = true
-    }
+
 }
 
 dependencies {
