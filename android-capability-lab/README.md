@@ -61,7 +61,7 @@ The report explicitly records that no capture, permission request or network upl
 
 ## Repository-level contract tests
 
-`tests/test_android_capability_lab_manifest.py` adds four Python tests to the main repository suite. They enforce zero requested permissions/network access, no background components, an explicit Termux/Shizuku package-query allowlist, and absence of WorkManager/capture/Binder APIs in v0.1. These tests are written but not yet executed.
+`tests/test_android_capability_lab_manifest.py` adds four Python tests to the main repository suite. They enforce zero requested permissions/network access, no background components, an explicit Termux/Shizuku package-query allowlist, and absence of WorkManager/capture/Binder APIs in v0.1. These five Python contracts were included in the public 122-test Python matrix and passed.
 
 
 A fifth repository-level Python test also checks that the Activity does not request permissions, start services, register sensor listeners or bind a service. Total Android Lab tests written: thirteen JVM + five Python contract tests; execution pending.
@@ -83,10 +83,10 @@ Latest APK artifact ID: `14996145941`; archive digest: `sha256:29923cf0abeef680a
 
 The latest APK was downloaded, checksum re-computed and matched. Its binary manifest was parsed again: no uses-permission, service, receiver or provider elements; only Termux and Shizuku package-visibility entries. No device installation or runtime claim.
 
-The report contract was subsequently hardened with deep immutability and JSON/status validation. Seven additional JVM tests were added (thirteen JVM + five Python total). The earlier curated build evidence predates this refinement; rerun the Android workflow before treating the revised APK as validated.
+The report contract was subsequently hardened with deep immutability and JSON/status validation. Nine additional JVM tests were added (thirteen JVM + five Python total). The current revision is validated by public run #45600075401: 13/13 JVM tests passed, Gradle build succeeded, and the APK manifest policy gate passed.
 
 
-The current report contract also rejects cyclic or excessively nested evidence and non-string object keys. Current test inventory: 13 JVM tests and 5 Python contract tests. The prior public build predates these nine additional JVM tests; current revision remains unvalidated until a new Gradle run.
+The current report contract also rejects cyclic or excessively nested evidence and non-string object keys. Current test inventory: 13 JVM tests and 5 Python contract tests. Public run #45600075401 validates the current revision: 13 JVM tests passed and the Gradle build succeeded.
 
 
 ## Execução comprovada — 25/11/2026
@@ -102,3 +102,16 @@ Validação pública curada PR #17, run `45598848336`, usando os arquivos Androi
 - Nenhum APK foi instalado; nenhuma validação no Realme foi realizada.
 
 The Android workflow now also summarizes and uploads JUnit XML test reports, so subsequent runs can confirm the exact JVM test count rather than relying only on task success.
+
+
+## Validação final do snapshot público — run #45600075401
+
+- Python 3.12: 122 passed; Python 3.14: 122 passed.
+- JUnit XML: 13 tests, 0 skipped, 0 failures, 0 errors.
+- `:app:testDebugUnitTest` e `:app:assembleDebug`: BUILD SUCCESSFUL.
+- `verify_android_manifest_policy.py`: `policy_passed=true`; zero permissões, zero services/receivers/providers/aliases, allowlist de queries Termux/Shizuku e launcher Activity única.
+- JUnit artifact #15014814219.
+- APK artifact #15016035633; SHA-256 `6416799bdbf977b8c5bfc04111c6ec5ec9f0f1bce1a7dff0d224c79f8936c921`.
+- O workflow usa `retry_gradle.py` para 429/5xx transitórios e agora publica JUnit XML.
+- Nenhum APK foi instalado e o Realme não foi validado em runtime.
+- O runner privado continua bloqueado antes dos steps (run #45600387211); a evidência de build vem do snapshot público isolado.
