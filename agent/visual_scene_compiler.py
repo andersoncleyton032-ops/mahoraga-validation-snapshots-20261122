@@ -74,7 +74,12 @@ def _rotate(vector: tuple[float, float, float], rotation: tuple[float, float, fl
     vy, vz = vy * cx - vz * sx, vy * sx + vz * cx
     vx, vz = vx * cy + vz * sy, -vx * sy + vz * cy
     vx, vy = vx * cz - vy * sz, vx * sz + vy * cz
-    return (vx, vy, vz)
+    # Canonicalize floating-point residue from right-angle rotations for stable scene hashes.
+    return (
+        0.0 if abs(vx) < 1e-12 else vx,
+        0.0 if abs(vy) < 1e-12 else vy,
+        0.0 if abs(vz) < 1e-12 else vz,
+    )
 
 
 def _quaternion_from_euler(rotation: tuple[float, float, float]) -> tuple[float, float, float, float]:
