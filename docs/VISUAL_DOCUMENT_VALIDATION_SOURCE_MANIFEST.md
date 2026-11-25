@@ -61,3 +61,14 @@ The executor/generation provenance slice additionally requires `agent/artifact_s
 - Added `tests/test_artifact_store.py` (10 tests) and updated `agent/artifact_store.py` to create the private blob and descriptor directories before validating them.
 - The previous 92-pass/2-fail run exposed that _ensure_layout created the root but checked blobs/descriptors before creating those child directories. The fix validates the root first (so insecure existing roots are not modified), creates each child with mode 0700, then validates canonical path, symlink state and permissions.
 - This snapshot now includes the complete local ArtifactStore dependency and its focused security/round-trip regression suite.
+
+
+## VisualDocumentLab lifecycle/positive-gate refresh — 25/11/2026
+
+The curated branch now also mirrors private PR #276:
+- CLI always closes `IntegratedCore` in `finally`, including command errors.
+- The headless test suite adds a positive *delegation-only* path with a fake selector/executor, explicit resource estimates, and provenance forwarding.
+- It verifies fail-closed behavior when the selector selected a backend but resource estimates are missing.
+- It verifies CLI core cleanup on success and error.
+
+The current headless file has seven pytest cases (including the two parameterized CLI cleanup outcomes). One full-core forwarding test remains excluded because it imports the private IntegratedCore graph. The visual-specific coverage represented by the current snapshot is 92/94 cases (85/86 original + 7/8 VisualDocumentLab). With 11 ArtifactStore tests, 5 Android contracts and 1 source-manifest contract, the refreshed Python snapshot is expected to contain 109 tests. The previous run #45555686041 only executed the older 105-test snapshot; no approval is claimed for the refreshed 109-test head.
