@@ -62,7 +62,7 @@ The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both 
 7. Install on the Realme only after build, manifest and emulator evidence are reviewed and the user explicitly authorizes device installation.
 
 
-The repository also contains `tests/test_android_capability_lab_manifest.py` with four Python contract tests. They verify that the manifest requests no permissions, declares no background components, exposes only the two explicit package queries, and that the v0.1 probe does not package WorkManager or invoke capture/Binder APIs. Together with thirteen JVM tests and five Python contracts, sixteen tests are written; none has execution evidence yet.
+The repository also contains `tests/test_android_capability_lab_manifest.py` with four Python contract tests. They verify that the manifest requests no permissions, declares no background components, exposes only the two explicit package queries, and that the v0.1 probe does not package WorkManager or invoke capture/Binder APIs. Together with thirteen JVM tests and five Python contracts, eighteen tests are written; none has execution evidence yet.
 
 
 A fifth Python contract test additionally verifies that the Activity does not request permissions, start services, register sensor listeners or bind services. Total Android Lab tests now written: sixteen (thirteen JVM + five Python). The earlier curated run validated the previous four-JVM-test version; the eleven-test refinement has not yet been executed.
@@ -91,3 +91,16 @@ Public mirror PR #17 / run #45555686041 completed all three jobs successfully:
 Latest APK artifact ID: `14996145941`; archive digest: `sha256:29923cf0abeef680a8280325dfa37db83622ee70f6196197bf5bdef32763ccfb`; APK size: 880,806 bytes; APK SHA-256: `bb67c352252e882d5ac752e19f8c5607ff09a77e53b19d8133ea58e3ef8f63d1`.
 
 The latest APK was downloaded, checksum re-computed and matched. Its binary manifest was parsed again: no uses-permission, service, receiver or provider elements; only Termux and Shizuku package-visibility entries. No device installation or runtime claim.
+
+
+## Execução comprovada — 25/11/2026
+
+Validação pública curada PR #17, run `45598848336`, usando os arquivos Android atuais:
+- Python 3.12: 109 passed.
+- Python 3.14: 109 passed.
+- `:app:testDebugUnitTest`: task concluída com sucesso.
+- `:app:assembleDebug`: BUILD SUCCESSFUL.
+- APK artifact ID `15013849984`; SHA-256 do APK `5a7bac490befd0368d402c38521fd5ea561e33e8e23ee24715e3f379cbb4ba45`.
+- O binário `AndroidManifest.xml` extraído do APK foi analisado: zero tags `uses-permission`, zero serviços/receivers/providers; apenas visibilidade de pacote para Termux e Shizuku e a Activity launcher.
+- O arquivo de teste contém 13 métodos `@Test`; o Gradle test task passou. Este run não publicou XML JUnit, portanto a contagem de testes executados ainda não foi confirmada por relatório XML. O workflow foi atualizado para publicar esses relatórios em execuções futuras.
+- Nenhum APK foi instalado; nenhuma validação no Realme foi realizada.
