@@ -140,7 +140,7 @@ def test_document_rejects_non_group_parent() -> None:
 
 
 def test_document_rejects_parent_cycles() -> None:
-    with pytest.raises(VisualDocumentError, match="elemento group existente"):
+    with pytest.raises(VisualDocumentError, match="contém ciclo"):
         VisualDocumentSpec(
             document_id="scene.invalid",
             title="Invalid",
@@ -224,7 +224,7 @@ def test_document_rejects_zero_scale() -> None:
 
 
 def test_document_rejects_non_json_data() -> None:
-    with pytest.raises(VisualDocumentError, match="não serializável"):
+    with pytest.raises(VisualDocumentError, match="tipo que não pertence ao JSON"):
         VisualElementSpec(
             "element.invalid", "custom", "layer.any",
             data={"object": object()},
