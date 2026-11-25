@@ -290,7 +290,7 @@ public final class AndroidCapabilityProbe {
                     Map<String, Object> item = new LinkedHashMap<>();
                     item.put("name", service.name);
                     item.put("foreground_service_type", Build.VERSION.SDK_INT >= 29
-                            ? service.foregroundServiceType : 0);
+                            ? service.getForegroundServiceType() : 0);
                     declared.add(item);
                 }
             }
