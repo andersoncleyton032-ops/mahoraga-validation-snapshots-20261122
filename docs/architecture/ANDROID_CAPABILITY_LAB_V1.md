@@ -22,7 +22,7 @@ Each capability entry contains a typed state, a human-readable detail and option
 - `UNSUPPORTED`: the device/platform reports the feature is absent.
 - `FAILED`: the probe could not obtain reliable evidence.
 
-The report records Android build/API metadata, package visibility for Termux and Shizuku, sensor metadata, InputManager devices, USB device metadata, Bluetooth feature/permission state, camera/microphone feature and permission state, CameraX classpath presence, MediaProjection service presence, SAF intent resolution, WorkManager classpath presence, JobScheduler service, this APK's own foreground-service declarations and API-level UIDT availability. `CapabilityReport` validates every capability status against the typed enum, requires a non-empty detail, rejects non-JSON/non-finite evidence, deep-copies nested maps/lists and exposes immutable nested snapshots. Its timestamp is fixed at collection construction, so repeated serialization does not rewrite the observation time.
+The report records Android build/API metadata, package visibility for Termux and Shizuku, sensor metadata, InputManager devices, USB device metadata, Bluetooth feature/permission state, camera/microphone feature and permission state, CameraX classpath presence, MediaProjection service presence, SAF intent resolution, WorkManager classpath presence, JobScheduler service, this APK's own foreground-service declarations and API-level UIDT availability. `CapabilityReport` validates every capability status against the typed enum, requires a non-empty detail, rejects non-JSON/non-finite evidence, deep-copies nested maps/lists and exposes immutable nested snapshots. Its timestamp is fixed at collection construction, so repeated serialization does not rewrite the observation time. Recursive validation rejects cycles, non-string object keys, nesting beyond 32 levels and more than 50,000 JSON nodes across the complete report.
 
 ## Read-only guarantees
 
@@ -49,7 +49,7 @@ gradle :app:testDebugUnitTest
 gradle :app:assembleDebug
 ```
 
-The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both commands when the module changes or by manual dispatch. Eight JVM tests cover the capability-state classifier, report immutability, stable timestamps, JSON compatibility and malformed status/detail rejection. Build and tests have not been executed: the first Actions run failed before steps and its job logs were unavailable (`BlobNotFound`).
+The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both commands when the module changes or by manual dispatch. Eleven JVM tests cover the capability-state classifier, report immutability, stable timestamps, JSON compatibility and malformed status/detail rejection. Build and tests have not been executed: the first Actions run failed before steps and its job logs were unavailable (`BlobNotFound`).
 
 ## Follow-up sequence
 
@@ -62,10 +62,10 @@ The dedicated workflow `.github/workflows/android-capability-lab.yml` runs both 
 7. Install on the Realme only after build, manifest and emulator evidence are reviewed and the user explicitly authorizes device installation.
 
 
-The repository also contains `tests/test_android_capability_lab_manifest.py` with four Python contract tests. They verify that the manifest requests no permissions, declares no background components, exposes only the two explicit package queries, and that the v0.1 probe does not package WorkManager or invoke capture/Binder APIs. Together with four JVM classifier tests, eleven tests are written; none has execution evidence yet.
+The repository also contains `tests/test_android_capability_lab_manifest.py` with four Python contract tests. They verify that the manifest requests no permissions, declares no background components, exposes only the two explicit package queries, and that the v0.1 probe does not package WorkManager or invoke capture/Binder APIs. Together with eleven JVM tests and five Python contracts, sixteen tests are written; none has execution evidence yet.
 
 
-A fifth Python contract test additionally verifies that the Activity does not request permissions, start services, register sensor listeners or bind services. Total Android Lab tests now written: thirteen (eight JVM + five Python). The earlier curated run validated the previous four-JVM-test version; the eight-test refinement has not yet been executed.
+A fifth Python contract test additionally verifies that the Activity does not request permissions, start services, register sensor listeners or bind services. Total Android Lab tests now written: sixteen (eleven JVM + five Python). The earlier curated run validated the previous four-JVM-test version; the eleven-test refinement has not yet been executed.
 
 
 ## Build evidence — curated public runner
