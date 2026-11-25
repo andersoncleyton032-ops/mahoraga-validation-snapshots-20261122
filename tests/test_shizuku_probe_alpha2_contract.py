@@ -15,6 +15,9 @@ def test_aidl_exposes_only_typed_identity_operation_and_lifecycle():
     assert "import com.mahoraga.shizukuprobe.IProbeCallback;" in service
     assert "runIdentityProbe(String requestId, IProbeCallback callback)" in service
     assert "cancelIdentityProbe(String requestId)" in service
+    assert "getProtocolVersion() = 1" in service
+    assert "runIdentityProbe(String requestId, IProbeCallback callback) = 2" in service
+    assert "cancelIdentityProbe(String requestId) = 3" in service
     assert "destroy() = 16777114" in service
     assert "String command" not in service
     assert "String[] args" not in service
