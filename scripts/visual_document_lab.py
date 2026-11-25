@@ -245,30 +245,33 @@ def main(argv: list[str] | None = None) -> int:
     root = args.root.expanduser().resolve()
     database = args.database.expanduser().resolve()
     core = IntegratedCore(root=root, store=KnowledgeStore(database))
-    lab = VisualDocumentLab(core)
+    try:
+        lab = VisualDocumentLab(core)
 
-    if args.command == "create-demo":
-        result = lab.create_demo(args.document_id)
-    elif args.command == "edit-transform":
-        result = lab.edit_transform(
-            args.document_id, args.element_id, (args.x, args.y, args.z),
-        )
-    elif args.command == "inspect":
-        result = lab.inspect(args.document_id)
-    else:
-        result = lab.run(
-            args.document_id,
-            task_id=args.task_id,
-            width=args.width,
-            height=args.height,
-            seed=args.seed,
-            execute=args.execute,
-            estimated_ram_mb=args.estimated_ram_mb,
-            estimated_seconds=args.estimated_seconds,
-        )
+        if args.command == "create-demo":
+            result = lab.create_demo(args.document_id)
+        elif args.command == "edit-transform":
+            result = lab.edit_transform(
+                args.document_id, args.element_id, (args.x, args.y, args.z),
+            )
+        elif args.command == "inspect":
+            result = lab.inspect(args.document_id)
+        else:
+            result = lab.run(
+                args.document_id,
+                task_id=args.task_id,
+                width=args.width,
+                height=args.height,
+                seed=args.seed,
+                execute=args.execute,
+                estimated_ram_mb=args.estimated_ram_mb,
+                estimated_seconds=args.estimated_seconds,
+            )
 
-    print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
-    return 0
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
+        return 0
+    finally:
+        core.close()
 
 
 if __name__ == "__main__":
