@@ -28,3 +28,13 @@
 - Updated visual source head: `a07b7f10493b316271753da25707275899e7dc77`.
 - Corrected two stale test-message expectations to assert the actual parent-cycle and non-JSON-type errors; compiler-version message matching is now case-insensitive.
 - Fixed a numerical edge case in `VisualSceneCompiler._rotate`: components with absolute value below `1e-12` are canonicalized to zero, preventing trigonometric residue from leaking into scene transforms/hashes.
+
+
+## Governed executor and generation provenance slice
+
+- Additional selected source: `agent/image_task.py`, `agent/image_generation.py`, `agent/image_task_executor.py`.
+- Additional test file: `tests/test_visual_execution_provenance_slice.py`.
+- Three executor tests exercise document-provenance persistence/reverification, task mismatch rejection before admission and stored-artifact provenance mismatch rejection. They use a deterministic test selector and fake admission callbacks; they do not validate the production global arbiter or manifest selector.
+- Two ImageGenerationEngine tests exercise the provenance validator for matching records and scene/authentication mismatch.
+- This raises original visual test coverage from 80/86 to 85/86. The remaining original test is the full IntegratedCore shared-store wiring test; it is excluded because it requires the complete private integration dependency graph. Four new VisualDocumentLab tests also remain outside this public slice.
+- Combined Python suite in this snapshot now contains 85 original visual tests plus six auxiliary contract tests (five Android manifest/Activity + one source-manifest contract). Android JVM tests are separate Gradle tests.
