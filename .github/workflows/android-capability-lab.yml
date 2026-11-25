@@ -21,6 +21,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run read-only manifest contract tests
+        run: |
+          python -m pip install pytest==9.2.0
+          python -m pytest tests/test_android_capability_lab_manifest.py -q
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
