@@ -183,6 +183,23 @@ public final class CapabilityStateTest {
         }
     }
 
+
+    @Test
+    public void reportUsesOneComplexityBudgetAcrossDeviceAndCapabilities() {
+        List<Object> samples = new ArrayList<>();
+        for (int index = 0; index < 25000; index++) {
+            samples.add(Boolean.TRUE);
+        }
+        Map<String, Object> device = new LinkedHashMap<>();
+        device.put("samples", samples);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("samples", samples);
+        Map<String, Object> capabilities = new LinkedHashMap<>();
+        capabilities.put("sensor_inventory", capabilityEntry(evidence));
+
+        expectInvalidReport(device, capabilities);
+    }
+
     private static Map<String, Object> capabilityEntry(Map<String, Object> evidence) {
         Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("status", CapabilityState.Status.AVAILABLE.name());
@@ -192,8 +209,13 @@ public final class CapabilityStateTest {
     }
 
     private static void expectInvalidReport(Map<String, Object> capabilities) {
+        expectInvalidReport(new LinkedHashMap<>(), capabilities);
+    }
+
+    private static void expectInvalidReport(
+            Map<String, Object> device, Map<String, Object> capabilities) {
         try {
-            new CapabilityReport(new LinkedHashMap<>(), capabilities);
+            new CapabilityReport(device, capabilities);
             throw new AssertionError("Invalid report was accepted.");
         } catch (IllegalArgumentException expected) {
             assertNotNull(expected);
