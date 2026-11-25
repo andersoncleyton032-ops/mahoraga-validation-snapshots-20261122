@@ -75,3 +75,16 @@ def test_activity_does_not_request_permissions_or_start_background_work():
         "bindService(",
     ):
         assert forbidden not in activity
+
+
+
+def test_visual_validation_manifest_records_bounded_test_slice():
+    manifest = ROOT / "docs" / "VISUAL_DOCUMENT_VALIDATION_SOURCE_MANIFEST.md"
+    content = manifest.read_text(encoding="utf-8")
+
+    assert "39 tests" in content
+    assert "28 tests" in content
+    assert "13 tests" in content
+    assert "80 of the original 86 targeted tests" in content
+    assert "three executor" in content
+    assert "full private test suite" in content
