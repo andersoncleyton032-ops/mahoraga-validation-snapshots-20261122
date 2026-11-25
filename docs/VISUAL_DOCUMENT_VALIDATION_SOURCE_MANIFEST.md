@@ -54,3 +54,10 @@
 
 
 The executor/generation provenance slice additionally requires `agent/artifact_store.py`; it is included alongside `agent/image_asset.py` and `agent/image_asset_verifier.py` so the exact ImageGenerationEngine persistence path can run. ArtifactStore writes only inside the test-provided temporary root in this curated test slice.
+
+
+## ArtifactStore layout regression coverage
+
+- Added `tests/test_artifact_store.py` (10 tests) and updated `agent/artifact_store.py` to create the private blob and descriptor directories before validating them.
+- The previous 92-pass/2-fail run exposed that _ensure_layout created the root but checked blobs/descriptors before creating those child directories. The fix validates the root first (so insecure existing roots are not modified), creates each child with mode 0700, then validates canonical path, symlink state and permissions.
+- This snapshot now includes the complete local ArtifactStore dependency and its focused security/round-trip regression suite.
