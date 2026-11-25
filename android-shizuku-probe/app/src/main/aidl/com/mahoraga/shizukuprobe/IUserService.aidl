@@ -1,5 +1,7 @@
 package com.mahoraga.shizukuprobe;
 
+import com.mahoraga.shizukuprobe.IProbeCallback;
+
 interface IUserService {
     int getProtocolVersion();
     void runIdentityProbe(String requestId, IProbeCallback callback);
