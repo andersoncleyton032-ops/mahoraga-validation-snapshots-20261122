@@ -38,3 +38,9 @@
 - Two ImageGenerationEngine tests exercise the provenance validator for matching records and scene/authentication mismatch.
 - This raises original visual test coverage from 80/86 to 85/86. The remaining original test is the full IntegratedCore shared-store wiring test; it is excluded because it requires the complete private integration dependency graph. Four new VisualDocumentLab tests also remain outside this public slice.
 - Combined Python suite in this snapshot now contains 85 original visual tests plus six auxiliary contract tests (five Android manifest/Activity + one source-manifest contract). Android JVM tests are separate Gradle tests.
+
+
+## Stored artifact verifier dependency
+
+- Added `agent/image_asset.py` and `agent/image_asset_verifier.py` because the selected executor calls the same verifier used by the production image-generation path. The verifier uses the local CPU path tracer, ImageGenerationEngine and cancellation token; no external service or arbitrary command is introduced.
+- This closes a missing dependency in the first curated executor slice. The two executor tests that previously failed at import time can now reach the actual stored-artifact verification path.
