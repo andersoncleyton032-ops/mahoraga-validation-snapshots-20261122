@@ -140,6 +140,8 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           apkanalyzer manifest print android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > /tmp/mahoraga-shizuku-probe-manifest.xml
           python3 scripts/verify_shizuku_probe_manifest_policy.py /tmp/mahoraga-shizuku-probe-manifest.xml
+          apkanalyzer manifest print android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > /tmp/mahoraga-shizuku-alpha2-manifest.xml
+          python3 scripts/verify_shizuku_probe_alpha2_manifest_policy.py /tmp/mahoraga-shizuku-alpha2-manifest.xml
       - name: Summarize Shizuku Probe JVM test results
         if: always()
         shell: bash
@@ -168,7 +170,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mahoraga-shizuku-probe-alpha1-test-results
+          name: mahoraga-shizuku-probe-alpha2-test-results
           path: android-shizuku-probe/app/build/test-results/testDebugUnitTest/*.xml
           if-no-files-found: warn
           retention-days: 14
@@ -177,7 +179,7 @@ jobs:
       - name: Upload Shizuku Probe debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: mahoraga-shizuku-probe-alpha1-debug
+          name: mahoraga-shizuku-probe-alpha2-debug
           path: |
             android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk
             android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
