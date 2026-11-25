@@ -109,6 +109,7 @@ Versões observadas:
 - Consulta UID apenas após permissão concedida e aceita somente UID 2000 (ADB/shell); UID 0/root é incompatibilidade e nunca é solicitado.
 - Não executa comandos, não inicia UserService, não altera sistema, não usa rede nem grava dados fora do armazenamento normal.
 - O provider Shizuku é o único componente extra esperado; protegido por `android.permission.INTERACT_ACROSS_USERS_FULL`, com autoridade `${applicationId}.shizuku`.
+- O AAR oficial `provider:13.1.5` adiciona `uses-permission moe.shizuku.manager.permission.API_V23`. O app Shizuku declara essa permissão customizada como `dangerous`; ela é a permissão de runtime específica da API Shizuku e só deve ser solicitada pelo fluxo explícito do usuário. A política do APK permite exatamente essa permissão e rejeita qualquer outra.
 - Usar `addBinderReceivedListenerSticky`, `addBinderDeadListener` e `addRequestPermissionResultListener` com Handler principal; remover listeners no ciclo de vida. Só chamar APIs Shizuku com Binder vivo.
 
 **v0.2-alpha2 — typed UserService**
