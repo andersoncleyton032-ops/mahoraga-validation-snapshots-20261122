@@ -64,7 +64,7 @@ The report explicitly records that no capture, permission request or network upl
 `tests/test_android_capability_lab_manifest.py` adds four Python tests to the main repository suite. They enforce zero requested permissions/network access, no background components, an explicit Termux/Shizuku package-query allowlist, and absence of WorkManager/capture/Binder APIs in v0.1. These tests are written but not yet executed.
 
 
-A fifth repository-level Python test also checks that the Activity does not request permissions, start services, register sensor listeners or bind a service. Total Android Lab tests written: twelve JVM + five Python contract tests; execution pending.
+A fifth repository-level Python test also checks that the Activity does not request permissions, start services, register sensor listeners or bind a service. Total Android Lab tests written: thirteen JVM + five Python contract tests; execution pending.
 
 
 ## Build evidence
@@ -83,7 +83,7 @@ Latest APK artifact ID: `14996145941`; archive digest: `sha256:29923cf0abeef680a
 
 The latest APK was downloaded, checksum re-computed and matched. Its binary manifest was parsed again: no uses-permission, service, receiver or provider elements; only Termux and Shizuku package-visibility entries. No device installation or runtime claim.
 
-The report contract was subsequently hardened with deep immutability and JSON/status validation. Seven additional JVM tests were added (twelve JVM + five Python total). The earlier curated build evidence predates this refinement; rerun the Android workflow before treating the revised APK as validated.
+The report contract was subsequently hardened with deep immutability and JSON/status validation. Seven additional JVM tests were added (thirteen JVM + five Python total). The earlier curated build evidence predates this refinement; rerun the Android workflow before treating the revised APK as validated.
 
 
-The current report contract also rejects cyclic or excessively nested evidence and non-string object keys. Current test inventory: 12 JVM tests and 5 Python contract tests. The prior public build predates these eight additional JVM tests; current revision remains unvalidated until a new Gradle run.
+The current report contract also rejects cyclic or excessively nested evidence and non-string object keys. Current test inventory: 13 JVM tests and 5 Python contract tests. The prior public build predates these nine additional JVM tests; current revision remains unvalidated until a new Gradle run.
