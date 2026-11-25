@@ -22,6 +22,7 @@ EXPECTED_PROVIDER = "rikka.shizuku.ShizukuProvider"
 EXPECTED_PROVIDER_PERMISSION = "android.permission.INTERACT_ACROSS_USERS_FULL"
 EXPECTED_PROVIDER_AUTHORITY = "com.mahoraga.shizukuprobe.shizuku"
 EXPECTED_QUERY_PACKAGES = {"moe.shizuku.privileged.api"}
+EXPECTED_USES_PERMISSIONS = {"moe.shizuku.manager.permission.API_V23"}
 FORBIDDEN_COMPONENT_TAGS = {"service", "receiver", "activity-alias"}
 MAIN_ACTION = "android.intent.action.MAIN"
 LAUNCHER_CATEGORY = "android.intent.category.LAUNCHER"
@@ -42,12 +43,17 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
     if package != EXPECTED_PACKAGE:
         violations.append(f"unexpected package: {package!r}")
 
-    permissions = [
-        element.tag for element in root
-        if element.tag.startswith("uses-permission")
+    permission_elements = [
+        element for element in root if element.tag.startswith("uses-permission")
     ]
-    if permissions:
-        violations.append(f"manifest must not request Android permissions: {permissions}")
+    permissions = sorted(
+        element.get(ANDROID_NS + "name", "") for element in permission_elements
+    )
+    if set(permissions) != EXPECTED_USES_PERMISSIONS:
+        violations.append(
+            "uses-permission must be limited to Shizuku API_V23; "
+            f"found {permissions}"
+        )
 
     queries = root.find("queries")
     query_packages = sorted(
