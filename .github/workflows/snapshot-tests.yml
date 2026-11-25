@@ -75,7 +75,7 @@ jobs:
           set -o pipefail
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
       - name: Run unit tests and assemble debug APK
-        run: gradle -p android-capability-lab --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: python3 scripts/retry_gradle.py -p android-capability-lab --no-daemon :app:testDebugUnitTest :app:assembleDebug
       - name: Summarize Android JVM test results
         if: always()
         shell: bash
