@@ -76,6 +76,38 @@ jobs:
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
       - name: Run unit tests and assemble debug APK
         run: gradle -p android-capability-lab --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Summarize Android JVM test results
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          import xml.etree.ElementTree as ET
+
+          reports = sorted(Path("android-capability-lab/app/build/test-results/testDebugUnitTest").glob("*.xml"))
+          if not reports:
+              print("JVM_TEST_REPORTS=0 (no XML report generated)")
+              raise SystemExit(0)
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          for report in reports:
+              root = ET.parse(report).getroot()
+              suites = list(root.findall("testsuite")) if root.tag == "testsuites" else [root]
+              for suite in suites:
+                  for key in totals:
+                      totals[key] += int(suite.attrib.get(key, "0"))
+          print("JVM_TESTS={tests} JVM_FAILURES={failures} JVM_ERRORS={errors} JVM_SKIPPED={skipped}".format(**totals))
+          if totals["failures"] or totals["errors"]:
+              sys.exit(1)
+          PY
+      - name: Upload Android JVM test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-capability-lab-test-results
+          path: android-capability-lab/app/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: warn
+          retention-days: 14
       - name: Generate APK checksum
         run: sha256sum android-capability-lab/app/build/outputs/apk/debug/app-debug.apk > android-capability-lab/app/build/outputs/apk/debug/app-debug.apk.sha256
       - name: Upload debug APK
