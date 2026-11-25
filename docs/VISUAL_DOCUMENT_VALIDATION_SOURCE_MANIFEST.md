@@ -72,3 +72,12 @@ The curated branch now also mirrors private PR #276:
 - It verifies CLI core cleanup on success and error.
 
 The current headless file has seven pytest cases (including the two parameterized CLI cleanup outcomes). One full-core forwarding test remains excluded because it imports the private IntegratedCore graph. The visual-specific coverage represented by the current snapshot is 92/94 cases (85/86 original + 7/8 VisualDocumentLab). With 11 ArtifactStore tests, 5 Android contracts and 1 source-manifest contract, the refreshed Python snapshot is expected to contain 109 tests. The previous run #45555686041 only executed the older 105-test snapshot; no approval is claimed for the refreshed 109-test head.
+
+
+## Run #45598428140 — 25/11/2026
+
+The refreshed Python snapshot completed successfully:
+- Python 3.12: 109 passed in 0.86s.
+- Python 3.14: 109 passed in 0.66s.
+- This includes the seven current VisualDocumentLab headless cases. Visual-specific coverage is 92/94 (85/86 original + 7/8 VisualDocumentLab); the two excluded full-core tests remain unexecuted.
+- Android Capability Lab job was still running at this checkpoint; no current Gradle/JVM result is claimed here.
