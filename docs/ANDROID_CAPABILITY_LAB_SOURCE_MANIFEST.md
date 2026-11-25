@@ -45,3 +45,6 @@ The latest source also rejects cyclic evidence, nesting beyond 32 levels, more t
 
 
 Final test inventory correction: 13 JVM tests + 5 Python contracts. Nine JVM tests were added after the last successful public Gradle run; current revision is still pending execution.
+
+
+Latest source checkpoints: CapabilityReport code `9290fffffb49fb4ce8ae263281c8846cfff6e3d9`; JVM tests `3fe5b0ae9d570dfcc1d418ae83bcd2d61e665107`. Both source files are byte-identical to private PR #275. Current inventory: 13 JVM + 5 Python contracts. No workflow run exists for current public head `17e45ae71786ffab5e8781b4731197502732a0b8`; do not claim current tests/build passed.
