@@ -274,3 +274,26 @@ This is a reviewed allowlist, not a full mirror. Future imports require file-lev
 - The evidence verifier is a trusted local provider contract (verify_local). No provider is configured by default, so operational skills remain fail-closed.
 - The short-lived validation PR #7 was incorporated into the canonical snapshot branch by fast-forward; this did not merge the snapshot PR into main. PR #5 remains Draft and unmerged.
 - Android Runtime Contract run #78 passed Java compilation, Android unit tests and debug APK assembly. This validates the bridge build only; no new Android or Realme device runtime claim is made.
+
+
+## 2026-11-25 — Android Capability Lab v0.1 read-only snapshot
+
+### Private source lineage
+- Private repository: `andersoncleyton032-ops/mahoraga-core`.
+- Source PR: #273, Draft, branch `implementation/android-capability-lab-20261125`.
+- Private source head at import: `a914ab265f642058e262f488f9fc602d93068f1b`.
+- Validation branch: `validation/android-capability-lab-20261125`, based on the already curated integrated-core validation branch at `6cf6c51b158bd25ca92dfda82d85881579d32f35`.
+
+### Selected files copied
+- Standalone Android project: `android-capability-lab/**`.
+- Dedicated workflow: `.github/workflows/android-capability-lab.yml`.
+- Python manifest contract tests: `tests/test_android_capability_lab_manifest.py`.
+- Technical contract: `docs/architecture/ANDROID_CAPABILITY_LAB_V1.md`.
+
+### Review and exclusions
+- The manifest has no requested permissions, INTERNET permission, service, receiver or worker. The unused WorkManager dependency was removed before import.
+- Shizuku is detected only by package presence; Binder/UserService is not bound. No camera, microphone, MediaProjection, sensor listener, input event capture, USB open, Bluetooth connection enumeration, job scheduling, permission request or network upload occurs.
+- The only device identifiers in the report schema are ordinary Android build metadata (manufacturer/model/device/API); no serial, account identifier, location, private path, credential, local database, continuity/handoff/audit log, model, dataset or artifact is included.
+- Tests are synthetic and generic. No personal or device-specific test fixture is copied.
+- This curated branch validates only the selected Android Capability Lab and its contract. It is not a full private repository mirror and does not validate the visual 90-test suite or full-system integration.
+- Build/test evidence must be recorded against the exact resulting public snapshot head. No APK is installed on a device.
