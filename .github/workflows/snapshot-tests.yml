@@ -76,6 +76,11 @@ jobs:
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
       - name: Run unit tests and assemble debug APK
         run: python3 scripts/retry_gradle.py -p android-capability-lab --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Verify built APK manifest policy
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          apkanalyzer manifest print android-capability-lab/app/build/outputs/apk/debug/app-debug.apk > /tmp/mahoraga-capability-lab-manifest.xml
+          python3 scripts/verify_android_manifest_policy.py /tmp/mahoraga-capability-lab-manifest.xml
       - name: Summarize Android JVM test results
         if: always()
         shell: bash
