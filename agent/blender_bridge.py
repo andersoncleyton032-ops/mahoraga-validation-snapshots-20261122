@@ -315,6 +315,16 @@ class BlenderTaskQueue:
             severity="warning",
         )
 
+    @staticmethod
+    def _safe_json(value):
+        if value is None:
+            return None
+        try:
+            return json.loads(value)
+        except (TypeError, ValueError):
+            # Do not echo malformed raw payloads; they may contain code/secrets.
+            return {"_decode_error": "invalid_json"}
+
     def list_tasks(self, limit: int = 50) -> list[dict]:
         limit = max(1, min(int(limit), 200))
 
@@ -327,12 +337,11 @@ class BlenderTaskQueue:
         return [{
             "id": int(row["id"]),
             "task_type": row["task_type"],
-            "payload": json.loads(row["payload_json"]),
+            "payload": self._safe_json(row["payload_json"]),
             "status": row["status"],
             "worker_id": row["worker_id"],
             "result": (
-                json.loads(row["result_json"])
-                if row["result_json"] else None
+                self._safe_json(row["result_json"])
             ),
             "error": row["error"],
             "created_at": row["created_at"],
