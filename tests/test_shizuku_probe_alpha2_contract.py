@@ -97,6 +97,8 @@ def test_activity_has_independent_bind_handshake_and_operation_timeouts():
     assert "HANDSHAKE_TIMEOUT_MS = 5_000" in contract
     assert "OneShotGate handshakeFinished" in activity
     assert "handshakeFinished.tryFinish()" in activity
+    assert "if (!context.handshakeFinished.tryFinish()) return;" in activity
+    assert "handshakeFinished.compareAndSet" not in activity
 
 
 def test_activity_requires_explicit_actions_and_binder_death_cleanup():
