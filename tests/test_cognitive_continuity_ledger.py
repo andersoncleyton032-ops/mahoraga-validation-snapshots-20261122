@@ -136,6 +136,11 @@ def test_recent_cycles_recover_after_store_reopen(tmp_path):
     assert len(recovered) == 1
     assert recovered[0]["record"]["cycle"]["correlation_id"] == workspace.correlation_id
     assert recovered[0]["record"]["outcome"] == "deferred"
+    stored_event = reopened_store.list_events(
+        limit=1,
+        event_type=CognitiveContinuityLedger.EVENT_TYPE,
+    )[0]
+    assert recovered[0]["record"]["cycle"]["completed_at"] == stored_event["created_at"]
 
 
 def test_ledger_rejects_non_workspace_and_invalid_history_limits(tmp_path):
@@ -201,3 +206,24 @@ def test_distinct_concurrent_cycles_receive_monotonic_event_ids(tmp_path):
     assert len(store.list_events(event_type=ledger.EVENT_TYPE)) == 8
 
 
+
+
+def test_recovery_rejects_tampered_continuity_payload(tmp_path):
+    store = KnowledgeStore(tmp_path / "continuity.sqlite3")
+    ledger = CognitiveContinuityLedger(store)
+    workspace = make_workspace()
+    saved = ledger.record_terminal_cycle(workspace, "completed")
+
+    with store._transaction() as db:
+        row = db.execute(
+            "SELECT payload_json FROM events WHERE id=?",
+            (saved["event_id"],),
+        ).fetchone()
+        payload = json.loads(row["payload_json"])
+        payload["record"]["focus"]["topics_observed"].append("forged.topic")
+        db.execute(
+            "UPDATE events SET payload_json=? WHERE id=?",
+            (json.dumps(payload, ensure_ascii=False), saved["event_id"]),
+        )
+
+    assert ledger.recent_cycles(limit=10) == []
