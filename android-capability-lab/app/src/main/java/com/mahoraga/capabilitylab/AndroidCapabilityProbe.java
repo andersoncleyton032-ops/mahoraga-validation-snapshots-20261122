@@ -1,6 +1,7 @@
 package com.mahoraga.capabilitylab;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.app.job.JobScheduler;
 import android.content.Context;
 import android.content.Intent;
@@ -15,9 +16,14 @@ import android.hardware.usb.UsbManager;
 import android.media.AudioRecord;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
+import android.os.Environment;
+import android.os.PowerManager;
+import android.os.StatFs;
 import android.view.InputDevice;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +45,7 @@ public final class AndroidCapabilityProbe {
         device.put("android_release", Build.VERSION.RELEASE);
         device.put("api_level", Build.VERSION.SDK_INT);
         device.put("app_target_sdk", context.getApplicationInfo().targetSdkVersion);
+        device.put("resource_snapshot", collectResourceSnapshot());
 
         Map<String, Object> capabilities = new LinkedHashMap<>();
         add(capabilities, "termux_package", packageProbe("com.termux"));
@@ -58,6 +65,69 @@ public final class AndroidCapabilityProbe {
         add(capabilities, "user_initiated_data_transfer_api", uidtProbe());
 
         return new CapabilityReport(device, capabilities);
+    }
+
+    private Map<String, Object> collectResourceSnapshot() {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("supported_abis", new ArrayList<>(Arrays.asList(Build.SUPPORTED_ABIS)));
+        snapshot.put("hardware", Build.HARDWARE);
+        snapshot.put("soc_model", Build.VERSION.SDK_INT >= 31 ? Build.SOC_MODEL : null);
+        snapshot.put("processor_count", Runtime.getRuntime().availableProcessors());
+        ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (activityManager != null) {
+            ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
+            activityManager.getMemoryInfo(memory);
+            snapshot.put("memory", fields("total_bytes", memory.totalMem, "available_bytes", memory.availMem,
+                    "threshold_bytes", memory.threshold, "low_memory", memory.lowMemory));
+        } else snapshot.put("memory", fields("status", "temporarily_unavailable"));
+        File dataDirectory = Environment.getDataDirectory();
+        try {
+            StatFs storage = new StatFs(dataDirectory.getPath());
+            snapshot.put("storage", fields("path", dataDirectory.getPath(),
+                    "total_bytes", storage.getTotalBytes(), "available_bytes", storage.getAvailableBytes()));
+        } catch (RuntimeException error) {
+            snapshot.put("storage", fields("status", "temporarily_unavailable",
+                    "reason", error.getClass().getSimpleName()));
+        }
+        PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        if (Build.VERSION.SDK_INT >= 29 && powerManager != null) {
+            try {
+                int thermalStatus = powerManager.getCurrentThermalStatus();
+                snapshot.put("thermal", fields("status", thermalStatusName(thermalStatus),
+                        "status_code", thermalStatus, "source", "PowerManager.getCurrentThermalStatus"));
+            } catch (RuntimeException error) {
+                snapshot.put("thermal", fields("status", "temporarily_unavailable",
+                        "reason", error.getClass().getSimpleName()));
+            }
+        } else snapshot.put("thermal", fields("status", "unsupported", "minimum_api", 29,
+                "api_level", Build.VERSION.SDK_INT));
+        snapshot.put("gpu", fields("status", "not_probed",
+                "reason", "GPU inventory requires a separately initialized graphics context."));
+        return snapshot;
+    }
+
+    private static String thermalStatusName(int status) {
+        switch (status) {
+            case PowerManager.THERMAL_STATUS_NONE: return "none";
+            case PowerManager.THERMAL_STATUS_LIGHT: return "light";
+            case PowerManager.THERMAL_STATUS_MODERATE: return "moderate";
+            case PowerManager.THERMAL_STATUS_SEVERE: return "severe";
+            case PowerManager.THERMAL_STATUS_CRITICAL: return "critical";
+            case PowerManager.THERMAL_STATUS_EMERGENCY: return "emergency";
+            case PowerManager.THERMAL_STATUS_SHUTDOWN: return "shutdown";
+            default: return "unknown";
+        }
+    }
+
+    private boolean isPermissionDeclared(String permission) {
+        try {
+            PackageInfo info = packageManager.getPackageInfo(context.getPackageName(), PackageManager.GET_PERMISSIONS);
+            if (info.requestedPermissions == null) return false;
+            for (String declared : info.requestedPermissions) if (permission.equals(declared)) return true;
+        } catch (PackageManager.NameNotFoundException | SecurityException ignored) {
+            // Unreadable manifest metadata never implies a permission grant.
+        }
+        return false;
     }
 
     private static void add(
@@ -187,54 +257,61 @@ public final class AndroidCapabilityProbe {
         if (!supported) {
             return entry(CapabilityState.Status.UNSUPPORTED, "Bluetooth não declarado como recurso do dispositivo.", null);
         }
-        if (Build.VERSION.SDK_INT >= 31
-                && context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED) {
-            return entry(
-                    CapabilityState.Status.REQUIRES_PERMISSION,
-                    "Bluetooth presente; este APK não declara BLUETOOTH_CONNECT e não inspeciona conexões.",
-                    null);
+        if (Build.VERSION.SDK_INT >= 31) {
+            boolean declared = isPermissionDeclared(Manifest.permission.BLUETOOTH_CONNECT);
+            boolean granted = declared && context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                    == PackageManager.PERMISSION_GRANTED;
+            return entry(CapabilityState.permission(true, declared, granted),
+                    declared ? "Bluetooth presente; conexões não são inspecionadas nesta versão."
+                            : "BLUETOOTH_CONNECT não está declarado; nova versão autorizada do APK necessária.",
+                    fields("permission", Manifest.permission.BLUETOOTH_CONNECT,
+                            "permission_declared", declared, "permission_granted", granted));
         }
-        return entry(
-                CapabilityState.Status.AVAILABLE,
+        return entry(CapabilityState.Status.AVAILABLE,
                 "Bluetooth presente; inventário de conexões não é executado nesta versão.",
-                null);
+                fields("permission_required_on_this_api", false));
     }
 
     private Map<String, Object> cameraProbe() {
         boolean feature = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY);
-        boolean granted = context.checkSelfPermission(Manifest.permission.CAMERA)
+        boolean declared = isPermissionDeclared(Manifest.permission.CAMERA);
+        boolean granted = declared && context.checkSelfPermission(Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED;
-        return entry(
-                CapabilityState.permission(feature, granted),
-                "Somente consulta de feature/permissão; câmera nunca é aberta.",
-                fields("camera_feature", feature, "permission_granted", granted));
+        return entry(CapabilityState.permission(feature, declared, granted),
+                declared ? "Somente consulta de feature/permissão; câmera nunca é aberta."
+                        : "CAMERA não está declarado no manifesto; nova versão autorizada do APK necessária.",
+                fields("camera_feature", feature, "required_permission", Manifest.permission.CAMERA,
+                        "permission_declared", declared, "permission_granted", granted));
     }
 
     private Map<String, Object> microphoneProbe() {
         boolean feature = packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE);
-        boolean granted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+        boolean declared = isPermissionDeclared(Manifest.permission.RECORD_AUDIO);
+        boolean granted = declared && context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED;
-        return entry(
-                CapabilityState.permission(feature, granted),
-                "Somente consulta de feature/permissão; AudioRecord nunca é iniciado.",
+        return entry(CapabilityState.permission(feature, declared, granted),
+                declared ? "Somente consulta de feature/permissão; AudioRecord nunca é iniciado."
+                        : "RECORD_AUDIO não está declarado no manifesto; nova versão autorizada do APK necessária.",
                 fields("audio_record_class", AudioRecord.class.getName(),
-                        "microphone_feature", feature, "permission_granted", granted));
+                        "microphone_feature", feature, "required_permission", Manifest.permission.RECORD_AUDIO,
+                        "permission_declared", declared, "permission_granted", granted));
     }
+
+    private static final String CAMERAX_PROVIDER_CLASS =
+            "androidx.camera.lifecycle.ProcessCameraProvider";
 
     private Map<String, Object> cameraXSdkProbe() {
         boolean linked;
         try {
-            Class.forName("androidx.camera.core.CameraX");
+            Class.forName(CAMERAX_PROVIDER_CLASS, false, context.getClassLoader());
             linked = true;
-        } catch (ClassNotFoundException error) {
+        } catch (ClassNotFoundException | LinkageError error) {
             linked = false;
         }
-        return entry(
-                linked ? CapabilityState.Status.AVAILABLE : CapabilityState.Status.TEMPORARILY_UNAVAILABLE,
-                linked ? "CameraX está no classpath; nenhuma câmera foi aberta."
-                        : "CameraX não está empacotado no APK v0.1; nenhuma dependência foi baixada dinamicamente.",
-                null);
+        return entry(linked ? CapabilityState.Status.AVAILABLE : CapabilityState.Status.TEMPORARILY_UNAVAILABLE,
+                linked ? "ProcessCameraProvider está no classpath; nenhuma câmera foi aberta."
+                        : "CameraX lifecycle provider não está empacotado; nenhuma dependência baixada dinamicamente.",
+                fields("provider_class", CAMERAX_PROVIDER_CLASS, "linked", linked));
     }
 
     private Map<String, Object> mediaProjectionProbe() {
@@ -260,9 +337,9 @@ public final class AndroidCapabilityProbe {
     private Map<String, Object> workManagerProbe() {
         boolean linked;
         try {
-            Class.forName("androidx.work.WorkManager");
+            Class.forName("androidx.work.WorkManager", false, context.getClassLoader());
             linked = true;
-        } catch (ClassNotFoundException error) {
+        } catch (ClassNotFoundException | LinkageError error) {
             linked = false;
         }
         return entry(
