@@ -133,14 +133,14 @@ jobs:
             android-capability-lab/app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 14
-      - name: Run Shizuku Probe unit tests and assemble debug APK
+      - name: Run Shizuku UserService Alpha2 unit tests and assemble debug APK
         run: python3 scripts/retry_gradle.py -p android-shizuku-probe --no-daemon :app:testDebugUnitTest :app:assembleDebug
-      - name: Verify Shizuku Probe APK manifest policy
+      - name: Verify Shizuku UserService Alpha2 APK manifest policy
         run: |
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           apkanalyzer manifest print android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > /tmp/mahoraga-shizuku-probe-manifest.xml
           python3 scripts/verify_shizuku_probe_manifest_policy.py /tmp/mahoraga-shizuku-probe-manifest.xml
-      - name: Summarize Shizuku Probe JVM test results
+      - name: Summarize Shizuku UserService Alpha2 JVM test results
         if: always()
         shell: bash
         run: |
@@ -164,20 +164,20 @@ jobs:
           if totals["failures"] or totals["errors"]:
               sys.exit(1)
           PY
-      - name: Upload Shizuku Probe JVM test reports
+      - name: Upload Shizuku UserService Alpha2 JVM test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mahoraga-shizuku-probe-alpha1-test-results
+          name: mahoraga-shizuku-probe-alpha2-test-results
           path: android-shizuku-probe/app/build/test-results/testDebugUnitTest/*.xml
           if-no-files-found: warn
           retention-days: 14
       - name: Generate Shizuku Probe APK checksum
         run: sha256sum android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
-      - name: Upload Shizuku Probe debug APK
+      - name: Upload Shizuku UserService Alpha2 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: mahoraga-shizuku-probe-alpha1-debug
+          name: mahoraga-shizuku-probe-alpha2-debug
           path: |
             android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk
             android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
