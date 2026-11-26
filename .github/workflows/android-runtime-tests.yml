@@ -2,7 +2,6 @@ name: Android Runtime Contract
 
 on:
   pull_request:
-    branches: [main]
     paths:
       - "android-runtime/**"
       - "agent/android_workmanager_wake.py"
@@ -48,3 +47,38 @@ jobs:
 
       - name: Compile Android bridge and run unit tests
         run: gradle -p android-runtime --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Summarize Android Runtime JUnit results
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob
+          import sys
+          import xml.etree.ElementTree as ET
+
+          paths = glob.glob("android-runtime/app/build/test-results/testDebugUnitTest/*.xml")
+          if not paths:
+              print("JUNIT_SUMMARY missing=true")
+              sys.exit(1)
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          for path in paths:
+              root = ET.parse(path).getroot()
+              for key in totals:
+                  totals[key] += int(root.attrib.get(key, "0"))
+          print("JUNIT_SUMMARY " + " ".join(f"{key}={value}" for key, value in totals.items()))
+          if totals["failures"] or totals["errors"]:
+              sys.exit(1)
+          PY
+
+      - name: Upload Android Runtime reports and APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-runtime-validation
+          path: |
+            android-runtime/app/build/test-results/testDebugUnitTest/
+            android-runtime/app/build/reports/tests/testDebugUnitTest/
+            android-runtime/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 7
