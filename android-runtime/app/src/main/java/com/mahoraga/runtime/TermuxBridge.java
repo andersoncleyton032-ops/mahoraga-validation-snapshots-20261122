@@ -193,7 +193,7 @@ public final class TermuxBridge {
 
 
     static String resultIntentDataUri(String requestId) {
-        if (requestId == null || requestId.isBlank()) {
+        if (requestId == null || requestId.trim().isEmpty()) {
             throw new IllegalArgumentException("A non-empty request id is required.");
         }
         return "mahoraga://termux-result/" + requestId;
