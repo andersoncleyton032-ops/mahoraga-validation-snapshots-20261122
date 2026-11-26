@@ -200,7 +200,7 @@ def test_approval_request_id_is_bound_to_subject_and_opaque_token():
 
     subject = "a" * 64
     first = IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "one"}, subject)
-    replay = IdentityEngine._approval_request_id({"token": "one"}, subject)
+    replay = IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "one"}, subject)
     changed_token = IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "two"}, subject)
     changed_subject = IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "one"}, "b" * 64)
     assert first == replay
