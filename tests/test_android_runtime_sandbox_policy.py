@@ -113,7 +113,9 @@ def test_wake_receiver_fails_closed_when_sender_uid_is_not_verifiable():
     assert ": -1;" in receiver
     assert "WorkPolicy.isTrustedWakeSender(" in receiver
     assert "catch (RuntimeException senderInspectionFailure)" in receiver
-    assert "return sdkInt >= 34 && termuxUid >= 0 && senderUid == termuxUid;" in policy
+    assert "return supportsAuthenticatedWake(sdkInt)" in policy
+    assert "termuxUid >= 0" in policy
+    assert "senderUid == termuxUid" in policy
 
 
 def test_interrupted_termux_result_wait_restores_thread_interrupt_flag():
