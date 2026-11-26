@@ -76,7 +76,20 @@ public final class MainActivity extends Activity {
 
         setContentView(layout);
         if (WorkScheduler.isEnabled(this)) {
-            status.setText("\nEstado: agendamento habilitado.");
+            TermuxSignerPolicy.Verification signer =
+                    TermuxBridge.verifyInstalledSigner(this);
+            if (!signer.trusted) {
+                WorkScheduler.stop(this);
+                status.setText(
+                        "\nAgendamento desativado: assinatura do Termux não reconhecida ("
+                        + signer.reason + ")."
+                );
+            } else {
+                status.setText(
+                        "\nEstado: agendamento habilitado. Termux verificado: "
+                        + signer.source + "."
+                );
+            }
         }
         refreshWorkStatus();
     }
@@ -84,6 +97,15 @@ public final class MainActivity extends Activity {
     private void startCycle() {
         if (!TermuxBridge.isInstalled(this)) {
             status.setText("\nTermux não encontrado. Nenhuma tarefa foi iniciada.");
+            return;
+        }
+        TermuxSignerPolicy.Verification signer =
+                TermuxBridge.verifyInstalledSigner(this);
+        if (!signer.trusted) {
+            status.setText(
+                    "\nAssinatura do Termux não reconhecida (" + signer.reason
+                    + "). Nenhuma tarefa foi agendada."
+            );
             return;
         }
         if (!TermuxBridge.hasRunCommandPermission(this)) {
@@ -95,8 +117,9 @@ public final class MainActivity extends Activity {
         }
         WorkScheduler.start(this);
         status.setText(
-                "\nAgendamento solicitado. O Android decide os horários reais; "
-                + "a primeira execução depende da disponibilidade de recursos e das políticas do sistema."
+                "\nAgendamento solicitado. Assinatura Termux verificada: " + signer.source
+                + ". O Android decide os horários reais; a primeira execução depende "
+                + "da disponibilidade de recursos e das políticas do sistema."
         );
         refreshWorkStatus();
     }
