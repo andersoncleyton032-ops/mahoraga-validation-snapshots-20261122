@@ -71,3 +71,18 @@ On API levels below 34, the wake receiver rejects external wake requests because
 
 
 Fingerprint source of record (re-check before changing the allowlist): [Termux upstream TermuxConstants.java at commit `8629e632fcb95da272221be327db653fb24befe9`](https://github.com/termux/termux-app/blob/8629e632fcb95da272221be327db653fb24befe9/termux-shared/src/main/java/com/termux/shared/termux/TermuxConstants.java), reviewed 26/11/2026. The allowlist contains official release-channel certificates only; it intentionally excludes debug/test signing keys.
+
+
+## Native LiteRT-LM provider — integration status
+
+The Android app includes an exported local ContentProvider at `content://com.mahoraga.runtime.model`. It is a local Binder IPC boundary, not a network service.
+
+- Every provider call requires the calling UID to match the installed `com.termux` UID, the UID's package set to contain `com.termux`, and the installed APK's current signer to match the pinned official Termux release allowlist.
+- Model import uses the Android Storage Access Framework and copies the selected `.litertlm` artifact atomically into app-private storage. The SHA-256 stored at import is recomputed from the actual file before engine initialization.
+- The provider currently allows **CPU only**. GPU remains denied until the Realme device demonstrates backend availability, stable inference, thermal behavior and acceptable memory use.
+- Screen-on operations are allowed for the authenticated Termux caller even when the Mahoraga companion Activity is background. Screen-off model loading requires the explicit WorkManager cycle to be enabled and the device charging. Background inference additionally requires `task_class=background`, `allow_background=true`, and the enabled schedule; screen-on operation uses the reduced budget, while screen-off operation requires charging. The Android owner independently checks these conditions rather than trusting the Termux request alone.
+- One application-scoped Engine owner serializes Engine/Conversation lifecycle and inference. Request cancellation, result retention, acknowledgement and memory-pressure unload remain request-scoped and bounded.
+
+**Maturity:** implemented in the integration branch and subject to CI; not yet validated on the Realme. The Python `AndroidContentProviderBackend` remains an optional path and must stay disabled in the default runtime composition until the provider and Python client pass an end-to-end device test. The direct Android ARM64 LiteRT-LM backend remains the preferred first device experiment.
+
+- CPU admission estimate for the 932 MiB Qwen3 INT4 artifact uses 1.5× artifact size + 1,152 MiB runtime overhead + max(512 MiB, 8% of total RAM) OS reserve. This is calibrated conservatively against the upstream model card's roughly 2.5 GB CPU peak-RSS figure; it is not a measurement from the Realme and must be refined with device telemetry.

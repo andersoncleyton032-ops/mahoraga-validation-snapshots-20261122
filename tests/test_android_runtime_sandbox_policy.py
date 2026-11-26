@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 
@@ -193,3 +194,131 @@ def test_background_execution_is_disabled_below_authenticated_wake_api_floor():
     assert "WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)" in worker
     assert '"authenticated_wake_requires_api34"' in worker
     assert "WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)" in bridge
+
+
+def test_model_provider_authenticates_termux_uid_and_release_signer():
+    provider = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "ModelRuntimeProvider.kt"
+    ).read_text(encoding="utf-8")
+    policy = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "TermuxCallerPolicy.kt"
+    ).read_text(encoding="utf-8")
+
+    assert "Binder.getCallingUid()" in provider
+    assert "getPackagesForUid(callingUid)" in provider
+    assert "getApplicationInfo(" in provider
+    assert "TermuxSignerPolicy.verifyInstalled(" in provider
+    assert "TermuxCallerPolicy.isTrusted(" in provider
+    assert "callingUid == installedTermuxUid" in policy
+    assert "packagesForUid?.contains(TERMUX_PACKAGE) == true" in policy
+    assert "&& signerTrusted" in policy
+
+
+def test_native_model_load_requires_cpu_policy_and_expected_sha256():
+    provider = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "ModelRuntimeProvider.kt"
+    ).read_text(encoding="utf-8")
+    owner = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "ModelEngineOwner.kt"
+    ).read_text(encoding="utf-8")
+
+    assert "ModelRuntimeAdmissionPolicy.isBackendAllowed(backend)" in provider
+    assert "model_sha256_missing" in provider
+    assert "owner.load(modelPath, backend, expectedSha256)" in provider
+    assert "ModelArtifactIntegrity.verify(file, expectedSha256)" in owner
+    assert "backend = Backend.CPU()" in owner
+
+
+def test_native_model_runtime_enforces_actual_background_admission():
+    owner = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "ModelEngineOwner.kt"
+    ).read_text(encoding="utf-8")
+    policy = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "ModelRuntimeAdmissionPolicy.kt"
+    ).read_text(encoding="utf-8")
+
+    assert "ActivityManager.getMyMemoryState(processInfo)" in owner
+    assert "PowerManager).isInteractive" in owner
+    assert "WorkScheduler.isEnabled(appContext)" in owner
+    assert "ModelRuntimeAdmissionPolicy.isLoadAllowed(" in owner
+    assert "ModelRuntimeAdmissionPolicy.isInferenceAllowed(" in owner
+    assert "WorkPolicy.supportsAuthenticatedWake(android.os.Build.VERSION.SDK_INT)" in owner
+    assert 'if (screenInteractive) return true' in policy
+    assert 'taskClass == "background"' in policy
+    assert "backgroundScheduleEnabled" in policy
+    assert "screenInteractive || charging" in policy
+
+
+def test_python_and_android_model_memory_overhead_stay_aligned():
+    config = json.loads(
+        (ROOT / "config" / "litert_model_runtime.json").read_text(encoding="utf-8")
+    )
+    budget = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "ModelBudgetMath.kt"
+    ).read_text(encoding="utf-8")
+
+    assert config["runtime_overhead_mb"] == 1152
+    assert "modelSizeMb * 1.5 + 1_152.0" in budget

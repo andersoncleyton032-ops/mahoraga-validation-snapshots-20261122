@@ -14,6 +14,14 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
+        <uses-native-library android:name="libvndksupport.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+
+        <provider
+            android:name=".ModelRuntimeProvider"
+            android:authorities="com.mahoraga.runtime.model"
+            android:exported="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
