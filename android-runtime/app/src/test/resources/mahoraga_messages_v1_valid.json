@@ -1,0 +1,9 @@
+{
+  "format": "mahoraga_messages_v1",
+  "messages": [
+    {"role": "system", "content": "Você é Mahoraga."},
+    {"role": "user", "content": "Pergunta anterior."},
+    {"role": "assistant", "content": "Resposta anterior."},
+    {"role": "user", "content": "Pergunta atual."}
+  ]
+}
