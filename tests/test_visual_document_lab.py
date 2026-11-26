@@ -198,3 +198,29 @@ def test_visual_lab_cli_closes_core_after_success_or_command_error(
 
     assert len(instances) == 1
     assert instances[0].closed is True
+
+
+def test_visual_lab_does_not_mask_executor_failure_or_report_success(tmp_path):
+    core = SelectedHeadlessCore(tmp_path / "memory.sqlite3")
+    lab = VisualDocumentLab(core)
+    lab.create_demo("lab.test.executor-failure")
+    calls = []
+
+    def fail_execution(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise RuntimeError("synthetic executor failure")
+
+    core.execute_image_task = fail_execution
+    with pytest.raises(RuntimeError, match="synthetic executor failure"):
+        lab.run(
+            "lab.test.executor-failure",
+            task_id="task.lab.executor-failure",
+            execute=True,
+            estimated_ram_mb=128,
+            estimated_seconds=2.5,
+        )
+
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args[0].task_id == "task.lab.executor-failure"
+    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"]
