@@ -51,7 +51,6 @@ def test_ledger_persists_only_redacted_record_in_canonical_store(tmp_path):
     result = ledger.record_terminal_cycle(
         workspace,
         "completed",
-        completed_at="2026-11-26T03:10:00+00:00",
     )
 
     assert result["status"] == "recorded"
@@ -73,15 +72,15 @@ def test_ledger_persists_only_redacted_record_in_canonical_store(tmp_path):
         assert secret not in serialized
 
 
-def test_same_cycle_retry_is_idempotent_even_with_new_completion_timestamp(tmp_path):
+def test_same_cycle_retry_is_idempotent_and_uses_first_commit_timestamp(tmp_path):
     store = KnowledgeStore(tmp_path / "continuity.sqlite3")
     ledger = CognitiveContinuityLedger(store)
     workspace = make_workspace()
     first = ledger.record_terminal_cycle(
-        workspace, "completed", completed_at="2026-11-26T03:10:00+00:00"
+        workspace, "completed"
     )
     second = ledger.record_terminal_cycle(
-        workspace, "completed", completed_at="2026-11-26T03:11:00+00:00"
+        workspace, "completed"
     )
 
     assert first["status"] == "recorded"
@@ -96,11 +95,11 @@ def test_same_cycle_cannot_be_replayed_with_a_different_terminal_outcome(tmp_pat
     ledger = CognitiveContinuityLedger(store)
     workspace = make_workspace()
     ledger.record_terminal_cycle(
-        workspace, "completed", completed_at="2026-11-26T03:10:00+00:00"
+        workspace, "completed"
     )
     with pytest.raises(CognitiveContinuityConflict, match="conteúdo terminal diferente"):
         ledger.record_terminal_cycle(
-            workspace, "failed", completed_at="2026-11-26T03:11:00+00:00"
+            workspace, "failed"
         )
     assert len(store.list_events(event_type=ledger.EVENT_TYPE)) == 1
 
@@ -127,7 +126,7 @@ def test_recent_cycles_recover_after_store_reopen(tmp_path):
     first_ledger = CognitiveContinuityLedger(first_store)
     workspace = make_workspace()
     first_ledger.record_terminal_cycle(
-        workspace, "deferred", completed_at="2026-11-26T03:10:00+00:00"
+        workspace, "deferred"
     )
 
     reopened_store = KnowledgeStore(database)
@@ -170,7 +169,6 @@ def test_snapshot_is_bounded_and_redacted_for_self_model(tmp_path):
         ledger.record_terminal_cycle(
             workspace,
             "completed",
-            completed_at=f"2026-11-26T03:3{cycle_index}:00+00:00",
         )
 
     snapshot = ledger.snapshot(limit=2)
@@ -187,11 +185,10 @@ def test_snapshot_is_bounded_and_redacted_for_self_model(tmp_path):
         ledger.snapshot(limit=0)
 
 
-def test_global_event_sequence_serializes_distinct_concurrent_cycles(tmp_path):
+def test_distinct_concurrent_cycles_receive_monotonic_event_ids(tmp_path):
     store = KnowledgeStore(tmp_path / "continuity.sqlite3")
     ledger = CognitiveContinuityLedger(store)
     workspaces = [make_workspace() for _ in range(8)]
-    assert store.get_event_sequence(ledger.SEQUENCE_KEY) == 0
 
     def record(workspace):
         return ledger.record_terminal_cycle(workspace, "completed")
@@ -200,16 +197,7 @@ def test_global_event_sequence_serializes_distinct_concurrent_cycles(tmp_path):
         results = list(executor.map(record, workspaces))
 
     assert all(result["status"] == "recorded" for result in results)
-    assert sorted(result["cycle_sequence"] for result in results) == list(range(1, 9))
-    assert store.get_event_sequence(ledger.SEQUENCE_KEY) == 8
+    assert sorted(result["event_id"] for result in results) == list(range(1, 9))
     assert len(store.list_events(event_type=ledger.EVENT_TYPE)) == 8
 
 
-def test_global_sequence_read_is_read_only_and_validates_key(tmp_path):
-    store = KnowledgeStore(tmp_path / "continuity.sqlite3")
-    before = store.counts()
-    assert store.get_event_sequence("uninitialized_stream") == 0
-    assert store.counts() == before
-    for invalid in ("", " " * 201, None):
-        with pytest.raises(ValueError, match="sequence_key"):
-            store.get_event_sequence(invalid)
