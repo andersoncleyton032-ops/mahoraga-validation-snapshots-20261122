@@ -537,11 +537,26 @@ public final class MainActivity extends Activity {
         lifecycleExecutor.execute(() -> {
             if (!Shizuku.pingBinder()) return;
             try {
-                Shizuku.unbindUserService(context.userServiceArgs, context.connection, true);
+                removeUserServiceGeneration(context);
             } catch (RuntimeException ignored) {
-                // Scoped to the obsolete ServiceConnection, never the replacement session.
+                // Binder may have died; the old generation is already invalidated.
             }
         });
+    }
+
+    private void removeUserServiceGeneration(ConnectionContext context) {
+        // remove=false unregisters this generation's callback and evicts the client-side
+        // ShizukuServiceConnections cache entry. remove=true then destroys only this tag.
+        try {
+            Shizuku.unbindUserService(context.userServiceArgs, context.connection, false);
+        } catch (RuntimeException ignored) {
+            // Continue: remove=true is still required to stop the generation.
+        }
+        try {
+            Shizuku.unbindUserService(context.userServiceArgs, context.connection, true);
+        } catch (RuntimeException ignored) {
+            // Binder death or prior removal can make final removal unavailable.
+        }
     }
 
     private void stopUserService(ConnectionContext context, String reason) {
@@ -576,11 +591,7 @@ public final class MainActivity extends Activity {
                     }
                 }
                 if (!Shizuku.pingBinder()) return;
-                try {
-                    Shizuku.unbindUserService(context.userServiceArgs, context.connection, true);
-                } catch (RuntimeException ignored) {
-                    // Binder death or prior removal can make unbind unavailable.
-                }
+                removeUserServiceGeneration(context);
             });
         }
 
