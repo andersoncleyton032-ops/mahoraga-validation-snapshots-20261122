@@ -190,3 +190,41 @@ def test_plan_hash_is_stable_and_covers_plan_content():
     second = selector.select(items, InterestBudget(1000, 128))
     assert first["plan_sha256"] == second["plan_sha256"]
     assert len(first["plan_sha256"]) == 64
+
+
+def test_plan_verifier_detects_tampering():
+    selector = CognitiveInterestSelector()
+    plan = selector.select([candidate("verified")], InterestBudget(1000, 128))
+    assert selector.verify_plan(plan) is True
+
+    tampered = dict(plan)
+    tampered["selected_roots"] = list(plan["selected_roots"]) + ["forged"]
+    assert selector.verify_plan(tampered) is False
+    assert selector.verify_plan({"plan_sha256": "not-a-hash"}) is False
+
+
+def test_score_weights_are_immutable():
+    with pytest.raises(TypeError):
+        CognitiveInterestSelector.WEIGHTS["novelty"] = 1.0
+
+
+@pytest.mark.parametrize("field", ["estimated_runtime_ms", "estimated_ram_mb"])
+def test_resource_estimates_must_be_positive(field):
+    with pytest.raises(InterestSelectionError, match="positivas"):
+        CognitiveInterestSelector().select(
+            [candidate("zero-cost", **{field: 0})],
+            InterestBudget(1000, 128),
+        )
+
+
+def test_dependency_ids_and_evidence_refs_are_validated():
+    with pytest.raises(InterestSelectionError, match="ID válido"):
+        CognitiveInterestSelector().select(
+            [candidate("root", dependencies=["not a valid id"])],
+            InterestBudget(1000, 128),
+        )
+    with pytest.raises(InterestSelectionError, match="duplicadas"):
+        CognitiveInterestSelector().select(
+            [candidate("root", evidence_refs=["paper:x", "paper:x"])],
+            InterestBudget(1000, 128),
+        )
