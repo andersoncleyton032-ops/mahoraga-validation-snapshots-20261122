@@ -149,3 +149,15 @@ def test_stop_user_service_clears_operation_timeout_before_dropping_operation():
     assert stop.index("clearOperationTimeout(context);") < stop.index("context.operation = null;")
     assert "mainHandler.removeCallbacks(context.operationTimeout)" in cleanup
     assert "context.operationTimeout = null;" in cleanup
+
+
+def test_handshake_rejects_negative_protocol_response_without_null_dereference():
+    activity = (JAVA_ROOT / "MainActivity.java").read_text(encoding="utf-8")
+    handshake = activity.split("private void handleHandshakeResult", 1)[1].split(
+        "private void runIdentityProbe", 1
+    )[0]
+
+    assert "failure != null || version < 0" in handshake
+    assert 'failure == null' in handshake
+    assert '"INVALID_PROTOCOL_RESPONSE"' in handshake
+    assert "failure.getClass().getSimpleName()" in handshake
