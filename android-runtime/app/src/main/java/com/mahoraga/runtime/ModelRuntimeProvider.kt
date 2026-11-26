@@ -79,7 +79,6 @@ class ModelRuntimeProvider : ContentProvider() {
                     val prompt = payload.optString("prompt")
                     val taskClass = payload.optString("task_class", "interactive")
                     val duration = (payload.opt("max_duration_seconds") as? Number)?.toDouble()
-                    val durationPolicyApplied = payload.optBoolean("duration_policy_applied", false)
                     val extraRam = (payload.opt("estimated_additional_ram_mb") as? Number)?.toLong()
                     val thinkingBudget = (payload.opt("thinking_token_budget") as? Number)?.toInt()
                     val outputBudget = (payload.opt("max_output_tokens") as? Number)?.toInt()
@@ -88,7 +87,7 @@ class ModelRuntimeProvider : ContentProvider() {
                     val topP = optionalDouble(payload, "top_p")
                     val temperature = optionalDouble(payload, "temperature")
                     val state = owner.submitInference(
-                        requestId, prompt, taskClass, duration, durationPolicyApplied,
+                        requestId, prompt, taskClass, duration,
                         extraRam, thinkingBudget, outputBudget, allowBackground,
                         topK, topP, temperature
                     )

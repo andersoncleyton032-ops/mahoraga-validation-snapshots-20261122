@@ -85,4 +85,53 @@ class ModelBudgetMathTest {
         ModelBudgetMath.totalOutputTokenLimit(-1, 512)
     }
 
+
+    @Test
+    fun explicitDurationIsCappedByTaskClass() {
+        assertEquals(
+            60.0,
+            ModelBudgetMath.durationSeconds("interactive", Double.MAX_VALUE, 0, 1, 100, true),
+            0.001
+        )
+        assertEquals(
+            240.0,
+            ModelBudgetMath.durationSeconds("reasoning", Double.MAX_VALUE, 0, 1, 100, true),
+            0.001
+        )
+        assertEquals(
+            360.0,
+            ModelBudgetMath.durationSeconds("maintenance", Double.MAX_VALUE, 0, 1, 100, true),
+            0.001
+        )
+        assertEquals(
+            600.0,
+            ModelBudgetMath.durationSeconds("background", Double.MAX_VALUE, 0, 1, 100, true),
+            0.001
+        )
+    }
+
+    @Test
+    fun durationRejectsNonFiniteAndNonPositiveRequests() {
+        val invalid = listOf(
+            0.0,
+            -1.0,
+            Double.NaN,
+            Double.POSITIVE_INFINITY,
+            Double.NEGATIVE_INFINITY,
+        )
+        for (value in invalid) {
+            try {
+                ModelBudgetMath.durationSeconds("interactive", value, 0, 1, 100, true)
+                throw AssertionError("Expected invalid duration to be rejected: $value")
+            } catch (_: IllegalArgumentException) {
+                // Expected.
+            }
+        }
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun unknownTaskClassIsRejectedEvenWithExplicitDuration() {
+        ModelBudgetMath.durationSeconds("unknown", 10.0, 0, 1, 100, true)
+    }
+
 }

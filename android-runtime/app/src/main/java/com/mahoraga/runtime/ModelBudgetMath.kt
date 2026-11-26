@@ -2,6 +2,7 @@ package com.mahoraga.runtime
 
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Pure budget calculations separated from Android service access for deterministic tests.
@@ -89,6 +90,16 @@ internal object ModelBudgetMath {
         }
     }
 
+    private const val MAX_DURATION_MULTIPLIER = 2.0
+
+    private fun defaultDurationSeconds(taskClass: String): Double = when (taskClass) {
+        "reasoning" -> 120.0
+        "maintenance" -> 180.0
+        "background" -> 300.0
+        "interactive" -> 30.0
+        else -> throw IllegalArgumentException("task_class_invalid")
+    }
+
     fun durationSeconds(
         taskClass: String,
         requestedSeconds: Double?,
@@ -97,17 +108,20 @@ internal object ModelBudgetMath {
         batteryPercent: Int?,
         charging: Boolean,
     ): Double {
-        val base = requestedSeconds ?: when (taskClass) {
-            "reasoning" -> 120.0
-            "maintenance" -> 180.0
-            "background" -> 300.0
-            "interactive" -> 30.0
-            else -> throw IllegalArgumentException("task_class_invalid")
-        }
-        require(base > 0.0)
+        // Validate the class even when the caller supplies an explicit duration.
+        val default = defaultDurationSeconds(taskClass)
+        require(
+            requestedSeconds == null ||
+                (requestedSeconds.isFinite() && requestedSeconds > 0.0)
+        ) { "requested_duration_invalid" }
+
+        // The external Termux request is only a hint. Keep a task-specific ceiling
+        // so a caller cannot turn a bounded inference into an effectively endless job.
+        val maximum = default * MAX_DURATION_MULTIPLIER
+        val base = min(requestedSeconds ?: default, maximum)
         var result = base
         if (thermalStatus >= moderateThermalStatus) result *= 0.75
         if (batteryPercent != null && batteryPercent < 15 && !charging) result *= 0.6
-        return max(1.0, result)
+        return max(1.0, min(result, maximum))
     }
 }
