@@ -266,3 +266,34 @@ def test_visual_lab_edit_transform_preserves_concurrent_revision_with_cas(tmp_pa
     assert latest.document.title == "Concurrent external edit"
     sphere = next(item for item in latest.document.elements if item.element_id == "element.sphere")
     assert sphere.transform.translation == (0.0, 0.0, 0.0)
+
+
+def test_visual_lab_preserves_executor_cancellation_without_success_claim(tmp_path, monkeypatch):
+    core = SelectedHeadlessCore(tmp_path / "memory.sqlite3")
+    lab = VisualDocumentLab(core)
+    lab.create_demo("lab.test.cancelled")
+    calls = []
+
+    def cancelled_executor(*args, **kwargs):
+        calls.append((args, kwargs))
+        return {
+            "status": "cancelled",
+            "execution_performed": False,
+            "cancellation_reason": "cooperative_test_cancel",
+        }
+
+    monkeypatch.setattr(core, "execute_image_task", cancelled_executor)
+    report = lab.run(
+        "lab.test.cancelled",
+        task_id="task.lab.cancelled",
+        execute=True,
+        estimated_ram_mb=128,
+        estimated_seconds=2.5,
+    )
+
+    assert len(calls) == 1
+    assert report["execution"]["status"] == "cancelled"
+    assert report["execution"]["execution_performed"] is False
+    assert report["execution"]["cancellation_reason"] == "cooperative_test_cancel"
+    assert report["capability_activation_performed"] is False
+    assert not (tmp_path / "artifacts" / "images").exists()
