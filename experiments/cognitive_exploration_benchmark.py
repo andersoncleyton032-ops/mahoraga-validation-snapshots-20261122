@@ -206,6 +206,53 @@ def _run_case(
             "full_load": _summary(full_load["selection"]),
             "no_load": _summary(no_load["selection"]),
         }
+        # A 2x2 factorial ablation separates persistent cognitive-load state
+        # from the caller-supplied current task-load observation. All other
+        # inputs and the recovery coupling are held constant.
+        factorial = {}
+        for state_label, state_load in (("low", 0.02), ("high", 0.90)):
+            for task_label, task_load in (("low", 0.02), ("high", 0.90)):
+                variant_state = DigitalPhysiologyState(
+                    cycle=state.cycle,
+                    energy_reserve=state.energy_reserve,
+                    thermal_load=state.thermal_load,
+                    memory_pressure=state.memory_pressure,
+                    cognitive_load=state_load,
+                    recovery_reserve=state.recovery_reserve,
+                    control_state=state.control_state,
+                )
+                variant_observation = ResourceObservation(
+                    cpu_load=observation.cpu_load,
+                    memory_pressure=observation.memory_pressure,
+                    thermal_pressure=observation.thermal_pressure,
+                    energy_drain=observation.energy_drain,
+                    cooling=observation.cooling,
+                    recharge=observation.recharge,
+                    task_load=task_load,
+                    unresolved_uncertainty=observation.unresolved_uncertainty,
+                    expected_learning_progress=observation.expected_learning_progress,
+                    noise_risk=observation.noise_risk,
+                    source="simulated",
+                )
+                variant = CognitiveExplorationCycle(
+                    homeostasis=DigitalHomeostasis(PhysiologyConfig(recovery_gain=0.0))
+                ).plan(
+                    state=variant_state,
+                    observation=variant_observation,
+                    candidates=candidates,
+                    base_budget=BASE_BUDGET,
+                )
+                factorial[f"state_{state_label}__task_{task_label}"] = {
+                    "state_cognitive_load": state_load,
+                    "observed_task_load": task_load,
+                    "control_state": variant["physiology"]["state"]["control_state"],
+                    "effective_exploration_factor": variant["effective_exploration_factor"],
+                    "status": variant["status"],
+                    "selection": _summary(variant["selection"]),
+                    "work_executed": variant["work_executed"],
+                    "authorization_granted": variant["authorization_granted"],
+                }
+        report["load_factorial_ablation"] = factorial
     return report
 
 
