@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import hmac
 import json
 import math
 import re
 from typing import Any, Iterable
+from types import MappingProxyType
 
 
 class InterestSelectionError(ValueError):
@@ -76,14 +78,14 @@ class CognitiveInterestSelector:
     MAX_TOPIC_LENGTH = 240
     MAX_EVIDENCE_REFS = 20
     MAX_EVIDENCE_REF_LENGTH = 240
-    WEIGHTS = {
+    WEIGHTS = MappingProxyType({
         "relevance": 0.25,
         "novelty": 0.10,
         "reducible_uncertainty": 0.20,
         "learning_progress": 0.25,
         "expected_transfer": 0.20,
         "noise_risk_penalty": -0.20,
-    }
+    })
 
     @staticmethod
     def _unit(value: Any, field: str) -> float:
@@ -132,8 +134,12 @@ class CognitiveInterestSelector:
         evidence_refs = raw.get("evidence_refs", ())
         if not isinstance(dependencies, (list, tuple)) or len(dependencies) > cls.MAX_DEPENDENCIES:
             raise InterestSelectionError("dependencies inválidas.")
-        if any(not isinstance(item, str) or not item for item in dependencies):
-            raise InterestSelectionError("Dependência precisa ser um ID não vazio.")
+        if any(
+            not isinstance(item, str)
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}", item)
+            for item in dependencies
+        ):
+            raise InterestSelectionError("Dependência precisa ser um ID válido de até 80 caracteres.")
         if len(set(dependencies)) != len(dependencies) or candidate_id in dependencies:
             raise InterestSelectionError("Dependências duplicadas ou autorreferentes.")
         if not isinstance(evidence_refs, (list, tuple)) or len(evidence_refs) > cls.MAX_EVIDENCE_REFS:
@@ -141,6 +147,17 @@ class CognitiveInterestSelector:
         if any(not isinstance(item, str) or not item or len(item) > cls.MAX_EVIDENCE_REF_LENGTH
                for item in evidence_refs):
             raise InterestSelectionError("Referência de evidência inválida.")
+        if len(set(evidence_refs)) != len(evidence_refs):
+            raise InterestSelectionError("Referências de evidência duplicadas.")
+
+        estimated_runtime_ms = cls._bounded_int(
+            raw["estimated_runtime_ms"], "estimated_runtime_ms", 86_400_000
+        )
+        estimated_ram_mb = cls._bounded_int(
+            raw["estimated_ram_mb"], "estimated_ram_mb", 65_536
+        )
+        if estimated_runtime_ms < 1 or estimated_ram_mb < 1:
+            raise InterestSelectionError("Estimativas de runtime e RAM devem ser positivas.")
 
         return InterestCandidate(
             candidate_id=candidate_id,
@@ -152,12 +169,8 @@ class CognitiveInterestSelector:
             learning_progress=cls._unit(raw["learning_progress"], "learning_progress"),
             expected_transfer=cls._unit(raw["expected_transfer"], "expected_transfer"),
             noise_risk=cls._unit(raw["noise_risk"], "noise_risk"),
-            estimated_runtime_ms=cls._bounded_int(
-                raw["estimated_runtime_ms"], "estimated_runtime_ms", 86_400_000
-            ),
-            estimated_ram_mb=cls._bounded_int(
-                raw["estimated_ram_mb"], "estimated_ram_mb", 65_536
-            ),
+            estimated_runtime_ms=estimated_runtime_ms,
+            estimated_ram_mb=estimated_ram_mb,
             dependencies=tuple(dependencies),
             evidence_refs=tuple(evidence_refs),
         )
@@ -200,6 +213,32 @@ class CognitiveInterestSelector:
 
         visit(root_id)
         return tuple(order)
+
+    @staticmethod
+    def _plan_digest(payload: dict[str, Any]) -> str:
+        unsigned = {key: value for key, value in payload.items() if key != "plan_sha256"}
+        canonical = json.dumps(
+            unsigned,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def verify_plan(cls, payload: Any) -> bool:
+        """Verify the plan fingerprint; this is integrity checking, not authentication."""
+        if not isinstance(payload, dict):
+            return False
+        claimed = payload.get("plan_sha256")
+        if not isinstance(claimed, str) or not re.fullmatch(r"[0-9a-f]{64}", claimed):
+            return False
+        try:
+            actual = cls._plan_digest(payload)
+        except (TypeError, ValueError, OverflowError):
+            return False
+        return hmac.compare_digest(claimed, actual)
 
     def select(
         self,
@@ -314,6 +353,5 @@ class CognitiveInterestSelector:
                 "A selected plan is not evidence that learning occurred or that transfer was achieved.",
             ],
         }
-        canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
-        payload["plan_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        payload["plan_sha256"] = self._plan_digest(payload)
         return payload
