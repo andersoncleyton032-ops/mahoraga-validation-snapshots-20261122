@@ -10,10 +10,16 @@ public final class WorkPolicy {
 
     private WorkPolicy() {}
 
+    public static boolean supportsAuthenticatedWake(int sdkInt) {
+        return sdkInt >= 34;
+    }
+
     public static boolean isTrustedWakeSender(int sdkInt, int senderUid, int termuxUid) {
         // Android 14+ exposes the sender UID. Older releases cannot authenticate
-        // this exported wake receiver, so external wake requests fail closed there.
-        return sdkInt >= 34 && termuxUid >= 0 && senderUid == termuxUid;
+        // this exported wake receiver, so background execution is disabled there.
+        return supportsAuthenticatedWake(sdkInt)
+                && termuxUid >= 0
+                && senderUid == termuxUid;
     }
 
     public static boolean isValidNextDelay(int seconds) {
