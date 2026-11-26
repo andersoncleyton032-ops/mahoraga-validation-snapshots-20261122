@@ -66,6 +66,22 @@ public final class TermuxBridge {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    public static TermuxSignerPolicy.Verification verifyInstalledSigner(Context context) {
+        Context app = context.getApplicationContext();
+        PackageManager packageManager = app.getPackageManager();
+        try {
+            PackageInfo termuxPackage = packageManager.getPackageInfo(
+                    TERMUX_PACKAGE,
+                    TermuxSignerPolicy.packageInfoFlags(Build.VERSION.SDK_INT)
+            );
+            return TermuxSignerPolicy.verify(termuxPackage, Build.VERSION.SDK_INT);
+        } catch (PackageManager.NameNotFoundException missing) {
+            return TermuxSignerPolicy.Verification.rejected("termux_not_installed");
+        } catch (RuntimeException inspectionFailure) {
+            return TermuxSignerPolicy.Verification.rejected("termux_signer_inspection_failed");
+        }
+    }
+
     public static ExecutionResult executeOnce(Context context) {
         Context app = context.getApplicationContext();
         if (!isInstalled(app)) {
@@ -80,9 +96,19 @@ public final class TermuxBridge {
         final PackageInfo termuxPackage;
         try {
             termuxInfo = packageManager.getApplicationInfo(TERMUX_PACKAGE, 0);
-            termuxPackage = packageManager.getPackageInfo(TERMUX_PACKAGE, 0);
+            termuxPackage = packageManager.getPackageInfo(
+                    TERMUX_PACKAGE,
+                    TermuxSignerPolicy.packageInfoFlags(Build.VERSION.SDK_INT)
+            );
         } catch (PackageManager.NameNotFoundException missing) {
             return ExecutionResult.failure("termux_not_installed", false);
+        } catch (RuntimeException inspectionFailure) {
+            return ExecutionResult.failure("termux_signer_inspection_failed", false);
+        }
+        TermuxSignerPolicy.Verification signer =
+                TermuxSignerPolicy.verify(termuxPackage, Build.VERSION.SDK_INT);
+        if (!signer.trusted) {
+            return ExecutionResult.failure("termux_signer_untrusted", false);
         }
         if (requiresCrossAppFgsReview(
                 Build.VERSION.SDK_INT,
@@ -181,6 +207,9 @@ public final class TermuxBridge {
             return ExecutionResult.failure("termux_run_command_denied", false);
         } catch (RuntimeException startFailure) {
             return ExecutionResult.failure("termux_service_start_failed", true);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return ExecutionResult.failure("termux_result_wait_interrupted", true);
         } catch (Exception waitFailure) {
             return ExecutionResult.failure("termux_result_wait_failed", true);
         } finally {
