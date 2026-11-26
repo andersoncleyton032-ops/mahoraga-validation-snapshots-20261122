@@ -442,7 +442,10 @@ class ModelResourcePolicy:
         if not isinstance(context, dict):
             return {"allowed": False, "reason": "runtime_context_invalid"}
         if request.allow_background is not True:
-            if context.get("app_foreground") is not True:
+            foreground = context.get("app_foreground")
+            if foreground is False:
+                return {"allowed": False, "reason": "model_load_requires_foreground"}
+            if foreground is not True:
                 return {"allowed": False, "reason": "foreground_state_not_confirmed"}
             if context.get("screen_interactive") is not True:
                 return {"allowed": False, "reason": "interactive_screen_state_not_confirmed"}
@@ -485,6 +488,9 @@ class ModelResourcePolicy:
 class LiteRTLMBackend:
     """Official LiteRT-LM Python API; one fresh conversation per Mahoraga inference."""
 
+    MAX_STRUCTURED_MESSAGES = 32
+    MAX_STRUCTURED_MESSAGE_CHARS = 20_000
+    MAX_STRUCTURED_TOTAL_CHARS = 48_000
     DEFAULT_THINKING_BUDGET = {
         "interactive": 256,
         "reasoning": 1024,
