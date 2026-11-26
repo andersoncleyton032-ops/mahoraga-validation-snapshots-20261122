@@ -19,8 +19,9 @@ class CognitiveContinuityLedger:
 
     VERSION = "0.1.0"
     EVENT_TYPE = "introspection.cognitive_cycle.completed"
-    SEQUENCE_PREFIX = "cognitive_cycle:"
+    SEQUENCE_KEY = "cognitive_continuity"
     MAX_RECENT_CYCLES = 100
+    MAX_APPEND_ATTEMPTS = 16
 
     def __init__(self, store):
         if store is None or not callable(getattr(store, "record_versioned_event", None)):
@@ -29,6 +30,8 @@ class CognitiveContinuityLedger:
             raise CognitiveFabricError("KnowledgeStore precisa oferecer busca idempotente.")
         if not callable(getattr(store, "list_events", None)):
             raise CognitiveFabricError("KnowledgeStore precisa oferecer leitura de eventos.")
+        if not callable(getattr(store, "get_event_sequence", None)):
+            raise CognitiveFabricError("KnowledgeStore precisa oferecer leitura de sequência.")
         self.store = store
 
     @staticmethod
@@ -43,6 +46,43 @@ class CognitiveContinuityLedger:
             allow_nan=False,
         )
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def _existing_cycle(
+        self,
+        correlation_id: str,
+        fingerprint: str,
+    ) -> dict[str, Any] | None:
+        existing = self.store.find_events_by_payload_value(
+            self.EVENT_TYPE,
+            "correlation_id",
+            correlation_id,
+            limit=2,
+        )
+        if not existing:
+            return None
+        if len(existing) != 1:
+            raise CognitiveContinuityConflict(
+                "Mais de um evento canônico existe para o mesmo correlation_id."
+            )
+        prior = existing[0]
+        prior_payload = prior.get("payload", {})
+        if (
+            prior_payload.get("schema") != "mahoraga.cognitive_continuity_event"
+            or prior_payload.get("schema_version") != 1
+            or prior_payload.get("cycle_fingerprint") != fingerprint
+        ):
+            raise CognitiveContinuityConflict(
+                "O mesmo ciclo foi reapresentado com conteúdo terminal diferente."
+            )
+        return {
+            "status": "already_recorded",
+            "event_id": prior["id"],
+            "cycle_sequence": prior_payload.get("cycle_sequence"),
+            "correlation_id": correlation_id,
+            "cycle_fingerprint": fingerprint,
+            "duplicate": True,
+            "persistence": "canonical_knowledge_store",
+        }
 
     def record_terminal_cycle(
         self,
@@ -59,6 +99,10 @@ class CognitiveContinuityLedger:
         )
         correlation_id = record["cycle"]["correlation_id"]
         fingerprint = self._fingerprint(record)
+        existing = self._existing_cycle(correlation_id, fingerprint)
+        if existing is not None:
+            return existing
+
         payload = {
             "schema": "mahoraga.cognitive_continuity_event",
             "schema_version": 1,
@@ -66,55 +110,32 @@ class CognitiveContinuityLedger:
             "cycle_fingerprint": fingerprint,
             "record": record,
         }
-        sequence_key = self.SEQUENCE_PREFIX + correlation_id
-
-        try:
-            saved = self.store.record_versioned_event(
-                self.EVENT_TYPE,
-                sequence_key,
-                expected_sequence=0,
-                payload=payload,
-                sequence_field="cycle_sequence",
-            )
-            return {
-                "status": "recorded",
-                "event_id": saved["event_id"],
-                "cycle_sequence": saved["sequence"],
-                "correlation_id": correlation_id,
-                "cycle_fingerprint": fingerprint,
-                "duplicate": False,
-                "persistence": "canonical_knowledge_store",
-            }
-        except EventSequenceConflict as exc:
-            existing = self.store.find_events_by_payload_value(
-                self.EVENT_TYPE,
-                "correlation_id",
-                correlation_id,
-                limit=2,
-            )
-            if len(existing) != 1:
-                raise CognitiveContinuityConflict(
-                    "Conflito de sequência sem um evento canônico único."
-                ) from exc
-            prior = existing[0]
-            prior_payload = prior.get("payload", {})
-            if (
-                prior_payload.get("schema") != "mahoraga.cognitive_continuity_event"
-                or prior_payload.get("schema_version") != 1
-                or prior_payload.get("cycle_fingerprint") != fingerprint
-            ):
-                raise CognitiveContinuityConflict(
-                    "O mesmo ciclo foi reapresentado com conteúdo terminal diferente."
-                ) from exc
-            return {
-                "status": "already_recorded",
-                "event_id": prior["id"],
-                "cycle_sequence": prior_payload.get("cycle_sequence"),
-                "correlation_id": correlation_id,
-                "cycle_fingerprint": fingerprint,
-                "duplicate": True,
-                "persistence": "canonical_knowledge_store",
-            }
+        for _attempt in range(self.MAX_APPEND_ATTEMPTS):
+            expected_sequence = self.store.get_event_sequence(self.SEQUENCE_KEY)
+            try:
+                saved = self.store.record_versioned_event(
+                    self.EVENT_TYPE,
+                    self.SEQUENCE_KEY,
+                    expected_sequence=expected_sequence,
+                    payload=payload,
+                    sequence_field="cycle_sequence",
+                )
+                return {
+                    "status": "recorded",
+                    "event_id": saved["event_id"],
+                    "cycle_sequence": saved["sequence"],
+                    "correlation_id": correlation_id,
+                    "cycle_fingerprint": fingerprint,
+                    "duplicate": False,
+                    "persistence": "canonical_knowledge_store",
+                }
+            except EventSequenceConflict:
+                existing = self._existing_cycle(correlation_id, fingerprint)
+                if existing is not None:
+                    return existing
+        raise CognitiveContinuityConflict(
+            "Contenção persistente ao anexar ciclo cognitivo; limite de tentativas excedido."
+        )
 
     def recent_cycles(self, limit: int = 20) -> list[dict[str, Any]]:
         if (
@@ -200,7 +221,9 @@ class CognitiveContinuityLedger:
             "event_type": self.EVENT_TYPE,
             "persistence": "canonical_knowledge_store",
             "append_only": True,
-            "per_cycle_idempotency": "versioned_event_sequence",
+            "idempotency": "correlation_id_lookup_plus_atomic_global_sequence",
+            "sequence_key": self.SEQUENCE_KEY,
+            "max_append_attempts": self.MAX_APPEND_ATTEMPTS,
             "max_recent_cycles": self.MAX_RECENT_CYCLES,
             "raw_request_text_persisted": False,
             "signal_payloads_persisted": False,
