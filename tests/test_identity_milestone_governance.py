@@ -44,9 +44,13 @@ class ApprovalVerifier:
     def __init__(self, accepted=True):
         self.accepted = accepted
         self.calls = []
+        self.consumed = {}
 
-    def consume_attestation(self, *, attestation, action, subject_sha256):
-        self.calls.append((attestation, action, subject_sha256))
+    def consume_attestation(self, *, attestation, action, subject_sha256, idempotency_key):
+        self.calls.append((attestation, action, subject_sha256, idempotency_key))
+        if idempotency_key in self.consumed:
+            return self.consumed[idempotency_key] == (action, subject_sha256)
+        self.consumed[idempotency_key] = (action, subject_sha256)
         return self.accepted
 
 
@@ -145,6 +149,52 @@ def test_receipt_metadata_is_bounded_and_duplicate_evidence_is_rejected(tmp_path
     with pytest.raises(ValueError, match="duplicadas"):
         _record(identity, evidence=["ci:run-123", "ci:run-123"])
     assert store.list_events(event_type="identity.milestone.recorded") == []
+
+
+def test_approval_consumption_and_event_append_are_retry_safe(tmp_path):
+    identity, store, approval, _ = _build(tmp_path)
+    original_record_once = store.record_event_once
+    fail_once = {"enabled": True}
+
+    def fail_first_persist(*args, **kwargs):
+        if fail_once["enabled"]:
+            fail_once["enabled"] = False
+            raise OSError("simulated sqlite write failure")
+        return original_record_once(*args, **kwargs)
+
+    store.record_event_once = fail_first_persist
+    with pytest.raises(OSError, match="simulated sqlite write failure"):
+        _record(identity)
+
+    first_key = approval.calls[0][3]
+    assert len(first_key) == 64
+    assert store.list_events(event_type="identity.milestone.recorded") == []
+
+    result = _record(identity)
+    assert result["status"] == "recorded"
+    assert approval.calls[1][3] == first_key
+
+    replay = _record(identity)
+    assert replay["status"] == "already_recorded"
+    assert replay["event_id"] == result["event_id"]
+    assert approval.calls[2][3] == first_key
+    assert len(store.list_events(event_type="identity.milestone.recorded")) == 1
+
+
+def test_approval_request_id_is_bound_to_subject_and_opaque_token():
+    from agent.identity_engine import IdentityEngine
+
+    subject = "a" * 64
+    first = IdentityEngine._approval_request_id({"token": "one"}, subject)
+    replay = IdentityEngine._approval_request_id({"token": "one"}, subject)
+    changed_token = IdentityEngine._approval_request_id({"token": "two"}, subject)
+    changed_subject = IdentityEngine._approval_request_id({"token": "one"}, "b" * 64)
+    assert first == replay
+    assert len(first) == 64
+    assert first != changed_token
+    assert first != changed_subject
+    with pytest.raises(PermissionError, match="limite de tamanho"):
+        IdentityEngine._approval_request_id({"token": "x" * 9000}, subject)
 
 
 def test_caller_boolean_without_attestations_never_records_milestone(tmp_path):
