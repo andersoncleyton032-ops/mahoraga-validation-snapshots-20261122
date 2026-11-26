@@ -146,3 +146,42 @@ def test_ledger_rejects_non_workspace_and_invalid_history_limits(tmp_path):
     for invalid in (0, 101, True, "10"):
         with pytest.raises(ValueError, match="limit"):
             ledger.recent_cycles(invalid)
+
+
+def test_snapshot_is_bounded_and_redacted_for_self_model(tmp_path):
+    store = KnowledgeStore(tmp_path / "continuity.sqlite3")
+    ledger = CognitiveContinuityLedger(store)
+    fabric = CognitiveFabric()
+    components = ["core"] + [f"component_{index}" for index in range(20)]
+    fabric.configure_connectome(component_ids=components, verified_relationships={})
+
+    for cycle_index in range(3):
+        workspace = fabric.new_workspace()
+        for index in range(20):
+            fabric.publish(
+                workspace,
+                SignalDraft(
+                    topic=f"topic.{index}",
+                    source=f"component_{index}",
+                    target="core",
+                    payload={"private": "NEVER_PERSIST_PAYLOAD"},
+                ),
+            )
+        ledger.record_terminal_cycle(
+            workspace,
+            "completed",
+            completed_at=f"2026-11-26T03:3{cycle_index}:00+00:00",
+        )
+
+    snapshot = ledger.snapshot(limit=2)
+    assert snapshot["status"] == "available"
+    assert snapshot["cycle_count"] == 2
+    assert snapshot["truncated"] is True
+    assert snapshot["outcomes"] == {"completed": 2}
+    assert len(snapshot["recent_cycles"][0]["topics_observed"]) == 16
+    assert snapshot["recent_cycles"][0]["topics_truncated"] is True
+    assert len(snapshot["recent_cycles"][0]["participating_components"]) == 16
+    assert snapshot["recent_cycles"][0]["components_truncated"] is True
+    assert "NEVER_PERSIST_PAYLOAD" not in json.dumps(snapshot)
+    with pytest.raises(ValueError, match="limit"):
+        ledger.snapshot(limit=0)
