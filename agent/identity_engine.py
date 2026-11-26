@@ -6,6 +6,7 @@ It guides conversation and self-description without claiming subjective states.
 from __future__ import annotations
 
 import hashlib
+import math
 import json
 from pathlib import Path
 from typing import Any
@@ -244,7 +245,29 @@ class IdentityEngine:
         """Stable opaque retry key; raw approval material is never persisted."""
         if not isinstance(attestation, (dict, str)) or not attestation:
             raise PermissionError("Atestação de aprovação possui formato inválido.")
+        def validate_json(value: Any, depth: int = 0) -> None:
+            if depth > 12:
+                raise ValueError("attestation nesting limit exceeded")
+            if value is None or isinstance(value, (str, bool, int)):
+                return
+            if isinstance(value, float):
+                if not math.isfinite(value):
+                    raise ValueError("non-finite attestation number")
+                return
+            if isinstance(value, list):
+                for item in value:
+                    validate_json(item, depth + 1)
+                return
+            if isinstance(value, dict):
+                if any(not isinstance(key, str) for key in value):
+                    raise ValueError("attestation object keys must be strings")
+                for item in value.values():
+                    validate_json(item, depth + 1)
+                return
+            raise ValueError("unsupported attestation value")
+
         try:
+            validate_json(attestation)
             canonical = json.dumps(
                 attestation,
                 ensure_ascii=False,
