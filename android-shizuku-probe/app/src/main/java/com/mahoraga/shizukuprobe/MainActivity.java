@@ -389,7 +389,7 @@ public final class MainActivity extends Activity {
     private void handleHandshakeResult(
             ConnectionContext context, int version, Exception failure
     ) {
-        if (!context.handshakeFinished.compareAndSet(false, true)) return;
+        if (!context.handshakeFinished.tryFinish()) return;
         if (context.handshakeTimeout != null) {
             mainHandler.removeCallbacks(context.handshakeTimeout);
             context.handshakeTimeout = null;
