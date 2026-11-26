@@ -48,3 +48,9 @@ def test_android_main_sources_do_not_call_post_min_sdk_string_isblank():
     assert sources
     assert all(".isBlank()" not in source.read_text(encoding="utf-8") for source in sources)
 
+def test_termux_command_description_does_not_claim_network_isolation():
+    source = BRIDGE.read_text(encoding="utf-8")
+
+    assert "No network access." not in source
+    assert "This worker does not request network tools." in source
+
