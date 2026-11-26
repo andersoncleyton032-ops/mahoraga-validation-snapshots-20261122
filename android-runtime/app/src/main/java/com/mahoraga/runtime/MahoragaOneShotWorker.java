@@ -1,6 +1,7 @@
 package com.mahoraga.runtime;
 
 import android.content.Context;
+import android.os.Build;
 
 import androidx.annotation.NonNull;
 import androidx.work.Data;
@@ -24,6 +25,12 @@ public final class MahoragaOneShotWorker extends Worker {
     @Override
     public Result doWork() {
         Context context = getApplicationContext();
+        if (!WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)) {
+            WorkScheduler.stop(context);
+            return Result.failure(new Data.Builder()
+                    .putString("error_code", "authenticated_wake_requires_api34")
+                    .build());
+        }
         if (!WorkScheduler.isEnabled(context)) return Result.success();
 
         TermuxBridge.ExecutionResult execution = TermuxBridge.executeOnce(context);
