@@ -64,6 +64,13 @@ def test_activity_uses_generation_scoped_connections_and_ignores_stale_callbacks
     assert "ProbeContract.userServiceProcessSuffix(generation)" in activity
     assert "Shizuku.unbindUserService(context.userServiceArgs, context.connection, true)" in activity
     assert "Shizuku.unbindUserService(userServiceArgs, context.connection, true)" not in activity
+    assert "removeUserServiceGeneration(context)" in activity
+    cleanup = activity.split("private void removeUserServiceGeneration", 1)[1].split(
+        "private void stopUserService", 1
+    )[0]
+    detach = cleanup.index("Shizuku.unbindUserService(context.userServiceArgs, context.connection, false)")
+    remove = cleanup.index("Shizuku.unbindUserService(context.userServiceArgs, context.connection, true)")
+    assert detach < remove
     assert "linkToDeath(context.deathRecipient, 0)" in activity
     assert "operation.generation == context.token.generation" in activity
 
