@@ -7,7 +7,7 @@ APK separado do Android Capability Lab v0.1 e evolução do Probe alpha1.
 - Mantém observação de Binder, permissão e identidade do Shizuku.
 - Inicia UserService somente após ação explícita e somente se o Binder estiver vivo, a permissão concedida e o UID for 2000.
 - Usa AIDL tipado: versão do protocolo, leitura de UID/PID/tempo monotônico e cancelamento por UUID.
-- Cada geração de conexão usa tag e process suffix exclusivos; cleanup tardio não pode remover o UserService da geração substituta.
+- Cada processo gera um nonce e cada geração recebe tag/process suffix exclusivos; cleanup tardio não pode remover o UserService da geração substituta nem anexar a um processo órfão de uma execução anterior.
 - Cada bind usa uma geração monotônica e um `ServiceConnection` exclusivo; callbacks obsoletos não alteram a sessão atual.
 - Bind, execução, cancelamento remoto e unbind são serializados em uma fila FIFO process-scoped compartilhada entre recriações da Activity.
 - Handshake usa executor process-scoped limitado a duas threads daemon, com timeout independente de 5 segundos.
