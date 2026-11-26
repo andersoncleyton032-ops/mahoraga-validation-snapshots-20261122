@@ -1,6 +1,7 @@
 package com.mahoraga.runtime;
 
 import android.app.Activity;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Bundle;
@@ -75,7 +76,12 @@ public final class MainActivity extends Activity {
         layout.addView(stop);
 
         setContentView(layout);
-        if (WorkScheduler.isEnabled(this)) {
+        if (!WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)) {
+            WorkScheduler.stop(this);
+            status.setText(
+                    "\nAgendamento desativado: autenticação do emissor exige Android 14/API 34 ou superior."
+            );
+        } else if (WorkScheduler.isEnabled(this)) {
             TermuxSignerPolicy.Verification signer =
                     TermuxBridge.verifyInstalledSigner(this);
             if (!signer.trusted) {
@@ -95,6 +101,13 @@ public final class MainActivity extends Activity {
     }
 
     private void startCycle() {
+        if (!WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)) {
+            status.setText(
+                    "\nExecução em segundo plano exige Android 14/API 34 ou superior "
+                    + "para autenticar o emissor do wake."
+            );
+            return;
+        }
         if (!TermuxBridge.isInstalled(this)) {
             status.setText("\nTermux não encontrado. Nenhuma tarefa foi iniciada.");
             return;
