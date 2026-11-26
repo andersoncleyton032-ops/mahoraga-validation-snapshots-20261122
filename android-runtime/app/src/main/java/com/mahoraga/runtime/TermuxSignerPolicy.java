@@ -34,6 +34,25 @@ public final class TermuxSignerPolicy {
                 : PackageManager.GET_SIGNATURES;
     }
 
+    public static Verification verifyInstalled(
+            PackageManager packageManager, String packageName, int sdkInt
+    ) {
+        if (packageManager == null || packageName == null || packageName.trim().isEmpty()) {
+            return Verification.rejected("package_manager_or_name_missing");
+        }
+        try {
+            PackageInfo packageInfo = packageManager.getPackageInfo(
+                    packageName,
+                    packageInfoFlags(sdkInt)
+            );
+            return verify(packageInfo, sdkInt);
+        } catch (PackageManager.NameNotFoundException missing) {
+            return Verification.rejected("termux_not_installed");
+        } catch (RuntimeException inspectionFailure) {
+            return Verification.rejected("termux_signer_inspection_failed");
+        }
+    }
+
     public static Verification verify(PackageInfo packageInfo, int sdkInt) {
         if (packageInfo == null) {
             return Verification.rejected("package_info_missing");
