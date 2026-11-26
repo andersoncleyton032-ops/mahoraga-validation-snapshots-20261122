@@ -486,6 +486,8 @@ class LiteRTLMBackend:
     """Official LiteRT-LM Python API; one fresh conversation per Mahoraga inference."""
 
     MAX_STRUCTURED_MESSAGES = 32  # Keep in sync with Android ModelPromptEnvelope.MAX_MESSAGES.
+    MAX_STRUCTURED_MESSAGE_CHARS = 20_000  # Android ModelPromptEnvelope.MAX_MESSAGE_CHARS.
+    MAX_STRUCTURED_TOTAL_CHARS = 50_000  # Android ModelPromptEnvelope.MAX_TOTAL_CHARS.
     DEFAULT_THINKING_BUDGET = {
         "interactive": 256,
         "reasoning": 1024,

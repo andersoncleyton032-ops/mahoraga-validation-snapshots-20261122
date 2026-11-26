@@ -809,7 +809,9 @@ def test_android_provider_maps_cancelled_terminal_state_and_acknowledges_it():
     with pytest.raises(ModelInferenceCancelled, match="cancelled"):
         backend.generate("prompt", request=request)
     assert [method for method, _ in calls] == ["infer", "result", "ack"]
-    assert calls[-1][1] == calls[0][1]
+    request_id = json.loads(calls[0][1])["request_id"]
+    assert calls[1][1] == request_id
+    assert calls[2][1] == request_id
 
 
 def test_android_provider_exposes_request_id_scoped_cancel_operation():
