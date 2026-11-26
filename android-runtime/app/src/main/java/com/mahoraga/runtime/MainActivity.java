@@ -162,7 +162,7 @@ public final class MainActivity extends Activity {
     }
 
     private static void appendField(StringBuilder builder, String label, String value) {
-        if (value != null && !value.isBlank()) {
+        if (value != null && !value.trim().isEmpty()) {
             builder.append(" | ").append(label).append("=").append(value);
         }
     }
