@@ -61,7 +61,6 @@ public final class TermuxBridgePolicyTest {
         assertTrue(TermuxBridge.usesForegroundService(31));
         assertTrue(TermuxBridge.usesForegroundService(36));
     }
-}
 
     @Test
     public void resultPendingIntentIdentityIsUniquePerInvocation() {
@@ -76,4 +75,4 @@ public final class TermuxBridgePolicyTest {
     public void resultPendingIntentIdentityRejectsBlankRequestId() {
         TermuxBridge.resultIntentDataUri(" ");
     }
-
+}
