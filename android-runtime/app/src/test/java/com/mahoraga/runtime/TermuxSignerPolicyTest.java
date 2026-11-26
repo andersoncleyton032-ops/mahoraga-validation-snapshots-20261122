@@ -69,7 +69,9 @@ public final class TermuxSignerPolicyTest {
     @Test
     public void rejectedVerificationDoesNotExposeTrustedSource() {
         TermuxSignerPolicy.Verification verification =
-                TermuxSignerPolicy.verifyFingerprint("unknown");
+                TermuxSignerPolicy.verifyFingerprint(
+                        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                );
 
         assertFalse(verification.trusted);
         assertNull(verification.source);
