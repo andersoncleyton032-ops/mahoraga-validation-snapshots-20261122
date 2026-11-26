@@ -45,3 +45,38 @@ def test_critical_pressure_defers_adaptive_selection_but_baseline_has_no_gate():
     assert scenario["baseline_without_homeostasis"]["selected_count"] == 3
     assert scenario["execution_performed"] is False
     assert scenario["authorization_granted"] is False
+
+def test_load_factorial_ablation_separates_state_and_observation_channels():
+    result = run_cognitive_exploration_benchmark()
+    scenario = result["scenarios"][1]
+    factorial = scenario["load_factorial_ablation"]
+
+    assert set(factorial) == {
+        "state_low__task_low",
+        "state_low__task_high",
+        "state_high__task_low",
+        "state_high__task_high",
+    }
+    state_low_task_low = factorial["state_low__task_low"]
+    state_low_task_high = factorial["state_low__task_high"]
+    state_high_task_low = factorial["state_high__task_low"]
+    state_high_task_high = factorial["state_high__task_high"]
+
+    assert (
+        state_high_task_high["effective_exploration_factor"]
+        < state_high_task_low["effective_exploration_factor"]
+        < state_low_task_high["effective_exploration_factor"]
+        < state_low_task_low["effective_exploration_factor"]
+    )
+    assert state_high_task_high["control_state"] == "reduce_work"
+    assert state_high_task_low["control_state"] == "normal"
+    assert state_low_task_high["control_state"] == "normal"
+    assert state_low_task_low["control_state"] == "normal"
+    assert all(
+        item["work_executed"] is False
+        and item["authorization_granted"] is False
+        for item in factorial.values()
+    )
+    assert result["synthetic_only"] is True
+    assert result["hardware_telemetry_used"] is False
+
