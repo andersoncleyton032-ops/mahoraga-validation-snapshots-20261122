@@ -134,3 +134,18 @@ def test_probe_contains_no_arbitrary_process_or_network_execution():
     )
     for token in forbidden:
         assert token not in combined
+
+
+def test_stop_user_service_clears_operation_timeout_before_dropping_operation():
+    activity = (JAVA_ROOT / "MainActivity.java").read_text(encoding="utf-8")
+    stop = activity.split("private void stopUserService", 1)[1].split(
+        "private void renderState", 1
+    )[0]
+    cleanup = activity.split("private void clearOperationTimeout", 1)[1].split(
+        "private void enqueueStaleConnectionRemoval", 1
+    )[0]
+
+    assert "clearOperationTimeout(context);" in stop
+    assert stop.index("clearOperationTimeout(context);") < stop.index("context.operation = null;")
+    assert "mainHandler.removeCallbacks(context.operationTimeout)" in cleanup
+    assert "context.operationTimeout = null;" in cleanup
