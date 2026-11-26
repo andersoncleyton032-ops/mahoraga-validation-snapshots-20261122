@@ -35,6 +35,10 @@ public final class WorkPolicyTest {
 
     @Test
     public void wakeSenderMustBeVerifiableAndMatchTermuxUid() {
+        assertFalse(WorkPolicy.supportsAuthenticatedWake(24));
+        assertFalse(WorkPolicy.supportsAuthenticatedWake(33));
+        assertTrue(WorkPolicy.supportsAuthenticatedWake(34));
+        assertTrue(WorkPolicy.supportsAuthenticatedWake(36));
         assertFalse(WorkPolicy.isTrustedWakeSender(24, 10456, 10456));
         assertFalse(WorkPolicy.isTrustedWakeSender(33, 10456, 10456));
         assertTrue(WorkPolicy.isTrustedWakeSender(34, 10456, 10456));
