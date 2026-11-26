@@ -54,6 +54,13 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run all included focused tests
         run: python -m pytest -q tests/
+      - name: Run VisualDocumentLab focused suite
+        run: >-
+          python -m pytest -q
+          tests/test_visual_creation.py
+          tests/test_visual_document_store.py
+          tests/test_visual_scene_compiler.py
+          tests/test_visual_document_lab.py
 
   android-capability-lab:
     runs-on: ubuntu-latest
