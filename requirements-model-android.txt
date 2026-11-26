@@ -1,0 +1,8 @@
+# Optional on-device model runtime for Android ARM64 / Termux.
+# Kept separate from core requirements so Mahoraga remains usable without an LLM.
+# Install with: pip install --require-hashes -r requirements-model-android.txt
+# PyPI 0.19.2 Android API 23+ ARM64 wheel SHA-256, retrieved 2026-11-23.
+# PyPI reports no provenance attestation for this release; this hash pins the
+# exact published wheel but does not replace independent supply-chain review.
+litert-lm-api==0.19.2 \
+    --hash=sha256:ba299b57381ba3974bff6459002caac2e1ed48629bb4a7f4d2bfda04ec04ce10
