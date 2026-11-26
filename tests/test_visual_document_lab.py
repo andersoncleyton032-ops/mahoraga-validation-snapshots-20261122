@@ -105,7 +105,7 @@ class SelectedHeadlessCore(HeadlessCore):
         self.execution_calls.append((args, kwargs))
         return {
             "status": "delegated_to_test_fixture",
-            "execution_performed": True,
+            "execution_performed": False,
         }
 
 
@@ -127,8 +127,9 @@ def test_visual_lab_delegates_provenance_only_after_test_selector_selects(tmp_pa
     assert args[0].task_id == "task.lab.positive-gate"
     assert kwargs["estimated_ram_mb"] == 128
     assert kwargs["estimated_seconds"] == 2.5
-    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"] == created["sha256"] == created["sha256"]
+    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"] == created["sha256"]
     assert report["execution"]["status"] == "delegated_to_test_fixture"
+    assert report["execution"]["execution_performed"] is False
     assert report["capability_activation_performed"] is False
 
 
