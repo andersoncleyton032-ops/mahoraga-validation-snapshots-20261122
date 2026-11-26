@@ -155,15 +155,15 @@ public final class MahoragaOneShotWorker extends Worker {
         String safeTaskId = taskId == null ? "" : taskId;
         switch (status) {
             case "completed":
-                return !safeTaskId.isBlank() && executionPerformed && receiptValid;
+                return !safeTaskId.trim().isEmpty() && executionPerformed && receiptValid;
             case "completed_reconciled":
-                return !safeTaskId.isBlank() && !executionPerformed && receiptValid;
+                return !safeTaskId.trim().isEmpty() && !executionPerformed && receiptValid;
             case "idle":
-                return safeTaskId.isBlank() && !executionPerformed && !receiptValid;
+                return safeTaskId.trim().isEmpty() && !executionPerformed && !receiptValid;
             case "deferred":
             case "queued":
             case "failed":
-                return !safeTaskId.isBlank() && !executionPerformed && !receiptValid;
+                return !safeTaskId.trim().isEmpty() && !executionPerformed && !receiptValid;
             default:
                 return false;
         }
