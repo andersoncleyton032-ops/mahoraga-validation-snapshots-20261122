@@ -111,6 +111,13 @@ The official Android Gradle Plugin API reference currently identifies 9.5.3 as t
 
 JDK 17, compileSdk 36 and Java/JVM target 17 remain unchanged. The source-contract test verifies stable AGP 9.5.3, explicit KGP 2.4.0, Gradle 9.6.0, built-in plugin removal and Java/JVM 17. This candidate is not validated until the public Gradle/JUnit job passes.
 
+
+## ModelEngineOwner response helper — 26/11/2026
+
+The first AGP/Kotlin-compatible compile exposed an independent source error: ModelEngineOwner used response(...) across its poll/cancel/ack state paths but did not define that helper. ModelRuntimeProvider had a private helper with the same name, which is not visible across classes.
+
+ModelEngineOwner now defines its own private Bundle formatter. The wire contract is unchanged: status is always present, request_id and error are included only when non-null. A Python source-contract test protects the helper and its three fields. The public compile/JUnit run is pending; no runtime/device behavior is claimed.
+
 ## Cross-backend duration policy — 26/11/2026
 
 Python and Android now share the same per-task maximum duration ceiling: 60s interactive, 240s reasoning, 360s maintenance, 600s background. Python clamps explicit `ResourceRequest` values and planner overrides; the Android owner independently clamps the IPC request. Thermal/battery derating remains local to each policy and may be conservative twice across the bridge. This does not turn Python cooperative cancellation into a process-level hard kill.

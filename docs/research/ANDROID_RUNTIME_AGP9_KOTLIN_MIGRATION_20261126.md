@@ -29,3 +29,10 @@ IMPLEMENTED / SOURCE-CONTRACT-TEST-WRITTEN / NOT YET EXECUTED. The AGP 9.6.0 plu
 - Android built-in Kotlin migration and KGP selection: https://developer.android.com/build/migrate-to-built-in-kotlin
 - Android Gradle Plugin API reference (stable 9.5.3; 9.6 preview alpha): https://developer.android.com/reference/tools/gradle-api
 - AGP compatibility table: https://developer.android.com/build/releases/about-agp
+
+
+## Kotlin compile follow-up — ModelEngineOwner response helper — 26/11/2026
+
+With the AGP/KGP resolution path reaching Kotlin source compilation, the hosted compiler reported unresolved response(...) references in ModelEngineOwner (pollInference, cancelInference and acknowledgeInference). The similarly named helper in ModelRuntimeProvider is private to that class and cannot be reused by ModelEngineOwner.
+
+Added a private typed response helper directly to ModelEngineOwner. It returns Bundle with status plus optional request_id/error fields, matching the existing provider's IPC response shape. Added a source-contract regression test. This is a source fix based on observed compiler diagnostics; the updated build/JUnit run is not yet executed.

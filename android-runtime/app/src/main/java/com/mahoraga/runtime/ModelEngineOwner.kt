@@ -177,7 +177,6 @@ class ModelEngineOwner(context: Context) {
         prompt: String,
         taskClass: String = "interactive",
         requestedDurationSeconds: Double? = null,
-        durationPolicyApplied: Boolean = false,
         estimatedAdditionalRamMb: Long? = null,
         thinkingTokenBudget: Int? = null,
         maxOutputTokens: Int? = null,
@@ -210,14 +209,12 @@ class ModelEngineOwner(context: Context) {
             if (!cancellationRegistry.begin(requestId)) {
                 throw RequestCancellationException()
             }
-            val budgetSeconds = if (durationPolicyApplied && requestedDurationSeconds != null) {
-                requestedDurationSeconds
-            } else {
-                ModelBudgetMath.durationSeconds(
-                    taskClass, requestedDurationSeconds, thermalStatus(),
-                    PowerManager.THERMAL_STATUS_MODERATE, batteryPercent(), isCharging()
-                )
-            }
+            // Always enforce the Android-side resource/deadline policy.
+            // A duration_policy_applied claim from the Termux IPC caller is not trusted.
+            val budgetSeconds = ModelBudgetMath.durationSeconds(
+                taskClass, requestedDurationSeconds, thermalStatus(),
+                PowerManager.THERMAL_STATUS_MODERATE, batteryPercent(), isCharging()
+            )
             val activeEngine = engine ?: throw IllegalStateException("model_not_loaded")
             val admission = evaluateInference(taskClass, estimatedAdditionalRamMb, allowBackground)
             if (!admission.first) {
@@ -477,6 +474,16 @@ class ModelEngineOwner(context: Context) {
         val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         return status == BatteryManager.BATTERY_STATUS_CHARGING ||
             status == BatteryManager.BATTERY_STATUS_FULL
+    }
+
+    private fun response(
+        state: String,
+        requestId: String? = null,
+        error: String? = null,
+    ) = Bundle().apply {
+        putString("status", state)
+        requestId?.let { putString("request_id", it) }
+        error?.let { putString("error", it) }
     }
 
     fun pollInference(requestId: String): Bundle {

@@ -345,3 +345,28 @@ def test_android_runtime_uses_agp9_builtin_kotlin_without_legacy_plugin_or_dsl()
     assert "targetCompatibility = JavaVersion.VERSION_17" in app_build
     assert 'name: Set up Gradle 9.6.0' in workflow
     assert 'gradle-version: "9.6.0"' in workflow
+
+
+def test_model_engine_owner_defines_its_own_typed_bundle_response_helper():
+    owner = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "ModelEngineOwner.kt"
+    ).read_text(encoding="utf-8")
+    helper = owner.split("private fun response(", 1)[1].split(
+        "fun pollInference(", 1
+    )[0]
+
+    assert "state: String" in helper
+    assert "requestId: String? = null" in helper
+    assert "error: String? = null" in helper
+    assert 'putString("status", state)' in helper
+    assert 'putString("request_id", it)' in helper
+    assert 'putString("error", it)' in helper
