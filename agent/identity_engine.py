@@ -239,6 +239,33 @@ class IdentityEngine:
         )
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
+    @staticmethod
+    def _approval_request_id(attestation: Any, subject_sha256: str) -> str:
+        """Stable opaque retry key; raw approval material is never persisted."""
+        if not isinstance(attestation, (dict, str)) or not attestation:
+            raise PermissionError("Atestação de aprovação possui formato inválido.")
+        try:
+            canonical = json.dumps(
+                attestation,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+            encoded = canonical.encode("utf-8")
+        except (TypeError, ValueError, OverflowError, RecursionError) as exc:
+            raise PermissionError("Atestação de aprovação não é JSON válido.") from exc
+        if len(encoded) > 8_192:
+            raise PermissionError("Atestação de aprovação excede o limite de tamanho.")
+        token_sha256 = hashlib.sha256(encoded).hexdigest()
+        material = (
+            "identity.record_milestone:"
+            + subject_sha256
+            + ":"
+            + token_sha256
+        )
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
     def record_milestone(
         self,
         title: str,
@@ -323,20 +350,26 @@ class IdentityEngine:
             raise PermissionError(
                 "Marco bloqueado: atestador de aprovação one-shot ausente."
             )
+        approval_request_id = self._approval_request_id(
+            approval_attestation,
+            subject_sha256,
+        )
         try:
             approval_consumed = consume_approval(
                 attestation=approval_attestation,
                 action="identity.record_milestone",
                 subject_sha256=subject_sha256,
+                idempotency_key=approval_request_id,
             )
         except Exception as exc:
             raise PermissionError("A aprovação do marco não pôde ser verificada.") from exc
         if approval_consumed is not True:
             raise PermissionError("Aprovação inválida, expirada ou já utilizada.")
 
-        event_id = self.store.record_event("identity.milestone.recorded", {
+        event_payload = {
             **normalized,
             "subject_sha256": subject_sha256,
+            "approval_request_id": approval_request_id,
             "evidence_receipt": {
                 "receipt_id": evidence_receipt["receipt_id"],
                 "source_id": evidence_receipt["source_id"],
@@ -346,10 +379,23 @@ class IdentityEngine:
             },
             "approval_claim": "trusted_one_shot_attestation",
             "approval_verified": True,
-        })
+        }
+        record_once = getattr(self.store, "record_event_once", None)
+        if not callable(record_once):
+            raise RuntimeError(
+                "KnowledgeStore sem persistência idempotente; marco não pode ser gravado."
+            )
+        saved = record_once(
+            "identity.milestone.recorded",
+            "identity_milestone:" + approval_request_id,
+            payload=event_payload,
+        )
+        created = saved["created"] is True
         return {
-            "status": "recorded",
-            "event_id": event_id,
+            "status": "recorded" if created else "already_recorded",
+            "event_id": saved["event_id"],
+            "duplicate": not created,
+            "approval_request_id": approval_request_id,
             "evidence_count": len(evidence),
             "subject_sha256": subject_sha256,
             "approval_claim": "trusted_one_shot_attestation",
