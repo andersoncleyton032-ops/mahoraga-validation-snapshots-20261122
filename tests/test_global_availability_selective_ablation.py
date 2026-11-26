@@ -1,3 +1,8 @@
+import json
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from experiments.global_availability_selective_ablation import (
@@ -75,3 +80,29 @@ def test_report_does_not_claim_universal_broadcast_or_phenomenal_evidence():
 
     assert any("not a universal broadcast" in item for item in report["limitations"])
     assert any("does not establish subjective" in item for item in report["limitations"])
+
+
+def test_headless_cli_emits_a_valid_deterministic_json_report():
+    root = Path(__file__).resolve().parents[1]
+    command = [
+        sys.executable,
+        "-m",
+        "experiments.global_availability_selective_ablation",
+        "--seed",
+        "headless-cli-test",
+    ]
+    first = subprocess.run(
+        command, cwd=root, capture_output=True, text=True, check=False
+    )
+    second = subprocess.run(
+        command, cwd=root, capture_output=True, text=True, check=False
+    )
+
+    assert first.returncode == 0
+    assert second.returncode == 0
+    assert first.stderr == ""
+    assert first.stdout == second.stdout
+    report = json.loads(first.stdout)
+    assert report["status"] == "passed"
+    assert report["execution_performed"] is False
+    assert report["persistent_writes"] is False
