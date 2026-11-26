@@ -165,7 +165,7 @@ class BlenderTaskQueue:
         return task_id
 
     def claim_next(self, worker_id: str) -> dict | None:
-        self._authorize()
+        self._authorize("scene.inspect", {})
 
         worker_id = str(worker_id).strip()
         if not worker_id or len(worker_id) > 120:
@@ -173,37 +173,79 @@ class BlenderTaskQueue:
 
         from .store import utc_now
 
+        rejected_ids = []
+        claimed_task = None
         now = utc_now()
 
         with self.store._transaction() as db:
-            row = db.execute("""
-                SELECT * FROM blender_tasks
-                WHERE status='pending'
-                ORDER BY id ASC
-                LIMIT 1
-            """).fetchone()
+            for _ in range(64):
+                row = db.execute("""
+                    SELECT * FROM blender_tasks
+                    WHERE status='pending'
+                    ORDER BY id ASC
+                    LIMIT 1
+                """).fetchone()
 
-            if row is None:
-                return None
+                if row is None:
+                    break
 
-            changed = db.execute("""
-                UPDATE blender_tasks
-                SET status='claimed',
-                    worker_id=?,
-                    claimed_at=?,
-                    updated_at=?
-                WHERE id=? AND status='pending'
-            """, (worker_id, now, now, row["id"])).rowcount
+                task_id = int(row["id"])
+                task_type = str(row["task_type"])
+                try:
+                    if task_type not in ALLOWED_TASKS:
+                        raise PermissionError(
+                            "Tipo de tarefa bloqueado pela política atual."
+                        )
+                    payload = json.loads(row["payload_json"])
+                    if not isinstance(payload, dict):
+                        raise ValueError("Payload legado inválido.")
+                    self._authorize(task_type, payload)
+                except Exception as exc:
+                    db.execute("""
+                        UPDATE blender_tasks
+                        SET status='failed',
+                            error=?,
+                            finished_at=?,
+                            updated_at=?
+                        WHERE id=? AND status='pending'
+                    """, (
+                        ("blocked_by_current_policy: " + str(exc))[:2000],
+                        now,
+                        now,
+                        task_id,
+                    ))
+                    rejected_ids.append(task_id)
+                    continue
 
-            if changed != 1:
-                return None
+                changed = db.execute("""
+                    UPDATE blender_tasks
+                    SET status='claimed',
+                        worker_id=?,
+                        claimed_at=?,
+                        updated_at=?
+                    WHERE id=? AND status='pending'
+                """, (worker_id, now, now, task_id)).rowcount
 
-            return {
-                "id": int(row["id"]),
-                "task_type": row["task_type"],
-                "payload": json.loads(row["payload_json"]),
-                "worker_id": worker_id,
-            }
+                if changed == 1:
+                    claimed_task = {
+                        "id": task_id,
+                        "task_type": task_type,
+                        "payload": payload,
+                        "worker_id": worker_id,
+                    }
+                break
+
+        for task_id in rejected_ids:
+            self.store.record_event(
+                "blender.task.blocked_by_policy",
+                {
+                    "task_id": task_id,
+                    "reason": "task_type_not_allowed_or_payload_invalid",
+                },
+                severity="warning",
+            )
+
+        return claimed_task
 
     def complete(self, task_id: int, result: dict):
         self._authorize()
