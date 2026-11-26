@@ -572,6 +572,7 @@ public final class MainActivity extends Activity {
             context.handshakeTimeout = null;
         }
 
+        clearOperationTimeout(context);
         ServiceLifecycle.Operation operation = context.operation;
         context.operation = null;
         if (operation != null) operation.cancel();
