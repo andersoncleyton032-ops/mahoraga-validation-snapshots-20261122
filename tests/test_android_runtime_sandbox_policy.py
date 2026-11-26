@@ -144,3 +144,50 @@ def test_existing_schedule_is_stopped_if_termux_signer_becomes_untrusted():
     assert "TermuxBridge.verifyInstalledSigner(this)" in startup
     assert "if (!signer.trusted)" in startup
     assert "WorkScheduler.stop(this);" in startup
+
+
+def test_background_execution_is_disabled_below_authenticated_wake_api_floor():
+    policy = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "WorkPolicy.java"
+    ).read_text(encoding="utf-8")
+    activity = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "MainActivity.java"
+    ).read_text(encoding="utf-8")
+    worker = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "MahoragaOneShotWorker.java"
+    ).read_text(encoding="utf-8")
+    bridge = BRIDGE.read_text(encoding="utf-8")
+
+    assert "return sdkInt >= 34;" in policy
+    assert "WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)" in activity
+    assert "WorkScheduler.stop(this);" in activity
+    assert "WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)" in worker
+    assert '"authenticated_wake_requires_api34"' in worker
+    assert "WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)" in bridge
