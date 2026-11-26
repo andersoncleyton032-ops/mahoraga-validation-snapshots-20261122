@@ -1,0 +1,84 @@
+name: Android Runtime Contract
+
+on:
+  pull_request:
+    paths:
+      - "android-runtime/**"
+      - "agent/android_workmanager_wake.py"
+      - "agent/background_capabilities.py"
+      - "scripts/mahoraga_background_worker.py"
+      - "tests/test_android_workmanager_wake.py"
+      - "tests/test_background_capabilities.py"
+      - ".github/workflows/android-runtime-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Accept Android SDK licenses and install API 36
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"
+          test -n "$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
+          set -o pipefail
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.6.0
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Compile Android bridge and run unit tests
+        run: gradle -p android-runtime --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Summarize Android Runtime JUnit results
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob
+          import sys
+          import xml.etree.ElementTree as ET
+
+          paths = glob.glob("android-runtime/app/build/test-results/testDebugUnitTest/*.xml")
+          if not paths:
+              print("JUNIT_SUMMARY missing=true")
+              sys.exit(1)
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          for path in paths:
+              root = ET.parse(path).getroot()
+              for key in totals:
+                  totals[key] += int(root.attrib.get(key, "0"))
+          print("JUNIT_SUMMARY " + " ".join(f"{key}={value}" for key, value in totals.items()))
+          if totals["failures"] or totals["errors"]:
+              sys.exit(1)
+          PY
+
+      - name: Upload Android Runtime reports and APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-runtime-validation
+          path: |
+            android-runtime/app/build/test-results/testDebugUnitTest/
+            android-runtime/app/build/reports/tests/testDebugUnitTest/
+            android-runtime/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 7
