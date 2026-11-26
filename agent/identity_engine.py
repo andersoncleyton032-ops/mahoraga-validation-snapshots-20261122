@@ -240,7 +240,7 @@ class IdentityEngine:
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     @staticmethod
-    def _approval_request_id(attestation: Any, subject_sha256: str) -> str:
+    def _attestation_request_id(action: str, attestation: Any, subject_sha256: str) -> str:
         """Stable opaque retry key; raw approval material is never persisted."""
         if not isinstance(attestation, (dict, str)) or not attestation:
             raise PermissionError("Atestação de aprovação possui formato inválido.")
@@ -259,7 +259,8 @@ class IdentityEngine:
             raise PermissionError("Atestação de aprovação excede o limite de tamanho.")
         token_sha256 = hashlib.sha256(encoded).hexdigest()
         material = (
-            "identity.record_milestone:"
+            action
+            + ":"
             + subject_sha256
             + ":"
             + token_sha256
@@ -319,12 +320,18 @@ class IdentityEngine:
             raise PermissionError(
                 "Marco bloqueado: verificador independente de evidências ausente."
             )
+        evidence_request_id = self._attestation_request_id(
+            "identity.record_milestone.evidence",
+            evidence_attestation,
+            subject_sha256,
+        )
         try:
             evidence_receipt = verify_evidence(
                 attestation=evidence_attestation,
                 action="identity.record_milestone",
                 subject_sha256=subject_sha256,
                 source=normalized["source"],
+                idempotency_key=evidence_request_id,
             )
         except Exception as exc:
             raise PermissionError("Evidência do marco não pôde ser verificada.") from exc
@@ -350,7 +357,8 @@ class IdentityEngine:
             raise PermissionError(
                 "Marco bloqueado: atestador de aprovação one-shot ausente."
             )
-        approval_request_id = self._approval_request_id(
+        approval_request_id = self._attestation_request_id(
+            "identity.record_milestone.approval",
             approval_attestation,
             subject_sha256,
         )
@@ -370,6 +378,7 @@ class IdentityEngine:
             **normalized,
             "subject_sha256": subject_sha256,
             "approval_request_id": approval_request_id,
+            "evidence_request_id": evidence_request_id,
             "evidence_receipt": {
                 "receipt_id": evidence_receipt["receipt_id"],
                 "source_id": evidence_receipt["source_id"],
