@@ -115,3 +115,8 @@ The Android workflow now also summarizes and uploads JUnit XML test reports, so 
 - O workflow usa `retry_gradle.py` para 429/5xx transitórios e agora publica JUnit XML.
 - Nenhum APK foi instalado e o Realme não foi validado em runtime.
 - O runner privado continua bloqueado antes dos steps (run #45600387211); a evidência de build vem do snapshot público isolado.
+
+
+### Precisão do inventário (v0.1.1)
+
+O relatório inclui ABI, SoC quando a API oferece o campo, número de processadores, RAM, armazenamento e estado térmico quando disponível. GPU permanece `NOT_PROBED`. Para câmera, microfone e Bluetooth, o estado de permissão diferencia declaração no manifesto e concessão runtime; nenhuma permissão é solicitada nesta versão. O probe CameraX verifica `ProcessCameraProvider`, sem inicializar a câmera.
