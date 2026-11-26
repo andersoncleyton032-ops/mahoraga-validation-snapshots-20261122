@@ -12,6 +12,22 @@ import static org.junit.Assert.assertTrue;
 public final class TermuxSignerPolicyTest {
     @Test
     public void recognizesOfficialTermuxReleaseSigners() {
+        assertEquals(
+                "228FB2CFE90831C1499EC3CCAF61E96E8E1CE70766B9474672CE427334D41C42",
+                TermuxSignerPolicy.FDROID_SHA256
+        );
+        assertEquals(
+                "B6DA01480EEFD5FBF2CD3771B8D1021EC791304BDD6C4BF41D3FAABAD48EE5E1",
+                TermuxSignerPolicy.GITHUB_SHA256
+        );
+        assertEquals(
+                "738F0A30A04D3C8A1BE304AF18D0779BCF3EA88FB60808F657A3521861C2EBF9",
+                TermuxSignerPolicy.GOOGLE_PLAY_SHA256
+        );
+        assertEquals(
+                "F7A038EB551F1BE8FDF388686B784ABAB4552A5D82DF423E3D8F1B5CBE1C69AE",
+                TermuxSignerPolicy.TERMUX_DEVS_SHA256
+        );
         assertEquals("F-Droid", TermuxSignerPolicy.sourceForFingerprint(
                 TermuxSignerPolicy.FDROID_SHA256
         ));
