@@ -28,20 +28,24 @@ public final class WakeRequestReceiver extends BroadcastReceiver {
             finishOrdered(RESULT_INVALID_REQUEST);
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            try {
-                int termuxUid = context.getPackageManager()
-                        .getApplicationInfo(TermuxBridge.TERMUX_PACKAGE, 0).uid;
-                if (!WorkPolicy.isTrustedWakeSender(
-                        Build.VERSION.SDK_INT, getSentFromUid(), termuxUid
-                )) {
-                    finishOrdered(RESULT_UNTRUSTED_SENDER);
-                    return;
-                }
-            } catch (PackageManager.NameNotFoundException missingTermux) {
+        int senderUid = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+                ? getSentFromUid()
+                : -1;
+        try {
+            int termuxUid = context.getPackageManager()
+                    .getApplicationInfo(TermuxBridge.TERMUX_PACKAGE, 0).uid;
+            if (!WorkPolicy.isTrustedWakeSender(
+                    Build.VERSION.SDK_INT, senderUid, termuxUid
+            )) {
                 finishOrdered(RESULT_UNTRUSTED_SENDER);
                 return;
             }
+        } catch (PackageManager.NameNotFoundException missingTermux) {
+            finishOrdered(RESULT_UNTRUSTED_SENDER);
+            return;
+        } catch (RuntimeException senderInspectionFailure) {
+            finishOrdered(RESULT_UNTRUSTED_SENDER);
+            return;
         }
         if (!WorkScheduler.isEnabled(context)) {
             finishOrdered(RESULT_DISABLED);
