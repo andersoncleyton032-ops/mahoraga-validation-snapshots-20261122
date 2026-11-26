@@ -277,6 +277,21 @@ def test_resource_request_clamps_explicit_deadline_to_android_task_class_ceiling
     assert request.max_duration_seconds == ceiling
 
 
+def test_model_runtime_dispatches_the_clamped_deadline_to_backend(tmp_path):
+    class CapturingBackend(FakeBackend):
+        def generate(self, prompt, *, request):
+            self.last_request = request
+            return super().generate(prompt, request=request)
+
+    backend = CapturingBackend()
+    runtime, _ = make_runtime(tmp_path, backend=backend)
+    request = ResourceRequest(max_duration_seconds=1_000_000_000.0)
+
+    assert runtime.generate("deadline cap integration", request=request) == "resposta local"
+    assert backend.last_request.max_duration_seconds == 60.0
+    runtime.close()
+
+
 def test_adaptive_planner_caps_override_before_priority_and_thermal_derating(tmp_path):
     runtime, _ = make_runtime(tmp_path)
     planner = AdaptiveBudgetPlanner(

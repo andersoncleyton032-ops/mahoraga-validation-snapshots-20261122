@@ -322,3 +322,19 @@ def test_python_and_android_model_memory_overhead_stay_aligned():
 
     assert config["runtime_overhead_mb"] == 1152
     assert "modelSizeMb * 1.5 + 1_152.0" in budget
+
+
+def test_android_runtime_uses_agp9_builtin_kotlin_without_legacy_plugin_or_dsl():
+    root_build = (ROOT / "android-runtime" / "build.gradle.kts").read_text(
+        encoding="utf-8"
+    )
+    app_build = (ROOT / "android-runtime" / "app" / "build.gradle.kts").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id("com.android.application") version "9.5.2" apply false' in root_build
+    assert "org.jetbrains.kotlin.android" not in root_build
+    assert "org.jetbrains.kotlin.android" not in app_build
+    assert "kotlinOptions" not in app_build
+    assert "sourceCompatibility = JavaVersion.VERSION_17" in app_build
+    assert "targetCompatibility = JavaVersion.VERSION_17" in app_build

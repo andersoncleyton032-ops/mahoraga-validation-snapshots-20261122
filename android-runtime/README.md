@@ -86,3 +86,23 @@ The Android app includes an exported local ContentProvider at `content://com.mah
 **Maturity:** implemented in the integration branch and subject to CI; not yet validated on the Realme. The Python `AndroidContentProviderBackend` remains an optional path and must stay disabled in the default runtime composition until the provider and Python client pass an end-to-end device test. The direct Android ARM64 LiteRT-LM backend remains the preferred first device experiment.
 
 - CPU admission estimate for the 932 MiB Qwen3 INT4 artifact uses 1.5× artifact size + 1,152 MiB runtime overhead + max(512 MiB, 8% of total RAM) OS reserve. This is calibrated conservatively against the upstream model card's roughly 2.5 GB CPU peak-RSS figure; it is not a measurement from the Realme and must be refined with device telemetry.
+
+
+## Inference deadline safety
+
+Android applies its own task-specific duration ceiling even when Termux sends a precomputed duration. The legacy duration_policy_applied field is ignored at the IPC boundary; it cannot bypass local thermal/battery derating or the maximum duration. Current ceilings are twice the task-class defaults (interactive 60s, reasoning 240s, maintenance 360s, background 600s) and remain subject to thermal/battery derating. These are runtime guardrails, not universal hardware limits; adjust only with device evidence and regression coverage.
+
+
+The Android-side deadline is authoritative and applies its own thermal/battery derating. When the Python planner has already derated the request, this can apply a second conservative derating; this is intentional until a verifiable budget-receipt contract exists. The task-class ceiling remains an independent safety boundary.
+
+
+## AGP 9 built-in Kotlin migration — 26/11/2026
+
+The Android Runtime build now relies on AGP 9.5.2 built-in Kotlin. The legacy `org.jetbrains.kotlin.android` plugin has been removed from both root and app build files, and the legacy `android.kotlinOptions` block is gone. Kotlin bytecode target defaults to `android.compileOptions.targetCompatibility`, which remains Java 17. No KMP or KAPT plugin is used by this application module.
+
+This directly addresses the hosted Gradle failure where AGP reports that `org.jetbrains.kotlin.android` is no longer required and conflicts with built-in Kotlin. The migration is documented by Android's official AGP built-in Kotlin guide. Build verification remains pending; source-contract test added, not executed yet.
+
+
+## Cross-backend duration policy — 26/11/2026
+
+Python and Android now share the same per-task maximum duration ceiling: 60s interactive, 240s reasoning, 360s maintenance, 600s background. Python clamps explicit ResourceRequest values and planner overrides; the Android owner independently clamps the IPC request. Thermal/battery derating remains local to each policy and may be conservative twice across the bridge. This does not turn Python cooperative cancellation into a process-level hard kill.

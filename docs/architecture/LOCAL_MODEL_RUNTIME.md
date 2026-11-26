@@ -172,3 +172,15 @@ The branch also merges the provider's Kotlin Engine owner, cancellation/result-r
 **Evidence status:** source integration and tests have been authored; CI has not yet executed this integration branch. Do not describe the provider as validated or enable the Python fallback. Required next gates are public mirror Gradle/JUnit/Python execution, private runner recovery, and a controlled Realme CPU-only end-to-end test.
 
 The native provider and the shared model-runtime config now use the same conservative CPU admission estimate for the 932 MiB Qwen3 INT4 artifact: 1.5× artifact size + 1,152 MiB runtime overhead + max(512 MiB, 8% of total RAM). This is calibrated against the upstream model card's approximately 2.5 GB CPU peak RSS, not against a Realme measurement. Device telemetry must determine whether the estimate can be safely refined.
+
+
+## Android deadline authority — 26/11/2026
+
+The Termux/Python runtime may select a task-specific requested duration, but Android does not trust a caller-supplied duration_policy_applied flag. The Android provider ignores that IPC field; ModelEngineOwner always calls ModelBudgetMath.durationSeconds, which validates finite positive values, validates task class even for explicit durations, caps requests at 2x task-class defaults, and applies local thermal/battery derating. The current caps are interactive 60s, reasoning 240s, maintenance 360s and background 600s. Python retains duration_policy_applied only as an internal planner marker and no longer forwards it to Android. Local derating may be applied conservatively after Python planning; this is intentional until a verifiable budget receipt exists. These are task-specific guardrails, not universal hardware assumptions. No LiteRT-LM model load or device execution is implied by unit-test evidence.
+
+
+## Python/Android duration-ceiling parity — 26/11/2026
+
+The native Android owner is not the only enforcement point. The Python in-process LiteRT-LM backend is normally the primary backend, so its immutable `ResourceRequest` now enforces the same maximum duration as Android: interactive 60s, reasoning 240s, maintenance 360s, background 600s. A caller-provided deadline is clamped at construction; the adaptive planner also clamps an override before priority weighting, caps again after weighting, and then applies thermal/battery derating. Smaller caller-selected deadlines remain valid.
+
+This is a per-task guardrail, not a universal duration limit. Python LiteRT still relies on a cooperative watchdog and native Conversation cancellation; a backend/native call that does not return or honor cancellation cannot be equated with an OS-enforced hard kill. Android independently recomputes and applies its own cap and derating. Test coverage was added for all four task classes and for cap→priority→thermal ordering; these tests are not executed yet.
