@@ -107,3 +107,6 @@ Correção implementada nesta branch:
 - Dois testes verificam unicidade por geração e rejeição de geração zero/negativa.
 
 A correção precisa passar novamente por Python contract tests, AIDL/Gradle, JUnit e política binária do manifesto. Nenhuma validação física adicional foi executada.
+
+
+A identidade de serviço também incorpora um nonce aleatório de 64 bits gerado uma vez por processo, além da geração monotônica. Isso impede que um novo processo do app reutilize acidentalmente a tag de um UserService órfão de uma execução anterior; dentro do processo, a mesma geração produz argumentos determinísticos.
