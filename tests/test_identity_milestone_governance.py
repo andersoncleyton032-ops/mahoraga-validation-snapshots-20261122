@@ -49,8 +49,9 @@ class ApprovalVerifier:
     def consume_attestation(self, *, attestation, action, subject_sha256, idempotency_key):
         self.calls.append((attestation, action, subject_sha256, idempotency_key))
         if idempotency_key in self.consumed:
-            return self.consumed[idempotency_key] == (action, subject_sha256)
-        self.consumed[idempotency_key] = (action, subject_sha256)
+            previous = self.consumed[idempotency_key]
+            return previous == (action, subject_sha256, self.accepted) and self.accepted is True
+        self.consumed[idempotency_key] = (action, subject_sha256, self.accepted)
         return self.accepted
 
 
@@ -138,6 +139,16 @@ def test_rejected_or_reused_approval_does_not_write_event(tmp_path):
     with pytest.raises(PermissionError, match="inválida, expirada ou já utilizada"):
         _record(identity)
     assert len(approval.calls) == 1
+    assert store.list_events(event_type="identity.milestone.recorded") == []
+
+
+def test_rejected_approval_remains_rejected_on_idempotent_replay(tmp_path):
+    identity, store, approval, _ = _build(tmp_path, approval_valid=False)
+    for _ in range(2):
+        with pytest.raises(PermissionError, match="inválida, expirada ou já utilizada"):
+            _record(identity)
+    assert len(approval.calls) == 2
+    assert approval.calls[0][3] == approval.calls[1][3]
     assert store.list_events(event_type="identity.milestone.recorded") == []
 
 
