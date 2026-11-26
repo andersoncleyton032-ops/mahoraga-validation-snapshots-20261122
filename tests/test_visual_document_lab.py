@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import sys
 from types import ModuleType
@@ -8,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from agent.store import KnowledgeStore
-from agent.visual_document_store import VisualDocumentStore
+from agent.visual_document_store import VisualDocumentConflictError, VisualDocumentStore
 from scripts.visual_document_lab import VisualDocumentLab, main as visual_lab_main
 
 
@@ -227,4 +228,40 @@ def test_visual_lab_does_not_mask_executor_failure_or_report_success(tmp_path):
     assert len(calls) == 1
     args, kwargs = calls[0]
     assert args[0].task_id == "task.lab.executor-failure"
-    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"]
+    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"] == created["sha256"]
+
+
+def test_visual_lab_edit_transform_preserves_concurrent_revision_with_cas(tmp_path, monkeypatch):
+    lab, core = make_lab(tmp_path)
+    lab.create_demo("lab.test.concurrent-edit")
+    current = core.visual_documents.get("lab.test.concurrent-edit")
+    assert current is not None
+    concurrent_document = replace(current.document, title="Concurrent external edit")
+    original_save = core.visual_documents.save
+    injected = False
+
+    def race_save(document, *, expected_parent_sha256=None):
+        nonlocal injected
+        if not injected:
+            injected = True
+            original_save(
+                concurrent_document,
+                expected_parent_sha256=current.sha256,
+            )
+        return original_save(
+            document,
+            expected_parent_sha256=expected_parent_sha256,
+        )
+
+    monkeypatch.setattr(core.visual_documents, "save", race_save)
+    with pytest.raises(VisualDocumentConflictError):
+        lab.edit_transform(
+            "lab.test.concurrent-edit", "element.sphere", (4.0, 5.0, 6.0),
+        )
+
+    latest = core.visual_documents.get("lab.test.concurrent-edit")
+    assert latest is not None
+    assert latest.revision == 2
+    assert latest.document.title == "Concurrent external edit"
+    sphere = next(item for item in latest.document.elements if item.element_id == "element.sphere")
+    assert sphere.transform.translation == (0.0, 0.0, 0.0)
