@@ -47,26 +47,20 @@ def write_minimal_identity_profile(root):
     )
 
 
-def test_identity_milestone_records_unverified_caller_attestation(tmp_path):
+def test_identity_milestone_blocks_unverified_caller_attestation(tmp_path):
     write_minimal_identity_profile(tmp_path)
     store = KnowledgeStore(tmp_path / "identity.sqlite3")
     identity = IdentityEngine(tmp_path, store, AllowObservation())
 
-    result = identity.record_milestone(
-        "Marco validado",
-        "Evidência append-only",
-        ["ci:run-1", "commit:abc"],
-        approved=True,
-    )
+    with pytest.raises(PermissionError, match="verificador independente"):
+        identity.record_milestone(
+            "Marco validado",
+            "Evidência append-only",
+            ["ci:run-1", "commit:abc"],
+            approved=True,
+        )
 
-    event = store.list_events(event_type="identity.milestone.recorded")[0]
-    assert result["status"] == "recorded"
-    assert result["approval_claim"] == "caller_attested"
-    assert result["approval_verified"] is False
-    assert event["payload"]["approval_claim"] == "caller_attested"
-    assert event["payload"]["approval_verified"] is False
-    assert event["payload"]["source"] == "caller_attested"
-    assert result["automatic_identity_mutation"] is False
+    assert store.list_events(event_type="identity.milestone.recorded") == []
 
 
 def test_identity_milestone_still_requires_explicit_caller_acknowledgement(tmp_path):
