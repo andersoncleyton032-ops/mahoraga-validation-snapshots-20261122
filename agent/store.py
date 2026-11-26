@@ -769,21 +769,6 @@ class KnowledgeStore:
                                 (event_type, severity, _json(payload or {}), utc_now()))
             return int(cursor.lastrowid)
 
-    def get_event_sequence(self, sequence_key: str) -> int:
-        """Read the current monotonic sequence for a stream without modifying it."""
-        if (
-            not isinstance(sequence_key, str)
-            or not sequence_key.strip()
-            or len(sequence_key) > 200
-        ):
-            raise ValueError("sequence_key deve conter de 1 a 200 caracteres.")
-        with self._reader() as db:
-            row = db.execute(
-                "SELECT current_value FROM event_sequences WHERE sequence_key=?",
-                (sequence_key.strip(),),
-            ).fetchone()
-        return int(row["current_value"]) if row else 0
-
     def record_versioned_event(
         self,
         event_type: str,
