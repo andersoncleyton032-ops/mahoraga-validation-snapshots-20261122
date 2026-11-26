@@ -95,8 +95,8 @@ def test_empty_workspace_has_an_explicit_empty_focus():
     perspective = workspace.operational_perspective()
 
     assert perspective["focus"]["last_signal_topic"] is None
-    assert perspective["focus"]["active_topics"] == []
-    assert perspective["focus"]["active_processes"] == []
+    assert perspective["focus"]["topics_observed"] == []
+    assert perspective["focus"]["participating_components"] == []
     assert perspective["signal_chain"] == []
     assert perspective["artifacts"] == []
     assert perspective["stage_measurements"] == []
