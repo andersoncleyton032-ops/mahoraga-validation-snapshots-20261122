@@ -107,6 +107,7 @@ def test_milestone_requires_verifier_providers_not_boolean_claim(tmp_path):
 def test_milestone_verifies_exact_subject_before_consuming_approval(tmp_path):
     identity, store, approval, evidence = _build(tmp_path)
     result = _record(identity)
+    assert identity.VERSION == "0.3.0"
     assert result["status"] == "recorded"
     assert result["approval_verified"] is True
     assert result["evidence_verified"] is True
