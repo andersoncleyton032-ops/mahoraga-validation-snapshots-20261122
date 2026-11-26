@@ -40,3 +40,11 @@ def test_result_waiter_is_cleaned_even_when_pending_intent_creation_fails():
     assert "finally {" in source
     assert "if (resultPendingIntent != null) resultPendingIntent.cancel();" in source
     assert "TermuxResultReceiver.cancel(requestId, future);" in source
+
+def test_android_main_sources_do_not_call_post_min_sdk_string_isblank():
+    java_root = ROOT / "android-runtime" / "app" / "src" / "main" / "java"
+    sources = list(java_root.rglob("*.java"))
+
+    assert sources
+    assert all(".isBlank()" not in source.read_text(encoding="utf-8") for source in sources)
+
