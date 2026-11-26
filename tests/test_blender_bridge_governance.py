@@ -126,5 +126,6 @@ def test_claim_next_fails_malformed_legacy_payload(tmp_path):
     assert queue.claim_next("blender-worker") is None
     row = queue.list_tasks(limit=1)[0]
     assert row["status"] == "failed"
+    assert row["payload"] == {"_decode_error": "invalid_json"}
     assert row["error"].startswith("blocked_by_current_policy:")
 
