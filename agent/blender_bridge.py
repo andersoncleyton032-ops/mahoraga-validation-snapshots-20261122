@@ -49,6 +49,10 @@ class BlenderTaskQueue:
             raise PermissionError(decision.reason)
 
     def _initialize(self):
+        from .store import utc_now
+
+        blocked_legacy_ids = []
+        now = utc_now()
         with self.store._transaction() as db:
             db.execute("""
                 CREATE TABLE IF NOT EXISTS blender_tasks (
@@ -75,15 +79,39 @@ class BlenderTaskQueue:
                 ON blender_tasks(status, id)
             """)
 
-            from .store import utc_now
-
             db.execute("""
                 INSERT INTO metadata(key, value, updated_at)
                 VALUES(?, ?, ?)
                 ON CONFLICT(key) DO UPDATE SET
                     value=excluded.value,
                     updated_at=excluded.updated_at
-            """, ("blender_bridge_schema", "1", utc_now()))
+            """, ("blender_bridge_schema", "1", now))
+
+            # Fail any pending/claimed task created by an older, broader
+            # allowlist before the add-on can receive it.
+            legacy_rows = db.execute("""
+                SELECT id, task_type FROM blender_tasks
+                WHERE status IN ('pending', 'claimed')
+            """).fetchall()
+            for row in legacy_rows:
+                if row["task_type"] not in ALLOWED_TASKS:
+                    task_id = int(row["id"])
+                    db.execute("""
+                        UPDATE blender_tasks
+                        SET status='failed',
+                            error='blocked_by_current_policy: legacy task type disabled',
+                            finished_at=?,
+                            updated_at=?
+                        WHERE id=? AND status IN ('pending', 'claimed')
+                    """, (now, now, task_id))
+                    blocked_legacy_ids.append(task_id)
+
+        for task_id in blocked_legacy_ids:
+            self.store.record_event(
+                "blender.task.blocked_by_policy",
+                {"task_id": task_id, "reason": "legacy_task_type_disabled"},
+                severity="warning",
+            )
 
     @staticmethod
     def _encode(value):
