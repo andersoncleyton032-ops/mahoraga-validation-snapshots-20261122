@@ -61,8 +61,8 @@ class EvidenceVerifier:
         self.oversized = oversized
         self.calls = []
 
-    def verify_attestation(self, *, attestation, action, subject_sha256, source):
-        self.calls.append((attestation, action, subject_sha256, source))
+    def verify_attestation(self, *, attestation, action, subject_sha256, source, idempotency_key):
+        self.calls.append((attestation, action, subject_sha256, source, idempotency_key))
         return {
             "verified": self.valid,
             "subject_sha256": subject_sha256 if self.valid else "0" * 64,
@@ -119,6 +119,7 @@ def test_milestone_verifies_exact_subject_before_consuming_approval(tmp_path):
     assert approval.calls[0][1] == "identity.record_milestone"
     assert evidence.calls[0][1] == "identity.record_milestone"
     assert approval.calls[0][2] == evidence.calls[0][2] == result["subject_sha256"]
+    assert len(approval.calls[0][3]) == len(evidence.calls[0][4]) == 64
     payload = store.list_events(event_type="identity.milestone.recorded")[0]["payload"]
     assert payload["approval_verified"] is True
     assert payload["evidence_receipt"]["receipt_id"] == "receipt-identity-001"
@@ -163,7 +164,7 @@ def test_receipt_metadata_is_bounded_and_duplicate_evidence_is_rejected(tmp_path
 
 
 def test_approval_consumption_and_event_append_are_retry_safe(tmp_path):
-    identity, store, approval, _ = _build(tmp_path)
+    identity, store, approval, evidence = _build(tmp_path)
     original_record_once = store.record_event_once
     fail_once = {"enabled": True}
 
@@ -184,11 +185,13 @@ def test_approval_consumption_and_event_append_are_retry_safe(tmp_path):
     result = _record(identity)
     assert result["status"] == "recorded"
     assert approval.calls[1][3] == first_key
+    assert evidence.calls[1][4] == evidence.calls[0][4]
 
     replay = _record(identity)
     assert replay["status"] == "already_recorded"
     assert replay["event_id"] == result["event_id"]
     assert approval.calls[2][3] == first_key
+    assert evidence.calls[2][4] == evidence.calls[0][4]
     assert len(store.list_events(event_type="identity.milestone.recorded")) == 1
 
 
@@ -196,16 +199,16 @@ def test_approval_request_id_is_bound_to_subject_and_opaque_token():
     from agent.identity_engine import IdentityEngine
 
     subject = "a" * 64
-    first = IdentityEngine._approval_request_id({"token": "one"}, subject)
+    first = IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "one"}, subject)
     replay = IdentityEngine._approval_request_id({"token": "one"}, subject)
-    changed_token = IdentityEngine._approval_request_id({"token": "two"}, subject)
-    changed_subject = IdentityEngine._approval_request_id({"token": "one"}, "b" * 64)
+    changed_token = IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "two"}, subject)
+    changed_subject = IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "one"}, "b" * 64)
     assert first == replay
     assert len(first) == 64
     assert first != changed_token
     assert first != changed_subject
     with pytest.raises(PermissionError, match="limite de tamanho"):
-        IdentityEngine._approval_request_id({"token": "x" * 9000}, subject)
+        IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "x" * 9000}, subject)
 
 
 def test_caller_boolean_without_attestations_never_records_milestone(tmp_path):
