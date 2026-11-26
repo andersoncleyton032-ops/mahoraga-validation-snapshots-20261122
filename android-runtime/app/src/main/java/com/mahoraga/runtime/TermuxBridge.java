@@ -58,6 +58,8 @@ public final class TermuxBridge {
             return true;
         } catch (PackageManager.NameNotFoundException missing) {
             return false;
+        } catch (RuntimeException inspectionFailure) {
+            return false;
         }
     }
 
@@ -84,6 +86,9 @@ public final class TermuxBridge {
 
     public static ExecutionResult executeOnce(Context context) {
         Context app = context.getApplicationContext();
+        if (!WorkPolicy.supportsAuthenticatedWake(Build.VERSION.SDK_INT)) {
+            return ExecutionResult.failure("authenticated_wake_requires_api34", false);
+        }
         if (!isInstalled(app)) {
             return ExecutionResult.failure("termux_not_installed", false);
         }
@@ -105,8 +110,12 @@ public final class TermuxBridge {
         } catch (RuntimeException inspectionFailure) {
             return ExecutionResult.failure("termux_signer_inspection_failed", false);
         }
-        TermuxSignerPolicy.Verification signer =
-                TermuxSignerPolicy.verify(termuxPackage, Build.VERSION.SDK_INT);
+        final TermuxSignerPolicy.Verification signer;
+        try {
+            signer = TermuxSignerPolicy.verify(termuxPackage, Build.VERSION.SDK_INT);
+        } catch (RuntimeException verificationFailure) {
+            return ExecutionResult.failure("termux_signer_inspection_failed", false);
+        }
         if (!signer.trusted) {
             return ExecutionResult.failure("termux_signer_untrusted", false);
         }
