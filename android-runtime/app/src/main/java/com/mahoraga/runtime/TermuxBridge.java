@@ -144,7 +144,7 @@ public final class TermuxBridge {
                     .putExtra(EXTRA_COMMAND_LABEL, "Mahoraga bounded background task")
                     .putExtra(
                             EXTRA_COMMAND_DESCRIPTION,
-                            "One local checkpointable task. No network access."
+                            "One local checkpointable task. This worker does not request network tools."
                     );
 
             startTermuxCommand(app, command);
