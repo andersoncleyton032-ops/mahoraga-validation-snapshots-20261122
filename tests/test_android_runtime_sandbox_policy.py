@@ -54,3 +54,93 @@ def test_termux_command_description_does_not_claim_network_isolation():
     assert "No network access." not in source
     assert "This worker does not request network tools." in source
 
+
+
+def test_termux_signer_is_verified_before_any_run_command_dispatch():
+    source = BRIDGE.read_text(encoding="utf-8")
+    activity = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "MainActivity.java"
+    ).read_text(encoding="utf-8")
+
+    assert "TermuxSignerPolicy.verify(termuxPackage, Build.VERSION.SDK_INT)" in source
+    assert 'ExecutionResult.failure("termux_signer_untrusted", false)' in source
+    assert "termux_signer_inspection_failed" in source
+    assert source.index("TermuxSignerPolicy.verify(termuxPackage") < source.index(
+        "startTermuxCommand(app, command)"
+    )
+    assert "TermuxBridge.verifyInstalledSigner(this)" in activity
+    assert activity.index("TermuxBridge.verifyInstalledSigner(this)") < activity.index(
+        "WorkScheduler.start(this)"
+    )
+
+
+def test_wake_receiver_fails_closed_when_sender_uid_is_not_verifiable():
+    receiver = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "WakeRequestReceiver.java"
+    ).read_text(encoding="utf-8")
+    policy = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "WorkPolicy.java"
+    ).read_text(encoding="utf-8")
+
+    assert "? getSentFromUid()" in receiver
+    assert ": -1;" in receiver
+    assert "WorkPolicy.isTrustedWakeSender(" in receiver
+    assert "catch (RuntimeException senderInspectionFailure)" in receiver
+    assert "return sdkInt >= 34 && termuxUid >= 0 && senderUid == termuxUid;" in policy
+
+
+def test_interrupted_termux_result_wait_restores_thread_interrupt_flag():
+    source = BRIDGE.read_text(encoding="utf-8")
+
+    assert "catch (InterruptedException interrupted)" in source
+    assert "Thread.currentThread().interrupt();" in source
+    assert '"termux_result_wait_interrupted"' in source
+
+
+def test_existing_schedule_is_stopped_if_termux_signer_becomes_untrusted():
+    activity = (
+        ROOT
+        / "android-runtime"
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "mahoraga"
+        / "runtime"
+        / "MainActivity.java"
+    ).read_text(encoding="utf-8")
+    startup = activity.split("if (WorkScheduler.isEnabled(this))", 1)[1].split(
+        "refreshWorkStatus();", 1
+    )[0]
+
+    assert "TermuxBridge.verifyInstalledSigner(this)" in startup
+    assert "if (!signer.trusted)" in startup
+    assert "WorkScheduler.stop(this);" in startup
