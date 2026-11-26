@@ -1,5 +1,7 @@
 package com.mahoraga.shizukuprobe;
 
+import java.util.UUID;
+
 public final class ProbeContract {
     public static final int PROTOCOL_VERSION = 1;
     public static final int USER_SERVICE_VERSION = 1;
@@ -10,8 +12,12 @@ public final class ProbeContract {
     public static final int BIND_TIMEOUT_MS = 10_000;
     public static final int HANDSHAKE_TIMEOUT_MS = 5_000;
     public static final int OPERATION_TIMEOUT_MS = 5_000;
-    private static final String USER_SERVICE_TAG_PREFIX = "mahoraga.shizuku.probe.alpha2.g";
-    private static final String USER_SERVICE_PROCESS_PREFIX = "mahoraga_probe_g";
+    private static final String PROCESS_INSTANCE_ID =
+            UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+    private static final String USER_SERVICE_TAG_PREFIX =
+            "mahoraga.shizuku.probe.alpha2.p" + PROCESS_INSTANCE_ID + ".g";
+    private static final String USER_SERVICE_PROCESS_PREFIX =
+            "mahoraga_probe_p" + PROCESS_INSTANCE_ID + "_g";
 
     private ProbeContract() {}
 
