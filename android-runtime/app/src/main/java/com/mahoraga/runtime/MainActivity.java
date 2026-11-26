@@ -1,6 +1,8 @@
 package com.mahoraga.runtime;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,6 +16,7 @@ import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 public final class MainActivity extends Activity {
+    private static final int REQUEST_MODEL_FILE = 8421;
     private TextView status;
     private TextView oneShotStatus;
     private TextView pollStatus;
@@ -44,12 +47,17 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
+        Button importModel = new Button(this);
+        importModel.setText("Importar modelo local (.litertlm)");
+        importModel.setOnClickListener(view -> chooseModelFile());
+        layout.addView(importModel);
+
         status = new TextView(this);
         status.setText("\nEstado: desativado.");
         layout.addView(status);
 
         TextView prerequisites = new TextView(this);
-        prerequisites.setText("Requisitos manuais do Termux:\\n- Termux 0.109 ou superior\\n- Permissão RUN_COMMAND concedida ao Bridge\\n- allow-external-apps=true em termux.properties\\n- $PREFIX/bin/timeout disponível\\nO Bridge não altera essas configurações.");
+        prerequisites.setText("Requisitos manuais do Termux:\n- Termux 0.109 ou superior\n- Permissão RUN_COMMAND concedida ao Bridge\n- allow-external-apps=true em termux.properties\n- $PREFIX/bin/timeout disponível\nO Bridge não altera essas configurações.");
         layout.addView(prerequisites);
 
         oneShotStatus = new TextView(this);
@@ -98,6 +106,40 @@ public final class MainActivity extends Activity {
             }
         }
         refreshWorkStatus();
+    }
+
+    private void chooseModelFile() {
+        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        picker.addCategory(Intent.CATEGORY_OPENABLE);
+        picker.setType("*/*");
+        picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivityForResult(picker, REQUEST_MODEL_FILE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_MODEL_FILE || resultCode != RESULT_OK || data == null) {
+            return;
+        }
+        Uri selected = data.getData();
+        if (selected == null) return;
+        status.setText("\nImportando modelo para o armazenamento privado do Mahoraga...");
+        Thread importer = new Thread(() -> {
+            String message;
+            try {
+                Bundle result = ModelFileManager.importModel(getApplicationContext(), selected);
+                message = "Modelo importado e verificado.\n"
+                        + "Arquivo: " + result.getString("model_path") + "\n"
+                        + "Tamanho: " + result.getLong("size_bytes") + " bytes\n"
+                        + "SHA-256: " + result.getString("sha256");
+            } catch (Throwable failure) {
+                message = "Falha na importação: " + failure.getClass().getSimpleName();
+            }
+            String finalMessage = message;
+            new Handler(Looper.getMainLooper()).post(() -> status.setText(finalMessage));
+        }, "mahoraga-model-import");
+        importer.start();
     }
 
     private void startCycle() {
@@ -198,7 +240,7 @@ public final class MainActivity extends Activity {
     }
 
     private static void appendField(StringBuilder builder, String label, String value) {
-        if (value != null && !value.trim().isEmpty()) {
+        if (value != null && !value.isBlank()) {
             builder.append(" | ").append(label).append("=").append(value);
         }
     }
