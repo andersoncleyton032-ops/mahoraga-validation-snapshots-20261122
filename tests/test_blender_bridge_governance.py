@@ -129,3 +129,40 @@ def test_claim_next_fails_malformed_legacy_payload(tmp_path):
     assert row["payload"] == {"_decode_error": "invalid_json"}
     assert row["error"].startswith("blocked_by_current_policy:")
 
+def test_queue_startup_fails_legacy_claimed_mutations(tmp_path):
+    store = KnowledgeStore(tmp_path / "blender.sqlite3")
+    queue = BlenderTaskQueue(store, Dharma(tmp_path))
+    now = utc_now()
+
+    with store._transaction() as db:
+        db.execute(
+            """
+            INSERT INTO blender_tasks (
+                task_type, payload_json, status, worker_id,
+                created_at, updated_at, claimed_at
+            ) VALUES (?, ?, 'claimed', ?, ?, ?, ?)
+            """,
+            ("mahoraga.generate", "{}", "old-worker", now, now, now),
+        )
+
+    restarted_queue = BlenderTaskQueue(store, Dharma(tmp_path))
+    row = restarted_queue.list_tasks(limit=1)[0]
+
+    assert row["status"] == "failed"
+    assert row["error"] == (
+        "blocked_by_current_policy: legacy task type disabled"
+    )
+
+
+def test_blender_addon_rejects_every_non_inspection_task():
+    source = (
+        ROOT / "agent" / "mahoraga_blender_addon_v2.py"
+    ).read_text(encoding="utf-8")
+    dispatch = source.split("def execute_task(task):", 1)[1].split(
+        "def poll_mahoraga():", 1
+    )[0]
+
+    assert 'if kind != "scene.inspect":' in dispatch
+    assert 'elif kind == "mahoraga.generate"' not in dispatch
+    assert 'if kind == "python.execute"' not in dispatch
+
