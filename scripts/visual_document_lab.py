@@ -261,9 +261,20 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2))
-        return 0
-    finally:
+    except BaseException as primary_error:
+        # A cleanup failure must never replace the command's original failure.
+        try:
+            core.close()
+        except BaseException as cleanup_error:
+            primary_error.add_note(
+                "IntegratedCore.close() também falhou durante cleanup: "
+                f"{type(cleanup_error).__name__}: {cleanup_error}"
+            )
+        raise
+    else:
+        # On a successful command, a cleanup failure remains visible to the caller.
         core.close()
+        return 0
 
 
 if __name__ == "__main__":
