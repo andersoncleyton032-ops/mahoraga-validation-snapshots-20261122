@@ -5,6 +5,13 @@ on:
     branches: [main]
     paths:
       - 'experiments/**'
+      - 'android-capability-lab/**'
+      - 'android-shizuku-probe/**'
+      - 'scripts/retry_gradle.py'
+      - 'scripts/verify_android_manifest_policy.py'
+      - 'scripts/verify_shizuku_probe_manifest_policy.py'
+      - 'docs/architecture/ANDROID_CAPABILITY_LAB_V1.md'
+      - 'docs/research/ANDROID_SHIZUKU_USER_SERVICE_API36_20261125.md'
       - 'tests/**'
       - '.github/workflows/snapshot-tests.yml'
   push:
@@ -12,6 +19,10 @@ on:
       - 'snapshot/**'
     paths:
       - 'experiments/**'
+      - 'android-capability-lab/**'
+      - 'android-shizuku-probe/**'
+      - 'scripts/**'
+      - 'docs/research/ANDROID_SHIZUKU_USER_SERVICE_API36_20261125.md'
       - 'tests/**'
       - '.github/workflows/snapshot-tests.yml'
 
@@ -43,3 +54,132 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run all included focused tests
         run: python -m pytest -q tests/
+
+  android-capability-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out curated snapshot
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "9.6.0"
+      - name: Accept Android SDK licenses and install API 36
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK_ROOT/cmdline-tools"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          set +o pipefail
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses
+          set -o pipefail
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
+      - name: Run unit tests and assemble debug APK
+        run: python3 scripts/retry_gradle.py -p android-capability-lab --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Verify built APK manifest policy
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          apkanalyzer manifest print android-capability-lab/app/build/outputs/apk/debug/app-debug.apk > /tmp/mahoraga-capability-lab-manifest.xml
+          python3 scripts/verify_android_manifest_policy.py /tmp/mahoraga-capability-lab-manifest.xml
+      - name: Summarize Android JVM test results
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          import xml.etree.ElementTree as ET
+
+          reports = sorted(Path("android-capability-lab/app/build/test-results/testDebugUnitTest").glob("*.xml"))
+          if not reports:
+              print("JVM_TEST_REPORTS=0 (no XML report generated)")
+              raise SystemExit(0)
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          for report in reports:
+              root = ET.parse(report).getroot()
+              suites = list(root.findall("testsuite")) if root.tag == "testsuites" else [root]
+              for suite in suites:
+                  for key in totals:
+                      totals[key] += int(suite.attrib.get(key, "0"))
+          print("JVM_TESTS={tests} JVM_FAILURES={failures} JVM_ERRORS={errors} JVM_SKIPPED={skipped}".format(**totals))
+          if totals["failures"] or totals["errors"]:
+              sys.exit(1)
+          PY
+      - name: Upload Android JVM test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-capability-lab-test-results
+          path: android-capability-lab/app/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Generate APK checksum
+        run: sha256sum android-capability-lab/app/build/outputs/apk/debug/app-debug.apk > android-capability-lab/app/build/outputs/apk/debug/app-debug.apk.sha256
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-capability-lab-debug
+          path: |
+            android-capability-lab/app/build/outputs/apk/debug/app-debug.apk
+            android-capability-lab/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Run Shizuku UserService Alpha2 unit tests and assemble debug APK
+        run: python3 scripts/retry_gradle.py -p android-shizuku-probe --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Verify Shizuku UserService Alpha2 APK manifest policy
+        run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          apkanalyzer manifest print android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > /tmp/mahoraga-shizuku-probe-manifest.xml
+          python3 scripts/verify_shizuku_probe_manifest_policy.py /tmp/mahoraga-shizuku-probe-manifest.xml
+      - name: Summarize Shizuku UserService Alpha2 JVM test results
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          import xml.etree.ElementTree as ET
+
+          reports = sorted(Path("android-shizuku-probe/app/build/test-results/testDebugUnitTest").glob("*.xml"))
+          if not reports:
+              print("SHIZUKU_JVM_TEST_REPORTS=0 (no XML report generated)")
+              raise SystemExit(0)
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          for report in reports:
+              root = ET.parse(report).getroot()
+              suites = list(root.findall("testsuite")) if root.tag == "testsuites" else [root]
+              for suite in suites:
+                  for key in totals:
+                      totals[key] += int(suite.attrib.get(key, "0"))
+          print("SHIZUKU_JVM_TESTS={tests} SHIZUKU_JVM_FAILURES={failures} SHIZUKU_JVM_ERRORS={errors} SHIZUKU_JVM_SKIPPED={skipped}".format(**totals))
+          if totals["failures"] or totals["errors"]:
+              sys.exit(1)
+          PY
+      - name: Upload Shizuku UserService Alpha2 JVM test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-shizuku-probe-alpha2-test-results
+          path: android-shizuku-probe/app/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Generate Shizuku Probe APK checksum
+        run: sha256sum android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
+      - name: Upload Shizuku UserService Alpha2 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-shizuku-probe-alpha2-debug
+          path: |
+            android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk
+            android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
