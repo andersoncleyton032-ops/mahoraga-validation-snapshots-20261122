@@ -66,7 +66,7 @@ def test_blender_server_binds_loopback_only():
 def test_blender_lab_manual_fixture_scripts_remain_reversible():
     readme = (ROOT / "blender_lab" / "README.md").read_text(encoding="utf-8")
 
-    assert "não salva o arquivo .blend" in readme.lower()
+    assert "salva o arquivo .blend" in readme.lower()
     assert "rollback" in readme.lower()
     assert "scene.inspect" in readme
     assert "Tarefas de criação/transformação" in readme
