@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
-from agent.dharma import Dharma
 from agent.identity_engine import IdentityEngine
 from agent.store import KnowledgeStore
 
@@ -33,6 +33,11 @@ def _identity_profile(root):
     (config / "identity_profile.json").write_text(
         json.dumps(profile), encoding="utf-8"
     )
+
+
+class AllowDharma:
+    def evaluate(self, action):
+        return SimpleNamespace(allowed=True, reason="allowed")
 
 
 class ApprovalVerifier:
@@ -71,7 +76,7 @@ def _build(root, *, approved=True, evidence=True, receipt_valid=True, approval_v
     identity = IdentityEngine(
         root,
         store,
-        Dharma(root),
+        AllowDharma(),
         approval_verifier=approval,
         evidence_verifier=evidence_provider,
     )
