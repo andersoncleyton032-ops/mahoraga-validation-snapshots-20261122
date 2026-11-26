@@ -1,36 +1,31 @@
-# Android Runtime — AGP 9 built-in Kotlin migration — 26/11/2026
+# Android Runtime — built-in Kotlin / KGP metadata compatibility — 26/11/2026
 
-## Finding
+## Findings and failed attempts
 
-Public snapshot CI run #45801819626 reached Gradle, then failed while applying `org.jetbrains.kotlin.android` to `android-runtime/app`. The exact error: AGP 9 reports that the Kotlin Android plugin is no longer required since AGP 9.0 and fails application.
+1. Public run 45801819626 on the earlier Android runtime snapshot reached Gradle and failed while applying org.jetbrains.kotlin.android: AGP 9 enables built-in Kotlin and rejects the legacy Android Kotlin plugin. PR #298 removed the root/module plugin and the legacy kotlinOptions DSL.
+2. Public run 45858333659, job 140042480803, on AGP 9.5.2/Gradle 9.6.0 reached :app:compileDebugKotlin and failed. The built-in compiler was Kotlin 2.2.0 while litertlm-android:0.19.1 exposed Kotlin 2.4.0 metadata. No JUnit output or APK was produced.
+3. Trial AGP 9.6.0 + Gradle 9.8.2 (public run 45859600838, job 140046846874) failed before configuration because the AGP 9.6.0 plugin marker could not be resolved from Google, Maven Central or the Plugin Portal. The official AGP API reference currently reports 9.5.3 as stable and 9.6.0 as preview alpha; treating 9.6.0 as a stable published artifact was incorrect.
 
-The private runtime build pins AGP 9.5.2 and separately declares Kotlin Android plugin 2.4.0 at the root and app module. This is the same conflict pattern described by the official Android migration guide.
+## Current candidate
 
-## Change
+- Stable AGP 9.5.3.
+- Gradle 9.6.0 (minimum for AGP 9.5).
+- Explicit KGP 2.4.0 in the top-level buildscript dependencies classpath.
+- Built-in Kotlin remains enabled; no org.jetbrains.kotlin.android plugin is applied.
+- Java source/target compatibility 17, compileSdk 36 and JDK 17 remain unchanged.
 
-- Remove `org.jetbrains.kotlin.android` from root `android-runtime/build.gradle.kts`.
-- Remove its module-level application from `android-runtime/app/build.gradle.kts`.
-- Remove the legacy `android.kotlinOptions { jvmTarget = "17" }` block.
-- Keep Java `sourceCompatibility` and `targetCompatibility` at 17. Built-in Kotlin's target defaults to the Android compileOptions target compatibility.
-- No KAPT or Kotlin Multiplatform setup exists in this module.
+The official built-in Kotlin migration guide says AGP 9.0–9.5 normally uses KGP 2.2.10 but permits selecting another supported KGP (2.2.10 or higher) by declaring org.jetbrains.kotlin:kotlin-gradle-plugin in the top-level buildscript classpath when the project does not use the Android settings plugin or another Kotlin plugin. This project does not use the Android settings plugin, KAPT or KMP. Explicit KGP 2.4.0 is the candidate to test against LiteRT-LM metadata.
 
-AGP 9.5 uses its built-in Kotlin integration and corresponding KGP runtime dependency. The legacy 2.4.0 Android plugin version is not separately applied.
+## Regression contract
 
-## Regression coverage
-
-A source-contract test verifies that neither build file applies `org.jetbrains.kotlin.android`, that `kotlinOptions` is absent, and that the Java/JVM compatibility remains 17.
+The Python source test checks AGP 9.5.3, KGP 2.4.0 classpath, Gradle 9.6.0 workflow, built-in plugin removal, absence of legacy kotlinOptions and Java/JVM 17.
 
 ## Validation status
 
-**IMPLEMENTED / TEST_ADDED / BUILD_NOT_EXECUTED.** Private Actions still fails before runner steps. The public previous run reached Gradle and exposed this conflict; this change has not yet been built. No APK installed; no device validation.
+IMPLEMENTED / SOURCE-CONTRACT-TEST-WRITTEN / NOT YET EXECUTED. The AGP 9.6.0 plugin resolution failure was real but belongs to the rejected trial, not this current candidate. Keep PR #299 Draft until the public Android workflow completes AGP/KGP resolution, Kotlin compilation, JUnit and APK assembly. No Realme test or installation occurred.
 
-## Source
+## Authoritative sources
 
-Official Android Developers migration guide: https://developer.android.com/build/migrate-to-built-in-kotlin (reviewed 26/11/2026). It states AGP 9+ enables built-in Kotlin, directs projects to remove the root/module Kotlin Android plugin, and migrate `android.kotlinOptions` to `kotlin.compilerOptions`. It also states the built-in Kotlin JVM target defaults to `android.compileOptions.targetCompatibility`.
-
-
-## Follow-up: built-in Kotlin compiler metadata compatibility — 26/11/2026
-
-The public run 45858333659 validated the initial AGP 9.5.2 migration far enough to reach :app:compileDebugKotlin, but failed: the built-in compiler reported Kotlin 2.2.0 while litertlm-android:0.19.1 classes carried Kotlin 2.4.0 metadata. Repetitive unresolved standard-library references were downstream symptoms of this metadata mismatch. No JUnit tests or APK were produced.
-
-Official Android documentation confirms that AGP 9.0–9.5 defaults to KGP 2.2.10, while AGP 9.6 defaults to KGP 2.4.20; AGP 9.6 requires Gradle 9.8.2. The follow-up therefore upgrades AGP to 9.6.0 and the Android Runtime workflow to Gradle 9.8.2, preserving built-in Kotlin and Java/JVM 17. Source-contract assertions were extended. Build/JUnit validation remains pending; this change is based on the exact compiler error and official version matrix, not yet on a passing build.
+- Android built-in Kotlin migration and KGP selection: https://developer.android.com/build/migrate-to-built-in-kotlin
+- Android Gradle Plugin API reference (stable 9.5.3; 9.6 preview alpha): https://developer.android.com/reference/tools/gradle-api
+- AGP compatibility table: https://developer.android.com/build/releases/about-agp

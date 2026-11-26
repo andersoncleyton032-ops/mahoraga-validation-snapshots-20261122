@@ -336,11 +336,12 @@ def test_android_runtime_uses_agp9_builtin_kotlin_without_legacy_plugin_or_dsl()
         ROOT / ".github" / "workflows" / "android-runtime-tests.yml"
     ).read_text(encoding="utf-8")
 
-    assert 'id("com.android.application") version "9.6.0" apply false' in root_build
+    assert 'id("com.android.application") version "9.5.3" apply false' in root_build
+    assert 'classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")' in root_build
     assert "org.jetbrains.kotlin.android" not in root_build
     assert "org.jetbrains.kotlin.android" not in app_build
     assert "kotlinOptions" not in app_build
     assert "sourceCompatibility = JavaVersion.VERSION_17" in app_build
     assert "targetCompatibility = JavaVersion.VERSION_17" in app_build
-    assert 'name: Set up Gradle 9.8.2' in workflow
-    assert 'gradle-version: "9.8.2"' in workflow
+    assert 'name: Set up Gradle 9.6.0' in workflow
+    assert 'gradle-version: "9.6.0"' in workflow

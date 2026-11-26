@@ -41,10 +41,10 @@ jobs:
           set -o pipefail
           "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Set up Gradle 9.8.2
+      - name: Set up Gradle 9.6.0
         uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: "9.8.2"
+          gradle-version: "9.6.0"
 
       - name: Run Android Runtime Python contract tests
         run: |
