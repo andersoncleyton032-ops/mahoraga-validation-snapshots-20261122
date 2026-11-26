@@ -396,8 +396,10 @@ public final class MainActivity extends Activity {
         }
         if (!lifecycle.isCurrent(context.token)) return;
         if (failure != null || version < 0) {
-            stopUserService(context, "PROTOCOL_CHECK_FAILED: "
-                    + failure.getClass().getSimpleName());
+            String failureName = failure == null
+                    ? "INVALID_PROTOCOL_RESPONSE"
+                    : failure.getClass().getSimpleName();
+            stopUserService(context, "PROTOCOL_CHECK_FAILED: " + failureName);
             return;
         }
         if (version != ProbeContract.PROTOCOL_VERSION) {
