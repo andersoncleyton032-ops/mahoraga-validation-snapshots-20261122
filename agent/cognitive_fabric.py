@@ -306,10 +306,10 @@ class CognitiveWorkspace:
         perspective = self.operational_perspective()
         correlation_id = _identifier(self.correlation_id, "correlation_id")
         created_at = self._continuity_timestamp(self.created_at, "created_at")
-        completed_at = self._continuity_timestamp(
-            datetime.now(timezone.utc).isoformat()
-            if completed_at is None else completed_at,
-            "completed_at",
+        completed_at = (
+            None
+            if completed_at is None
+            else self._continuity_timestamp(completed_at, "completed_at")
         )
 
         focus = perspective["focus"]
