@@ -12,7 +12,7 @@ from typing import Any
 
 
 class IdentityEngine:
-    VERSION = "0.2.0"
+    VERSION = "0.3.0"
     PROFILE_RELATIVE_PATH = Path("config") / "identity_profile.json"
     MAX_PROFILE_BYTES = 64 * 1024
     MAX_CONTEXT_CHARS = 8000
