@@ -36,14 +36,15 @@ def make_lab(tmp_path: Path) -> tuple[VisualDocumentLab, HeadlessCore]:
     return VisualDocumentLab(core), core
 
 
-def test_visual_lab_creates_three_immutable_revisions_and_compiles(tmp_path):
+def test_visual_lab_creates_complete_document_atomically_and_compiles(tmp_path):
     lab, core = make_lab(tmp_path)
 
     created = lab.create_demo("lab.test.scene")
     report = lab.run("lab.test.scene", task_id="task.lab.test")
 
-    assert created["revision"] == 3
-    assert len(core.visual_documents.list_revisions("lab.test.scene")) == 3
+    assert created["revision"] == 1
+    assert created["element_count"] == 2
+    assert len(core.visual_documents.list_revisions("lab.test.scene")) == 1
     assert report["compile"]["status"] == "ready_for_governed_executor"
     assert report["compile"]["execution_started"] is False
     assert report["compile"]["source_document_sha256"] == created["sha256"]
@@ -59,7 +60,7 @@ def test_visual_lab_edit_appends_revision_and_preserves_parent_hash(tmp_path):
     )
     loaded = core.visual_documents.get("lab.test.edit")
 
-    assert edited["revision"] == 4
+    assert edited["revision"] == 2
     assert loaded is not None
     assert loaded.parent_sha256 is not None
     sphere = next(item for item in loaded.document.elements if item.element_id == "element.sphere")
