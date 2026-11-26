@@ -29,6 +29,21 @@ class ModelDeadlineExceeded(ModelRuntimeError):
 class ModelInferenceCancelled(ModelRuntimeError):
     """An inference request reached a confirmed cancelled terminal state."""
 
+
+_DEFAULT_TASK_DURATION_SECONDS = {
+    "interactive": 30.0,
+    "reasoning": 120.0,
+    "maintenance": 180.0,
+    "background": 300.0,
+}
+_MAX_TASK_DURATION_MULTIPLIER = 2.0
+
+
+def _max_task_duration_seconds(task_class: str) -> float:
+    """Return the same hard per-class ceiling enforced by the Android owner."""
+    return _DEFAULT_TASK_DURATION_SECONDS[task_class] * _MAX_TASK_DURATION_MULTIPLIER
+
+
 @dataclass(frozen=True)
 class ModelSpec:
     model_id: str
@@ -41,7 +56,7 @@ class ModelSpec:
     max_output_chars: int = 16_000
     cache_dir: Path | None = None
     estimated_peak_ram_mb: int | None = None
-    runtime_overhead_mb: int = 1152
+    runtime_overhead_mb: int = 768
     system_memory_reserve_mb: int = 512
     minimum_free_storage_mb: int | None = None
 
@@ -159,15 +174,19 @@ class ResourceRequest:
             or self.max_duration_seconds <= 0
         ):
             raise ValueError("max_duration_seconds precisa ser finito e positivo.")
+        # The Python LiteRT backend is normally the first backend selected. Enforce
+        # the native Android owner's ceiling here as well, so an explicit caller
+        # request cannot create an effectively unbounded local watchdog.
+        if self.max_duration_seconds is not None:
+            ceiling = _max_task_duration_seconds(self.task_class)
+            if self.max_duration_seconds > ceiling:
+                object.__setattr__(self, "max_duration_seconds", ceiling)
+
 
 class AdaptiveBudgetPlanner:
     """Build task-specific budgets from model size and current device conditions."""
-    DEFAULT_DURATION_SECONDS = {
-        "interactive": 30.0,
-        "reasoning": 120.0,
-        "maintenance": 180.0,
-        "background": 300.0,
-    }
+    DEFAULT_DURATION_SECONDS = dict(_DEFAULT_TASK_DURATION_SECONDS)
+    MAX_DURATION_MULTIPLIER = _MAX_TASK_DURATION_MULTIPLIER
 
     def __init__(self, hardware: Any, runtime_context_reader=None,
                  duration_profiles: dict | None = None) -> None:
@@ -211,13 +230,16 @@ class AdaptiveBudgetPlanner:
             or requested_duration_seconds <= 0
         ):
             raise ValueError("requested_duration_seconds precisa ser finito e positivo.")
-        duration = (
+        duration_cap = _max_task_duration_seconds(task_class)
+        duration = min(
             float(requested_duration_seconds)
             if requested_duration_seconds is not None
-            else self.duration_profiles[task_class]
+            else self.duration_profiles[task_class],
+            duration_cap,
         )
         # Priority 50 is neutral; lower priority receives less time, higher priority more.
-        duration *= 0.75 + (priority / 200.0)
+        # Priority may raise the selected budget but never above the task-class ceiling.
+        duration = min(duration * (0.75 + (priority / 200.0)), duration_cap)
         context = {}
         if callable(self.runtime_context_reader):
             try:
@@ -442,10 +464,7 @@ class ModelResourcePolicy:
         if not isinstance(context, dict):
             return {"allowed": False, "reason": "runtime_context_invalid"}
         if request.allow_background is not True:
-            foreground = context.get("app_foreground")
-            if foreground is False:
-                return {"allowed": False, "reason": "model_load_requires_foreground"}
-            if foreground is not True:
+            if context.get("app_foreground") is not True:
                 return {"allowed": False, "reason": "foreground_state_not_confirmed"}
             if context.get("screen_interactive") is not True:
                 return {"allowed": False, "reason": "interactive_screen_state_not_confirmed"}
@@ -488,9 +507,9 @@ class ModelResourcePolicy:
 class LiteRTLMBackend:
     """Official LiteRT-LM Python API; one fresh conversation per Mahoraga inference."""
 
-    MAX_STRUCTURED_MESSAGES = 32
-    MAX_STRUCTURED_MESSAGE_CHARS = 20_000
-    MAX_STRUCTURED_TOTAL_CHARS = 48_000
+    MAX_STRUCTURED_MESSAGES = 32  # Keep in sync with Android ModelPromptEnvelope.MAX_MESSAGES.
+    MAX_STRUCTURED_MESSAGE_CHARS = 20_000  # Android ModelPromptEnvelope.MAX_MESSAGE_CHARS.
+    MAX_STRUCTURED_TOTAL_CHARS = 50_000  # Android ModelPromptEnvelope.MAX_TOTAL_CHARS.
     DEFAULT_THINKING_BUDGET = {
         "interactive": 256,
         "reasoning": 1024,
@@ -915,7 +934,7 @@ class AndroidContentProviderBackend:
             "prompt": prompt,
             "task_class": request.task_class,
             "max_duration_seconds": request.max_duration_seconds,
-            "duration_policy_applied": request.duration_policy_applied,
+            # Android independently enforces local duration caps and derating.
             "estimated_additional_ram_mb": request.estimated_additional_ram_mb,
             "thinking_token_budget": request.thinking_token_budget,
             "max_output_tokens": request.max_output_tokens,

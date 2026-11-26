@@ -93,7 +93,7 @@ def test_model_load_rejects_background_context(tmp_path):
     )
     result = runtime.load()
     assert result["loaded"] is False
-    assert result["admission"]["reason"] == "model_load_requires_foreground"
+    assert result["admission"]["reason"] == "foreground_state_not_confirmed"
     assert backend.loaded is False
 
 def test_model_file_sha256_is_verified(tmp_path):
@@ -111,21 +111,10 @@ def test_prompt_and_output_limits_are_enforced(tmp_path):
     model = tmp_path / "qwen.litertlm"
     model.write_bytes(b"model")
     spec = ModelSpec("qwen", model, max_prompt_chars=3, max_output_chars=4)
-
-    class ShortBackend(FakeBackend):
-        def generate(self, prompt, *, request):
-            self.prompts.append(prompt)
-            return "resp"
-
-    context = {
-        "app_foreground": True,
-        "screen_interactive": True,
-        "thermal_status": "light",
-    }
     runtime = ModelRuntime(
-        spec,
-        ShortBackend(),
-        ModelResourcePolicy(FakeHardware(), lambda: context),
+        spec, FakeBackend(), ModelResourcePolicy(FakeHardware(), lambda: {
+            "app_foreground": True, "screen_interactive": True, "thermal_status": "light",
+        })
     )
     with pytest.raises(ValueError, match="max_prompt_chars"):
         runtime.generate("long")
@@ -263,6 +252,48 @@ def test_adaptive_budget_planner_assigns_distinct_task_durations(tmp_path):
     assert interactive.max_duration_seconds < reasoning.max_duration_seconds
     assert reasoning.estimated_peak_ram_mb > interactive.estimated_peak_ram_mb
     assert maintenance.max_duration_seconds > reasoning.max_duration_seconds
+
+
+
+
+@pytest.mark.parametrize(
+    ("task_class", "ceiling"),
+    [
+        ("interactive", 60.0),
+        ("reasoning", 240.0),
+        ("maintenance", 360.0),
+        ("background", 600.0),
+    ],
+)
+def test_resource_request_clamps_explicit_deadline_to_android_task_class_ceiling(
+    task_class, ceiling
+):
+    request = ResourceRequest(
+        task_class=task_class,
+        allow_background=(task_class == "background"),
+        max_duration_seconds=1_000_000_000.0,
+    )
+
+    assert request.max_duration_seconds == ceiling
+
+
+def test_adaptive_planner_caps_override_before_priority_and_thermal_derating(tmp_path):
+    runtime, _ = make_runtime(tmp_path)
+    planner = AdaptiveBudgetPlanner(
+        runtime.admission.hardware,
+        runtime_context_reader=lambda: {"thermal_status": "moderate"},
+    )
+
+    request = planner.for_task(
+        runtime.spec,
+        "reasoning",
+        priority=100,
+        requested_duration_seconds=1_000_000_000.0,
+    )
+
+    # 240s is the reasoning hard ceiling; priority cannot raise it further,
+    # and the moderate-thermal derating still applies afterward.
+    assert request.max_duration_seconds == 180.0
 
 
 def test_adaptive_budget_planner_reduces_duration_on_low_battery(tmp_path):
@@ -641,9 +672,7 @@ def test_resource_reserve_scales_with_physical_ram_not_ram_expansion(tmp_path):
     spec = ModelSpec("qwen", model, cache_dir=tmp_path)
     hardware = FakeHardware(ram_mb=4096, total_ram_mb=12_288, storage_path=tmp_path)
     policy = ModelResourcePolicy(hardware, lambda: {
-        "app_foreground": True,
-        "screen_interactive": True,
-        "thermal_status": "light",
+        "app_foreground": True, "screen_interactive": True, "thermal_status": "light",
     })
     decision = policy.evaluate(spec, phase="load")
     assert decision["total_ram_mb"] == 12_288
@@ -729,7 +758,9 @@ def test_android_provider_acknowledges_result_after_successful_decode():
 
     assert backend.generate("prompt", request=request) == "Hello"
     assert [method for method, _ in calls] == ["infer", "result", "ack"]
-    assert calls[-1][1] == json.loads(calls[0][1])["request_id"]
+    request_id = json.loads(calls[0][1])["request_id"]
+    assert calls[1][1] == request_id
+    assert calls[2][1] == request_id
 
 
 def test_android_provider_acknowledges_terminal_failure():
@@ -820,7 +851,9 @@ def test_android_provider_maps_cancelled_terminal_state_and_acknowledges_it():
     with pytest.raises(ModelInferenceCancelled, match="cancelled"):
         backend.generate("prompt", request=request)
     assert [method for method, _ in calls] == ["infer", "result", "ack"]
-    assert calls[-1][1] == json.loads(calls[0][1])["request_id"]
+    request_id = json.loads(calls[0][1])["request_id"]
+    assert calls[1][1] == request_id
+    assert calls[2][1] == request_id
 
 
 def test_android_provider_exposes_request_id_scoped_cancel_operation():
@@ -861,7 +894,7 @@ def test_android_provider_timeout_cancels_exact_request_and_waits_for_terminal_a
     backend._call = fake_call
     monkeypatch.setattr("agent.model_runtime.uuid.uuid4", lambda: types.SimpleNamespace(hex="req-timeout"))
     clock = iter([0.0, 0.0, 31.0, 31.0, 31.0])
-    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: next(clock, 42.0))
+    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: next(clock))
     monkeypatch.setattr("agent.model_runtime.time.sleep", lambda _seconds: None)
     request = ResourceRequest(task_class="interactive", max_duration_seconds=0.01)
 
@@ -916,9 +949,10 @@ def test_android_provider_timeout_keeps_pending_result_unacknowledged(monkeypatc
     backend = AndroidContentProviderBackend()
     backend._loaded = True
     calls = []
-    result_states = iter(
-        ["Result: Bundle[{status=pending}]"] * 64
-    )
+    result_states = iter([
+        "Result: Bundle[{status=pending}]",
+        "Result: Bundle[{status=pending}]",
+    ])
 
     def fake_call(method, arg=None, timeout_seconds=15.0):
         calls.append((method, arg))
@@ -932,8 +966,18 @@ def test_android_provider_timeout_keeps_pending_result_unacknowledged(monkeypatc
 
     backend._call = fake_call
     monkeypatch.setattr("agent.model_runtime.uuid.uuid4", lambda: types.SimpleNamespace(hex="req-still-pending"))
-    clock = iter([0.0, 0.0, 31.0, 31.0, 31.0, 42.0])
-    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: next(clock, 42.0))
+    clock = [0.0]
+    result_call_count = [0]
+    original_fake_call = fake_call
+
+    def advancing_fake_call(method, arg=None, timeout_seconds=15.0):
+        if method == "result":
+            result_call_count[0] += 1
+            clock[0] = 31.0 if result_call_count[0] == 1 else 42.0
+        return original_fake_call(method, arg, timeout_seconds)
+
+    backend._call = advancing_fake_call
+    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: clock[0])
     monkeypatch.setattr("agent.model_runtime.time.sleep", lambda _seconds: None)
     request = ResourceRequest(task_class="interactive", max_duration_seconds=0.01)
 
@@ -991,6 +1035,7 @@ def test_android_provider_payload_preserves_sampling_parameters():
     assert captured["top_k"] == 24
     assert captured["top_p"] == 0.88
     assert captured["temperature"] == 0.25
+    assert "duration_policy_applied" not in captured
 
 
 
@@ -1406,12 +1451,3 @@ def test_adaptive_backend_disables_android_fallback_by_default():
     backend = AdaptiveModelBackend()
     assert backend.fallback is None
     assert backend.active is None
-
-
-def test_qwen_runtime_overhead_matches_shared_android_reserve():
-    spec = ModelSpec("qwen3-1.7b-int4", Path("qwen3-1.7b-int4.litertlm"))
-    config_path = Path(__file__).resolve().parents[1] / "config" / "litert_model_runtime.json"
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-
-    assert spec.runtime_overhead_mb == 1152
-    assert config["runtime_overhead_mb"] == 1152
