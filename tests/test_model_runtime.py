@@ -111,7 +111,22 @@ def test_prompt_and_output_limits_are_enforced(tmp_path):
     model = tmp_path / "qwen.litertlm"
     model.write_bytes(b"model")
     spec = ModelSpec("qwen", model, max_prompt_chars=3, max_output_chars=4)
-    runtime = ModelRuntime(spec, FakeBackend(), ModelResourcePolicy(FakeHardware()))
+
+    class ShortBackend(FakeBackend):
+        def generate(self, prompt, *, request):
+            self.prompts.append(prompt)
+            return "resp"
+
+    context = {
+        "app_foreground": True,
+        "screen_interactive": True,
+        "thermal_status": "light",
+    }
+    runtime = ModelRuntime(
+        spec,
+        ShortBackend(),
+        ModelResourcePolicy(FakeHardware(), lambda: context),
+    )
     with pytest.raises(ValueError, match="max_prompt_chars"):
         runtime.generate("long")
     assert runtime.generate("ok") == "resp"
@@ -625,7 +640,11 @@ def test_resource_reserve_scales_with_physical_ram_not_ram_expansion(tmp_path):
     model.write_bytes(b"model")
     spec = ModelSpec("qwen", model, cache_dir=tmp_path)
     hardware = FakeHardware(ram_mb=4096, total_ram_mb=12_288, storage_path=tmp_path)
-    policy = ModelResourcePolicy(hardware)
+    policy = ModelResourcePolicy(hardware, lambda: {
+        "app_foreground": True,
+        "screen_interactive": True,
+        "thermal_status": "light",
+    })
     decision = policy.evaluate(spec, phase="load")
     assert decision["total_ram_mb"] == 12_288
     assert decision["load_reserve_mb"] >= 983
@@ -710,7 +729,7 @@ def test_android_provider_acknowledges_result_after_successful_decode():
 
     assert backend.generate("prompt", request=request) == "Hello"
     assert [method for method, _ in calls] == ["infer", "result", "ack"]
-    assert calls[-1][1] == calls[0][1]
+    assert calls[-1][1] == json.loads(calls[0][1])["request_id"]
 
 
 def test_android_provider_acknowledges_terminal_failure():
@@ -801,7 +820,7 @@ def test_android_provider_maps_cancelled_terminal_state_and_acknowledges_it():
     with pytest.raises(ModelInferenceCancelled, match="cancelled"):
         backend.generate("prompt", request=request)
     assert [method for method, _ in calls] == ["infer", "result", "ack"]
-    assert calls[-1][1] == calls[0][1]
+    assert calls[-1][1] == json.loads(calls[0][1])["request_id"]
 
 
 def test_android_provider_exposes_request_id_scoped_cancel_operation():
@@ -842,7 +861,7 @@ def test_android_provider_timeout_cancels_exact_request_and_waits_for_terminal_a
     backend._call = fake_call
     monkeypatch.setattr("agent.model_runtime.uuid.uuid4", lambda: types.SimpleNamespace(hex="req-timeout"))
     clock = iter([0.0, 0.0, 31.0, 31.0, 31.0])
-    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: next(clock, 42.0))
     monkeypatch.setattr("agent.model_runtime.time.sleep", lambda _seconds: None)
     request = ResourceRequest(task_class="interactive", max_duration_seconds=0.01)
 
@@ -897,10 +916,9 @@ def test_android_provider_timeout_keeps_pending_result_unacknowledged(monkeypatc
     backend = AndroidContentProviderBackend()
     backend._loaded = True
     calls = []
-    result_states = iter([
-        "Result: Bundle[{status=pending}]",
-        "Result: Bundle[{status=pending}]",
-    ])
+    result_states = iter(
+        ["Result: Bundle[{status=pending}]"] * 64
+    )
 
     def fake_call(method, arg=None, timeout_seconds=15.0):
         calls.append((method, arg))
@@ -915,7 +933,7 @@ def test_android_provider_timeout_keeps_pending_result_unacknowledged(monkeypatc
     backend._call = fake_call
     monkeypatch.setattr("agent.model_runtime.uuid.uuid4", lambda: types.SimpleNamespace(hex="req-still-pending"))
     clock = iter([0.0, 0.0, 31.0, 31.0, 31.0, 42.0])
-    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: next(clock, 42.0))
     monkeypatch.setattr("agent.model_runtime.time.sleep", lambda _seconds: None)
     request = ResourceRequest(task_class="interactive", max_duration_seconds=0.01)
 
