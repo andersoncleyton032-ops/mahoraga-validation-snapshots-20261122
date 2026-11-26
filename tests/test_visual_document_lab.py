@@ -297,3 +297,65 @@ def test_visual_lab_preserves_executor_cancellation_without_success_claim(tmp_pa
     assert report["execution"]["cancellation_reason"] == "cooperative_test_cancel"
     assert report["capability_activation_performed"] is False
     assert not (tmp_path / "artifacts" / "images").exists()
+
+
+@pytest.mark.parametrize("document_exists", [True, False])
+def test_visual_lab_cli_reports_cleanup_failure_without_masking_command_failure(
+    tmp_path, monkeypatch, capsys, document_exists,
+):
+    instances = []
+    document = SimpleNamespace(
+        document_id="lab.cleanup.test",
+        layers=(),
+        elements=(),
+        SCHEMA="mahoraga.visual_document.v1",
+        to_dict=lambda: {"document_id": "lab.cleanup.test"},
+    )
+    stored = SimpleNamespace(
+        document=document,
+        revision=1,
+        sha256="b" * 64,
+        parent_sha256=None,
+        status="ready",
+    )
+
+    class FakeVisualDocumentStore:
+        def get(self, document_id):
+            return stored if document_exists else None
+
+        def list_revisions(self, document_id):
+            return []
+
+    class FakeCore:
+        def __init__(self, root, store):
+            self.visual_documents = FakeVisualDocumentStore()
+            instances.append(self)
+
+        def close(self):
+            raise RuntimeError("synthetic cleanup failure")
+
+    integration_module = ModuleType("agent.integration_core")
+    integration_module.IntegratedCore = FakeCore
+    monkeypatch.setitem(sys.modules, "agent.integration_core", integration_module)
+    monkeypatch.setattr("agent.store.KnowledgeStore", lambda database: object())
+
+    argv = [
+        "--root", str(tmp_path),
+        "--database", str(tmp_path / "cleanup.sqlite3"),
+        "inspect",
+        "--document-id", "lab.cleanup.test",
+    ]
+
+    if document_exists:
+        with pytest.raises(RuntimeError, match="synthetic cleanup failure"):
+            visual_lab_main(argv)
+        capsys.readouterr()
+    else:
+        with pytest.raises(ValueError, match="não encontrado") as captured:
+            visual_lab_main(argv)
+        assert any(
+            "synthetic cleanup failure" in note
+            for note in getattr(captured.value, "__notes__", ())
+        )
+
+    assert len(instances) == 1
