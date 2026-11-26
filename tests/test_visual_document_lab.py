@@ -122,7 +122,7 @@ def test_visual_lab_delegates_provenance_only_after_test_selector_selects(tmp_pa
     assert args[0].task_id == "task.lab.positive-gate"
     assert kwargs["estimated_ram_mb"] == 128
     assert kwargs["estimated_seconds"] == 2.5
-    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"] == created["sha256"]
+    assert kwargs["visual_provenance"].to_dict()["source_document_sha256"] == created["sha256"] == created["sha256"]
     assert report["execution"]["status"] == "delegated_to_test_fixture"
     assert report["capability_activation_performed"] is False
 
@@ -203,7 +203,7 @@ def test_visual_lab_cli_closes_core_after_success_or_command_error(
 def test_visual_lab_does_not_mask_executor_failure_or_report_success(tmp_path):
     core = SelectedHeadlessCore(tmp_path / "memory.sqlite3")
     lab = VisualDocumentLab(core)
-    lab.create_demo("lab.test.executor-failure")
+    created = lab.create_demo("lab.test.executor-failure")
     calls = []
 
     def fail_execution(*args, **kwargs):
