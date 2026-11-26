@@ -105,14 +105,25 @@ class CognitiveContinuityLedger:
                 or not isinstance(record, dict)
                 or record.get("schema") != "mahoraga.cognitive_continuity_record"
                 or record.get("schema_version") != 1
+                or record.get("outcome") not in {"completed", "deferred", "failed", "cancelled"}
+                or not isinstance(record.get("cycle"), dict)
+                or not isinstance(record.get("focus"), dict)
+                or record["cycle"].get("correlation_id") != payload.get("correlation_id")
+                or not isinstance(event.get("created_at"), str)
             ):
+                continue
+            try:
+                fingerprint = self._fingerprint(record)
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if payload.get("cycle_fingerprint") != fingerprint:
                 continue
             restored_record = json.loads(json.dumps(record, ensure_ascii=False))
             restored_record["cycle"]["completed_at"] = event["created_at"]
             result.append({
                 "event_id": event["id"],
                 "cycle_sequence": event["id"],
-                "cycle_fingerprint": payload.get("cycle_fingerprint"),
+                "cycle_fingerprint": fingerprint,
                 "record": restored_record,
             })
         return result
