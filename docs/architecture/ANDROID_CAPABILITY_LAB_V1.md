@@ -117,3 +117,15 @@ Validação pública curada PR #17, run `45598848336`, usando os arquivos Androi
 - O workflow usa `retry_gradle.py` para 429/5xx transitórios e agora publica JUnit XML.
 - Nenhum APK foi instalado e o Realme não foi validado em runtime.
 - O runner privado continua bloqueado antes dos steps (run #45600387211); a evidência de build vem do snapshot público isolado.
+
+
+## Atualização de precisão do inventário — 26/11/2026
+
+A revisão v0.1.1 acrescenta ao relatório read-only ABI suportadas, identificador SoC quando disponível, contagem de processadores, RAM total/disponível, armazenamento total/disponível e estado térmico via PowerManager. GPU permanece explicitamente NOT_PROBED: consultar GPU exige contexto gráfico separado. A leitura não abre câmera/microfone, não registra sensores, não inicia jobs e não solicita permissões.
+
+Os probes de câmera, microfone e Bluetooth distinguem `permission_declared` de `permission_granted`. Uma permissão ausente do manifesto não pode ser concedida por runtime no APK atual; reportá-la como REQUIRES_USER_ACTION evita sugerir uma concessão impossível. O detector CameraX usa `androidx.camera.lifecycle.ProcessCameraProvider`; a antiga classe `androidx.camera.core.CameraX` foi removida da API moderna.
+
+
+### Semântica dos recursos
+
+O relatório deve declarar o escopo de cada valor: processadores lógicos visíveis ao runtime; RAM de dispositivo; armazenamento da partição de dados interna; estado térmico (categoria do PowerManager, não temperatura em graus). GPU permanece `NOT_PROBED` até haver contexto gráfico específico. Essas distinções evitam converter métricas do sistema em alegações sobre quota do processo ou temperatura de um sensor particular.

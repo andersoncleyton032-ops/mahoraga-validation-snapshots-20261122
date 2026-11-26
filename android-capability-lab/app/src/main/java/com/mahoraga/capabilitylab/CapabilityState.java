@@ -13,7 +13,12 @@ public final class CapabilityState {
     private CapabilityState() {}
 
     public static Status permission(boolean featurePresent, boolean granted) {
+        return permission(featurePresent, true, granted);
+    }
+
+    public static Status permission(boolean featurePresent, boolean permissionDeclared, boolean granted) {
         if (!featurePresent) return Status.UNSUPPORTED;
+        if (!permissionDeclared) return Status.REQUIRES_USER_ACTION;
         return granted ? Status.AVAILABLE : Status.REQUIRES_PERMISSION;
     }
 

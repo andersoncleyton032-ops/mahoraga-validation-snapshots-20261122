@@ -38,6 +38,24 @@ public final class CapabilityStateTest {
     }
 
     @Test
+    public void undeclaredPermissionRequiresManifestActionBeforeRuntimeGrant() {
+        assertEquals(CapabilityState.Status.REQUIRES_USER_ACTION,
+                CapabilityState.permission(true, false, false));
+    }
+
+    @Test
+    public void declaredButDeniedPermissionRequiresRuntimePermission() {
+        assertEquals(CapabilityState.Status.REQUIRES_PERMISSION,
+                CapabilityState.permission(true, true, false));
+    }
+
+    @Test
+    public void declaredAndGrantedPermissionIsAvailable() {
+        assertEquals(CapabilityState.Status.AVAILABLE,
+                CapabilityState.permission(true, true, true));
+    }
+
+    @Test
     public void absentOptionalPackageIsNotMisclassifiedAsUnsupported() {
         assertEquals(
                 CapabilityState.Status.TEMPORARILY_UNAVAILABLE,
