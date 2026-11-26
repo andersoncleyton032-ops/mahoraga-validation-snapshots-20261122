@@ -185,3 +185,31 @@ def test_snapshot_is_bounded_and_redacted_for_self_model(tmp_path):
     assert "NEVER_PERSIST_PAYLOAD" not in json.dumps(snapshot)
     with pytest.raises(ValueError, match="limit"):
         ledger.snapshot(limit=0)
+
+
+def test_global_event_sequence_serializes_distinct_concurrent_cycles(tmp_path):
+    store = KnowledgeStore(tmp_path / "continuity.sqlite3")
+    ledger = CognitiveContinuityLedger(store)
+    workspaces = [make_workspace() for _ in range(8)]
+    assert store.get_event_sequence(ledger.SEQUENCE_KEY) == 0
+
+    def record(workspace):
+        return ledger.record_terminal_cycle(workspace, "completed")
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(record, workspaces))
+
+    assert all(result["status"] == "recorded" for result in results)
+    assert sorted(result["cycle_sequence"] for result in results) == list(range(1, 9))
+    assert store.get_event_sequence(ledger.SEQUENCE_KEY) == 8
+    assert len(store.list_events(event_type=ledger.EVENT_TYPE)) == 8
+
+
+def test_global_sequence_read_is_read_only_and_validates_key(tmp_path):
+    store = KnowledgeStore(tmp_path / "continuity.sqlite3")
+    before = store.counts()
+    assert store.get_event_sequence("uninitialized_stream") == 0
+    assert store.counts() == before
+    for invalid in ("", " " * 201, None):
+        with pytest.raises(ValueError, match="sequence_key"):
+            store.get_event_sequence(invalid)
