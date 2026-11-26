@@ -1,0 +1,8 @@
+{
+  "format": "mahoraga_messages_v1",
+  "messages": [
+    {"role": "user", "content": "Pergunta anterior."},
+    {"role": "system", "content": "Instrução tardia."},
+    {"role": "user", "content": "Pergunta atual."}
+  ]
+}
