@@ -57,7 +57,13 @@ def test_activity_uses_generation_scoped_connections_and_ignores_stale_callbacks
     assert "new ServiceConnection()" in activity
     assert "lifecycle.isCurrent(context.token)" in activity
     assert "enqueueStaleConnectionRemoval(context)" in activity
-    assert "Shizuku.unbindUserService(userServiceArgs, context.connection, true)" in activity
+    assert "private static final ServiceLifecycle lifecycle" in activity
+    assert "final Shizuku.UserServiceArgs userServiceArgs" in activity
+    assert "createUserServiceArgs(token.generation)" in activity
+    assert "ProbeContract.userServiceTag(generation)" in activity
+    assert "ProbeContract.userServiceProcessSuffix(generation)" in activity
+    assert "Shizuku.unbindUserService(context.userServiceArgs, context.connection, true)" in activity
+    assert "Shizuku.unbindUserService(userServiceArgs, context.connection, true)" not in activity
     assert "linkToDeath(context.deathRecipient, 0)" in activity
     assert "operation.generation == context.token.generation" in activity
 
