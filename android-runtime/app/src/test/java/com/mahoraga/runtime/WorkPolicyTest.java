@@ -34,8 +34,9 @@ public final class WorkPolicyTest {
     }
 
     @Test
-    public void wakeSenderMustMatchTermuxUidOnAndroid14AndLater() {
-        assertTrue(WorkPolicy.isTrustedWakeSender(33, -1, -1));
+    public void wakeSenderMustBeVerifiableAndMatchTermuxUid() {
+        assertFalse(WorkPolicy.isTrustedWakeSender(24, 10456, 10456));
+        assertFalse(WorkPolicy.isTrustedWakeSender(33, 10456, 10456));
         assertTrue(WorkPolicy.isTrustedWakeSender(34, 10456, 10456));
         assertTrue(WorkPolicy.isTrustedWakeSender(36, 10456, 10456));
         assertFalse(WorkPolicy.isTrustedWakeSender(34, 10457, 10456));
