@@ -93,7 +93,7 @@ def test_model_load_rejects_background_context(tmp_path):
     )
     result = runtime.load()
     assert result["loaded"] is False
-    assert result["admission"]["reason"] == "model_load_requires_foreground"
+    assert result["admission"]["reason"] == "foreground_state_not_confirmed"
     assert backend.loaded is False
 
 def test_model_file_sha256_is_verified(tmp_path):
@@ -111,7 +111,11 @@ def test_prompt_and_output_limits_are_enforced(tmp_path):
     model = tmp_path / "qwen.litertlm"
     model.write_bytes(b"model")
     spec = ModelSpec("qwen", model, max_prompt_chars=3, max_output_chars=4)
-    runtime = ModelRuntime(spec, FakeBackend(), ModelResourcePolicy(FakeHardware()))
+    runtime = ModelRuntime(
+        spec, FakeBackend(), ModelResourcePolicy(FakeHardware(), lambda: {
+            "app_foreground": True, "screen_interactive": True, "thermal_status": "light",
+        })
+    )
     with pytest.raises(ValueError, match="max_prompt_chars"):
         runtime.generate("long")
     assert runtime.generate("ok") == "resp"
@@ -625,7 +629,9 @@ def test_resource_reserve_scales_with_physical_ram_not_ram_expansion(tmp_path):
     model.write_bytes(b"model")
     spec = ModelSpec("qwen", model, cache_dir=tmp_path)
     hardware = FakeHardware(ram_mb=4096, total_ram_mb=12_288, storage_path=tmp_path)
-    policy = ModelResourcePolicy(hardware)
+    policy = ModelResourcePolicy(hardware, lambda: {
+        "app_foreground": True, "screen_interactive": True, "thermal_status": "light",
+    })
     decision = policy.evaluate(spec, phase="load")
     assert decision["total_ram_mb"] == 12_288
     assert decision["load_reserve_mb"] >= 983
@@ -710,7 +716,9 @@ def test_android_provider_acknowledges_result_after_successful_decode():
 
     assert backend.generate("prompt", request=request) == "Hello"
     assert [method for method, _ in calls] == ["infer", "result", "ack"]
-    assert calls[-1][1] == calls[0][1]
+    request_id = json.loads(calls[0][1])["request_id"]
+    assert calls[1][1] == request_id
+    assert calls[2][1] == request_id
 
 
 def test_android_provider_acknowledges_terminal_failure():
@@ -914,8 +922,18 @@ def test_android_provider_timeout_keeps_pending_result_unacknowledged(monkeypatc
 
     backend._call = fake_call
     monkeypatch.setattr("agent.model_runtime.uuid.uuid4", lambda: types.SimpleNamespace(hex="req-still-pending"))
-    clock = iter([0.0, 0.0, 31.0, 31.0, 31.0, 42.0])
-    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: next(clock))
+    clock = [0.0]
+    result_call_count = [0]
+    original_fake_call = fake_call
+
+    def advancing_fake_call(method, arg=None, timeout_seconds=15.0):
+        if method == "result":
+            result_call_count[0] += 1
+            clock[0] = 31.0 if result_call_count[0] == 1 else 42.0
+        return original_fake_call(method, arg, timeout_seconds)
+
+    backend._call = advancing_fake_call
+    monkeypatch.setattr("agent.model_runtime.time.monotonic", lambda: clock[0])
     monkeypatch.setattr("agent.model_runtime.time.sleep", lambda _seconds: None)
     request = ResourceRequest(task_class="interactive", max_duration_seconds=0.01)
 

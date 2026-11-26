@@ -485,6 +485,7 @@ class ModelResourcePolicy:
 class LiteRTLMBackend:
     """Official LiteRT-LM Python API; one fresh conversation per Mahoraga inference."""
 
+    MAX_STRUCTURED_MESSAGES = 32  # Keep in sync with Android ModelPromptEnvelope.MAX_MESSAGES.
     DEFAULT_THINKING_BUDGET = {
         "interactive": 256,
         "reasoning": 1024,
