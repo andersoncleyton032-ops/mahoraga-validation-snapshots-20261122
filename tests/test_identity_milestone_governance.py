@@ -209,6 +209,10 @@ def test_approval_request_id_is_bound_to_subject_and_opaque_token():
     assert first != changed_subject
     with pytest.raises(PermissionError, match="limite de tamanho"):
         IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"token": "x" * 9000}, subject)
+    with pytest.raises(PermissionError, match="JSON válido"):
+        IdentityEngine._attestation_request_id("identity.record_milestone.approval", {1: "non-canonical-key"}, subject)
+    with pytest.raises(PermissionError, match="JSON válido"):
+        IdentityEngine._attestation_request_id("identity.record_milestone.approval", {"confidence": float("nan")}, subject)
 
 
 def test_caller_boolean_without_attestations_never_records_milestone(tmp_path):
