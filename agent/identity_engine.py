@@ -370,10 +370,11 @@ class IdentityEngine:
             "self_image_status": "profile_based" if self.available else "unavailable",
             "automatic_personality_mutation": False,
             "milestone_approval": "trusted_one_shot_attestation_required",
-            "approval_authority_connected": callable(
+            "approval_authority_connected": False,
+            "approval_verifier_available": callable(
                 getattr(self.approval_verifier, "consume_attestation", None)
             ),
-            "evidence_verifier_connected": callable(
+            "evidence_verifier_available": callable(
                 getattr(self.evidence_verifier, "verify_attestation", None)
             ),
             "subjective_state_claims": False,
