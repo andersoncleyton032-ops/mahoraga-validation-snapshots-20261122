@@ -54,7 +54,7 @@ def test_fixture_and_rollback_use_the_same_exact_ownership_markers():
     for name in ("COLLECTION_NAME", "FIXTURE_ID", "OWNER_PROPERTY"):
         assert _assignment_value(create, name) == _assignment_value(remove, name)
 
-    assert 'obj.get(OWNER_PROPERTY) != FIXTURE_ID' in create
+    assert 'obj.get(OWNER_PROPERTY) == FIXTURE_ID' in create
     assert 'collection.get("mahoraga_fixture_id") != FIXTURE_ID' in remove
     assert 'obj.get(OWNER_PROPERTY) != FIXTURE_ID' in remove
 
