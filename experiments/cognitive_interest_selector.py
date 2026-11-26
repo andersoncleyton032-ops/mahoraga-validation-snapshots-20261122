@@ -13,8 +13,8 @@ import hmac
 import json
 import math
 import re
-from typing import Any, Iterable
 from types import MappingProxyType
+from typing import Any
 
 
 class InterestSelectionError(ValueError):
@@ -242,7 +242,7 @@ class CognitiveInterestSelector:
 
     def select(
         self,
-        candidates: Iterable[dict[str, Any]],
+        candidates: list[dict[str, Any]] | tuple[dict[str, Any], ...],
         budget: InterestBudget,
         *,
         minimum_score: float = 0.05,
