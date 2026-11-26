@@ -8,7 +8,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Locale;
 
-/** Source-aware allowlist for official Termux release signing certificates. */
+/**
+ * Source-aware allowlist for official Termux release signing certificates.
+ *
+ * Fingerprints are pinned to termux-app commit
+ * 8629e632fcb95da272221be327db653fb24befe9, TermuxConstants.java.
+ */
 public final class TermuxSignerPolicy {
     public static final String FDROID_SHA256 =
             "228FB2CFE90831C1499EC3CCAF61E96E8E1CE70766B9474672CE427334D41C42";
