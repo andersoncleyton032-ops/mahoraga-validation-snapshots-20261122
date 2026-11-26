@@ -17,10 +17,16 @@ class IdentityEngine:
     MAX_PROFILE_BYTES = 64 * 1024
     MAX_CONTEXT_CHARS = 8000
 
-    def __init__(self, root: str | Path, store, dharma=None):
+    def __init__(self, root: str | Path, store, dharma=None, *, approval_verifier=None, evidence_verifier=None):
         self.root = Path(root).expanduser().resolve()
         self.store = store
         self.dharma = dharma
+        self.approval_verifier = (
+            approval_verifier
+            if approval_verifier is not None
+            else getattr(dharma, "approval_verifier", None)
+        )
+        self.evidence_verifier = evidence_verifier
         self.profile_path = self.root / self.PROFILE_RELATIVE_PATH
         self._profile: dict[str, Any] | None = None
         self._profile_error: str | None = None
@@ -222,6 +228,17 @@ class IdentityEngine:
             }
         }
 
+    @staticmethod
+    def _canonical_sha256(value: dict[str, Any]) -> str:
+        canonical = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
     def record_milestone(
         self,
         title: str,
@@ -229,8 +246,15 @@ class IdentityEngine:
         evidence: list[str],
         *,
         approved: bool = False,
-        source: str = "caller_attested",
+        source: str = "human_feedback",
+        approval_attestation: Any = None,
+        evidence_attestation: Any = None,
     ) -> dict[str, Any]:
+        """Append a milestone only after independent evidence and one-shot approval.
+
+        The legacy boolean is retained for API compatibility, but is never a
+        credential. Raw attestations are not persisted.
+        """
         if approved is not True:
             raise PermissionError("Registrar marco de identidade exige aprovação explícita.")
         if self.dharma is None:
@@ -245,24 +269,92 @@ class IdentityEngine:
             raise ValueError("evidence deve conter de 1 a 20 referências.")
         if any(not isinstance(item, str) or not item.strip() or len(item) > 500 for item in evidence):
             raise ValueError("evidence contém referência inválida.")
+        normalized_evidence = [item.strip() for item in evidence]
+        if len(set(normalized_evidence)) != len(normalized_evidence):
+            raise ValueError("evidence contém referências duplicadas.")
         decision = self.dharma.evaluate("record_observation")
         if not decision.allowed:
             raise PermissionError(decision.reason)
-        event_id = self.store.record_event("identity.milestone.recorded", {
+
+        normalized = {
+            "version": self.VERSION,
+            "action": "identity.record_milestone",
             "title": title.strip(),
             "description": description.strip(),
-            "evidence": [item.strip() for item in evidence],
+            "evidence": normalized_evidence,
             "source": source.strip(),
-            "approval_claim": "caller_attested",
-            "approval_verified": False,
             "identity_profile_sha256": self._profile_sha256,
+        }
+        subject_sha256 = self._canonical_sha256(normalized)
+
+        verify_evidence = getattr(self.evidence_verifier, "verify_attestation", None)
+        if evidence_attestation is None or not callable(verify_evidence):
+            raise PermissionError(
+                "Marco bloqueado: verificador independente de evidências ausente."
+            )
+        try:
+            evidence_receipt = verify_evidence(
+                attestation=evidence_attestation,
+                action="identity.record_milestone",
+                subject_sha256=subject_sha256,
+                source=normalized["source"],
+            )
+        except Exception as exc:
+            raise PermissionError("Evidência do marco não pôde ser verificada.") from exc
+        if (
+            not isinstance(evidence_receipt, dict)
+            or evidence_receipt.get("verified") is not True
+            or evidence_receipt.get("subject_sha256") != subject_sha256
+            or evidence_receipt.get("source_identity_verified") is not True
+            or not isinstance(evidence_receipt.get("source_id"), str)
+            or not evidence_receipt["source_id"].strip()
+            or not isinstance(evidence_receipt.get("verifier_id"), str)
+            or not evidence_receipt["verifier_id"].strip()
+            or not isinstance(evidence_receipt.get("receipt_id"), str)
+            or not evidence_receipt["receipt_id"].strip()
+            or len(evidence_receipt["source_id"]) > 256
+            or len(evidence_receipt["verifier_id"]) > 256
+            or len(evidence_receipt["receipt_id"]) > 256
+        ):
+            raise PermissionError("O marco não possui recibo independente de evidência válido.")
+
+        consume_approval = getattr(self.approval_verifier, "consume_attestation", None)
+        if approval_attestation is None or not callable(consume_approval):
+            raise PermissionError(
+                "Marco bloqueado: atestador de aprovação one-shot ausente."
+            )
+        try:
+            approval_consumed = consume_approval(
+                attestation=approval_attestation,
+                action="identity.record_milestone",
+                subject_sha256=subject_sha256,
+            )
+        except Exception as exc:
+            raise PermissionError("A aprovação do marco não pôde ser verificada.") from exc
+        if approval_consumed is not True:
+            raise PermissionError("Aprovação inválida, expirada ou já utilizada.")
+
+        event_id = self.store.record_event("identity.milestone.recorded", {
+            **normalized,
+            "subject_sha256": subject_sha256,
+            "evidence_receipt": {
+                "receipt_id": evidence_receipt["receipt_id"],
+                "source_id": evidence_receipt["source_id"],
+                "verifier_id": evidence_receipt["verifier_id"],
+                "source_identity_verified": True,
+                "verified": True,
+            },
+            "approval_claim": "trusted_one_shot_attestation",
+            "approval_verified": True,
         })
         return {
             "status": "recorded",
             "event_id": event_id,
             "evidence_count": len(evidence),
-            "approval_claim": "caller_attested",
-            "approval_verified": False,
+            "subject_sha256": subject_sha256,
+            "approval_claim": "trusted_one_shot_attestation",
+            "approval_verified": True,
+            "evidence_verified": True,
             "automatic_identity_mutation": False,
         }
 
@@ -277,8 +369,13 @@ class IdentityEngine:
             "model_independent": True,
             "self_image_status": "profile_based" if self.available else "unavailable",
             "automatic_personality_mutation": False,
-            "milestone_approval": "caller_attestation_only",
-            "approval_authority_connected": False,
+            "milestone_approval": "trusted_one_shot_attestation_required",
+            "approval_authority_connected": callable(
+                getattr(self.approval_verifier, "consume_attestation", None)
+            ),
+            "evidence_verifier_connected": callable(
+                getattr(self.evidence_verifier, "verify_attestation", None)
+            ),
             "subjective_state_claims": False,
             "error": self._profile_error,
         }
