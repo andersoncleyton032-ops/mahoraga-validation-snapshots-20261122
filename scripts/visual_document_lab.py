@@ -38,17 +38,6 @@ class VisualDocumentLab:
         if self.core.visual_documents.get(document_id) is not None:
             raise ValueError(f"O documento {document_id!r} já existe; não será sobrescrito.")
 
-        document = VisualDocumentSpec(
-            document_id=document_id,
-            title="VisualDocumentLab — cena de validação",
-            coordinate_space="3d",
-            canvas_width=64,
-            canvas_height=64,
-            layers=(VisualLayerSpec("layer.main", "Main", 0, "geometry"),),
-            metadata={"created_by": "visual_document_lab", "purpose": "headless_validation"},
-        )
-        saved = self.core.visual_documents.save(document)
-
         camera = VisualElementSpec(
             element_id="camera.main",
             kind="camera",
@@ -56,11 +45,6 @@ class VisualDocumentLab:
             name="Camera",
             data={"origin": [0.0, 0.0, 5.0], "target": [0.0, 0.0, 0.0]},
         )
-        document = VisualDocumentEditor.add_element(document, camera)
-        saved = self.core.visual_documents.save(
-            document, expected_parent_sha256=saved.sha256,
-        )
-
         sphere = VisualElementSpec(
             element_id="element.sphere",
             kind="shape",
@@ -70,10 +54,18 @@ class VisualDocumentLab:
             transform=TransformSpec(),
             data={"primitive": "sphere", "radius": 0.8, "albedo": [0.25, 0.55, 0.8]},
         )
-        document = VisualDocumentEditor.add_element(document, sphere)
-        saved = self.core.visual_documents.save(
-            document, expected_parent_sha256=saved.sha256,
+        document = VisualDocumentSpec(
+            document_id=document_id,
+            title="VisualDocumentLab — cena de validação",
+            coordinate_space="3d",
+            canvas_width=64,
+            canvas_height=64,
+            layers=(VisualLayerSpec("layer.main", "Main", 0, "geometry"),),
+            elements=(camera, sphere),
+            metadata={"created_by": "visual_document_lab", "purpose": "headless_validation"},
         )
+        # One append-only transaction: a failed demo creation cannot leave a partial scene.
+        saved = self.core.visual_documents.save(document)
         return self._stored_payload(saved)
 
     def edit_transform(
