@@ -49,6 +49,9 @@ def test_visual_lab_creates_complete_document_atomically_and_compiles(tmp_path):
     assert report["compile"]["execution_started"] is False
     assert report["compile"]["source_document_sha256"] == created["sha256"]
     assert report["compile"]["render_provenance"]["source_provenance_authenticated"] is False
+    with pytest.raises(ValueError, match="não será sobrescrito"):
+        lab.create_demo("lab.test.scene")
+    assert len(core.visual_documents.list_revisions("lab.test.scene")) == 1
 
 
 def test_visual_lab_edit_appends_revision_and_preserves_parent_hash(tmp_path):
