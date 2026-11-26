@@ -11,8 +11,9 @@ public final class WorkPolicy {
     private WorkPolicy() {}
 
     public static boolean isTrustedWakeSender(int sdkInt, int senderUid, int termuxUid) {
-        // Compare UIDs rather than package names because Termux companion apps may share a UID.
-        return sdkInt < 34 || (termuxUid >= 0 && senderUid == termuxUid);
+        // Android 14+ exposes the sender UID. Older releases cannot authenticate
+        // this exported wake receiver, so external wake requests fail closed there.
+        return sdkInt >= 34 && termuxUid >= 0 && senderUid == termuxUid;
     }
 
     public static boolean isValidNextDelay(int seconds) {
