@@ -87,3 +87,30 @@ def test_rejects_manifest_policy_violations(replacement, expected):
 
     with pytest.raises(ManifestPolicyError, match=expected):
         validate_manifest(xml)
+
+
+@pytest.mark.parametrize(
+    "query_element",
+    [
+        '<intent><action android:name="android.intent.action.VIEW" /></intent>',
+        '<provider android:authorities="com.example.provider" />',
+    ],
+)
+def test_rejects_non_package_visibility_queries(query_element):
+    xml = valid_manifest().replace(
+        "<queries>",
+        "<queries>\\n    " + query_element,
+    )
+
+    with pytest.raises(ManifestPolicyError, match="queries may contain package entries only"):
+        validate_manifest(xml)
+
+
+def test_rejects_duplicate_allowlisted_package_queries():
+    xml = valid_manifest().replace(
+        '<package android:name="com.termux" />',
+        '<package android:name="com.termux" />\\n    <package android:name="com.termux" />',
+    )
+
+    with pytest.raises(ManifestPolicyError, match="exactly one Termux and one Shizuku"):
+        validate_manifest(xml)

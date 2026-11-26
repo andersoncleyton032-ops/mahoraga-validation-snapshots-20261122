@@ -61,13 +61,27 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
             violations.append("cleartext traffic must not be enabled")
 
     queries = root.find("queries")
-    query_packages = sorted(
-        element.get(ANDROID_NS + "name", "")
-        for element in (queries.findall("package") if queries is not None else [])
-    )
-    if set(query_packages) != EXPECTED_QUERY_PACKAGES:
+    query_children = list(queries) if queries is not None else []
+    unexpected_query_elements = [
+        element.tag for element in query_children if element.tag != "package"
+    ]
+    if unexpected_query_elements:
         violations.append(
-            "package visibility must be limited to Termux and Shizuku; "
+            "package visibility queries may contain package entries only; "
+            f"found {unexpected_query_elements}"
+        )
+
+    query_packages = [
+        element.get(ANDROID_NS + "name", "")
+        for element in query_children
+        if element.tag == "package"
+    ]
+    if (
+        len(query_packages) != len(EXPECTED_QUERY_PACKAGES)
+        or set(query_packages) != EXPECTED_QUERY_PACKAGES
+    ):
+        violations.append(
+            "package visibility must be limited to exactly one Termux and one Shizuku entry; "
             f"found {query_packages}"
         )
 
