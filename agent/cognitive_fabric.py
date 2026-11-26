@@ -280,6 +280,147 @@ class CognitiveWorkspace:
             for key, record in sorted(self._artifacts.items())
         ]
 
+    @staticmethod
+    def _continuity_timestamp(value: Any, field: str) -> str:
+        if not isinstance(value, str) or not value or len(value) > 64:
+            raise CognitiveFabricError(f"{field} precisa ser timestamp ISO-8601.")
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise CognitiveFabricError(f"{field} precisa ser timestamp ISO-8601.") from exc
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise CognitiveFabricError(f"{field} precisa incluir fuso horário.")
+        return parsed.astimezone(timezone.utc).isoformat()
+
+    def continuity_record(
+        self,
+        outcome: str,
+        *,
+        completed_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Return a bounded, whitelisted cycle summary; this method never persists."""
+        if not isinstance(outcome, str) or outcome not in {
+            "completed", "deferred", "failed", "cancelled"
+        }:
+            raise CognitiveFabricError("outcome de continuidade inválido.")
+        perspective = self.operational_perspective()
+        correlation_id = _identifier(self.correlation_id, "correlation_id")
+        created_at = self._continuity_timestamp(self.created_at, "created_at")
+        completed_at = self._continuity_timestamp(
+            datetime.now(timezone.utc).isoformat()
+            if completed_at is None else completed_at,
+            "completed_at",
+        )
+
+        focus = perspective["focus"]
+        topics = focus["topics_observed"]
+        components = focus["participating_components"]
+        if not isinstance(topics, list) or len(topics) > self._max_signals:
+            raise CognitiveFabricLimitError("Lista de tópicos excede o limite do ciclo.")
+        if not isinstance(components, list) or len(components) > 128:
+            raise CognitiveFabricLimitError("Lista de componentes excede o limite do ciclo.")
+        topics = [_identifier(item, "topic") for item in topics]
+        components = [_identifier(item, "component") for item in components]
+
+        epistemic = perspective["epistemic_summary"]["counts_by_state"]
+        if not isinstance(epistemic, dict) or len(epistemic) > self._max_signals:
+            raise CognitiveFabricLimitError("Resumo epistemológico excede o limite.")
+        epistemic_counts = {}
+        for key, value in epistemic.items():
+            key = _identifier(key, "epistemic_state")
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise CognitiveFabricError("Contagem epistemológica inválida.")
+            epistemic_counts[key] = value
+
+        measurements = []
+        for item in perspective["stage_measurements"]:
+            if not isinstance(item, dict) or set(item) != {
+                "stage", "component", "status", "duration_ms"
+            }:
+                raise CognitiveFabricError("Medição de etapa possui campos inválidos.")
+            status = _identifier(item["status"], "stage_status")
+            duration = item["duration_ms"]
+            if (
+                isinstance(duration, bool)
+                or not isinstance(duration, (int, float))
+                or not math.isfinite(float(duration))
+                or duration < 0
+            ):
+                raise CognitiveFabricError("Duração de etapa inválida.")
+            measurements.append({
+                "stage": _identifier(item["stage"], "stage"),
+                "component": _identifier(item["component"], "component"),
+                "status": status,
+                "duration_ms": round(float(duration), 3),
+            })
+            if len(measurements) > 64:
+                raise CognitiveFabricLimitError("Limite de medições de etapa excedido.")
+
+        artifacts = []
+        for item in perspective["artifacts"]:
+            if not isinstance(item, dict) or set(item) != {
+                "artifact_key", "source", "epistemic_state", "size_bytes"
+            }:
+                raise CognitiveFabricError("Proveniência de artefato possui campos inválidos.")
+            size = item["size_bytes"]
+            if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+                raise CognitiveFabricError("Tamanho de artefato inválido.")
+            epistemic_state = item["epistemic_state"]
+            if (
+                not isinstance(epistemic_state, str)
+                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", epistemic_state)
+            ):
+                raise CognitiveFabricError("artifact_epistemic_state inválido.")
+            artifacts.append({
+                "artifact_key": _identifier(item["artifact_key"], "artifact_key"),
+                "source": _identifier(item["source"], "artifact_source"),
+                "epistemic_state": epistemic_state,
+                "size_bytes": size,
+            })
+            if len(artifacts) > self._max_artifacts:
+                raise CognitiveFabricLimitError("Limite de artefatos excedido.")
+
+        record = {
+            "schema": "mahoraga.cognitive_continuity_record",
+            "schema_version": 1,
+            "outcome": outcome,
+            "cycle": {
+                "correlation_id": correlation_id,
+                "created_at": created_at,
+                "completed_at": completed_at,
+                "signal_count": perspective["cycle"]["signal_count"],
+                "artifact_count": perspective["cycle"]["artifact_count"],
+                "stage_count": perspective["cycle"]["stage_count"],
+            },
+            "focus": {
+                "last_signal_topic": (
+                    _identifier(focus["last_signal_topic"], "last_signal_topic")
+                    if focus["last_signal_topic"] is not None else None
+                ),
+                "topics_observed": topics,
+                "participating_components": components,
+            },
+            "epistemic_summary": {
+                "counts_by_state": epistemic_counts,
+                "reported_confidence_count": perspective["epistemic_summary"]["reported_confidence_count"],
+                "reported_confidence_mean": perspective["epistemic_summary"]["reported_confidence_mean"],
+                "calibration_claim": False,
+            },
+            "artifacts": artifacts,
+            "stage_measurements": measurements,
+            "causal_attribution": "not_established",
+            "subjective_experience_status": "unknown_not_inferred",
+            "redaction": {
+                "raw_request_text_included": False,
+                "signal_payloads_included": False,
+                "evidence_refs_included": False,
+                "artifact_values_included": False,
+                "model_response_included": False,
+            },
+        }
+        copied, _ = _strict_json(record, max_bytes=32_768)
+        return copied
+
     def operational_perspective(self) -> dict[str, Any]:
         """Build one redacted, request-scoped view of the integrated cognitive cycle."""
         signals = self.signals
