@@ -1,0 +1,21 @@
+{
+  "schema": "mahoraga.litert_model_runtime",
+  "version": "1.0.0",
+  "enabled": false,
+  "model_id": "Qwen3-1.7B_dynamic_wi4b32_afp32",
+  "model_path": null,
+  "expected_sha256": "2a72330b504a6596d53a2c00923c57173b10f1b83e6a541213ffec08d1fc5de8",
+  "backend": "cpu",
+  "task_class": "interactive",
+  "max_prompt_chars": 9000,
+  "context_window_tokens": 4096,
+  "max_output_chars": 16000,
+  "estimated_peak_ram_mb": null,
+  "runtime_overhead_mb": 768,
+  "system_memory_reserve_mb": 512,
+  "minimum_free_storage_mb": null,
+  "cache_dir": null,
+  "top_k": 20,
+  "top_p": 0.95,
+  "temperature": 0.6
+}
