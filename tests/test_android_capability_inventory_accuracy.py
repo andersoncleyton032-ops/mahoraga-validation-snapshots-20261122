@@ -36,3 +36,11 @@ def test_resource_inventory_is_read_only_and_explicit_about_unknown_gpu():
         assert token in source
     for forbidden in ("registerListener(", "startRecording(", "createVirtualDisplay("):
         assert forbidden not in source
+
+
+def test_resource_snapshot_labels_the_scope_of_system_metrics():
+    source = PROBE.read_text(encoding="utf-8")
+    assert '"processor_count_scope", "runtime_visible_logical_processors"' in source
+    assert '"scope", "device_memory"' in source
+    assert '"scope", "data_partition"' in source
+    assert '"metric", "thermal_status"' in source

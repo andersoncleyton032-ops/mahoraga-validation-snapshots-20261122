@@ -120,3 +120,6 @@ The Android workflow now also summarizes and uploads JUnit XML test reports, so 
 ### Precisão do inventário (v0.1.1)
 
 O relatório inclui ABI, SoC quando a API oferece o campo, número de processadores, RAM, armazenamento e estado térmico quando disponível. GPU permanece `NOT_PROBED`. Para câmera, microfone e Bluetooth, o estado de permissão diferencia declaração no manifesto e concessão runtime; nenhuma permissão é solicitada nesta versão. O probe CameraX verifica `ProcessCameraProvider`, sem inicializar a câmera.
+
+
+Resource metric semantics are explicit: processor count means logical processors visible to the app runtime; RAM values describe device-wide memory; storage values describe the internal data partition; thermal data is a PowerManager thermal status, not a direct temperature measurement. GPU remains unmeasured.

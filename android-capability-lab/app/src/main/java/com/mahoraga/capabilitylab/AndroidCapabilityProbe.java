@@ -73,33 +73,35 @@ public final class AndroidCapabilityProbe {
         snapshot.put("hardware", Build.HARDWARE);
         snapshot.put("soc_model", Build.VERSION.SDK_INT >= 31 ? Build.SOC_MODEL : null);
         snapshot.put("processor_count", Runtime.getRuntime().availableProcessors());
+        snapshot.put("processor_count_scope", "runtime_visible_logical_processors");
         ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         if (activityManager != null) {
             ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
             activityManager.getMemoryInfo(memory);
-            snapshot.put("memory", fields("total_bytes", memory.totalMem, "available_bytes", memory.availMem,
-                    "threshold_bytes", memory.threshold, "low_memory", memory.lowMemory));
-        } else snapshot.put("memory", fields("status", "temporarily_unavailable"));
+            snapshot.put("memory", fields("scope", "device_memory", "total_bytes", memory.totalMem,
+                    "available_bytes", memory.availMem, "threshold_bytes", memory.threshold,
+                    "low_memory", memory.lowMemory));
+        } else snapshot.put("memory", fields("scope", "device_memory", "status", "temporarily_unavailable"));
         File dataDirectory = Environment.getDataDirectory();
         try {
             StatFs storage = new StatFs(dataDirectory.getPath());
-            snapshot.put("storage", fields("path", dataDirectory.getPath(),
+            snapshot.put("storage", fields("scope", "data_partition", "path", dataDirectory.getPath(),
                     "total_bytes", storage.getTotalBytes(), "available_bytes", storage.getAvailableBytes()));
         } catch (RuntimeException error) {
-            snapshot.put("storage", fields("status", "temporarily_unavailable",
+            snapshot.put("storage", fields("scope", "data_partition", "status", "temporarily_unavailable",
                     "reason", error.getClass().getSimpleName()));
         }
         PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         if (Build.VERSION.SDK_INT >= 29 && powerManager != null) {
             try {
                 int thermalStatus = powerManager.getCurrentThermalStatus();
-                snapshot.put("thermal", fields("status", thermalStatusName(thermalStatus),
+                snapshot.put("thermal", fields("metric", "thermal_status", "status", thermalStatusName(thermalStatus),
                         "status_code", thermalStatus, "source", "PowerManager.getCurrentThermalStatus"));
             } catch (RuntimeException error) {
-                snapshot.put("thermal", fields("status", "temporarily_unavailable",
+                snapshot.put("thermal", fields("metric", "thermal_status", "status", "temporarily_unavailable",
                         "reason", error.getClass().getSimpleName()));
             }
-        } else snapshot.put("thermal", fields("status", "unsupported", "minimum_api", 29,
+        } else snapshot.put("thermal", fields("metric", "thermal_status", "status", "unsupported", "minimum_api", 29,
                 "api_level", Build.VERSION.SDK_INT));
         snapshot.put("gpu", fields("status", "not_probed",
                 "reason", "GPU inventory requires a separately initialized graphics context."));
