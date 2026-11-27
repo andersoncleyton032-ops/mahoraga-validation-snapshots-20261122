@@ -13,7 +13,7 @@ import android.widget.TextView;
 
 public final class MainActivity extends Activity {
     private TextView reportView;
-    private String latestReport = "";
+    private final CapabilityReportSession reportSession = new CapabilityReportSession();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,23 +58,29 @@ public final class MainActivity extends Activity {
     }
 
     private void runProbe() {
+        // A previous successful report must not survive a new, failed observation.
+        reportSession.beginCollection();
+        reportView.setText("Coletando inventário read-only...");
         try {
-            latestReport = new AndroidCapabilityProbe(this).collect().toJson();
-            reportView.setText(latestReport);
+            String report = new AndroidCapabilityProbe(this).collect().toJson();
+            reportSession.complete(report);
+            reportView.setText(reportSession.latestReport());
         } catch (RuntimeException error) {
+            reportSession.fail();
             reportView.setText("Probe failed: " + error.getClass().getSimpleName()
                     + ": " + String.valueOf(error.getMessage()));
         }
     }
 
     private void copyReport() {
-        if (latestReport.isEmpty()) {
-            reportView.setText("Execute o inventário antes de copiar.");
+        if (!reportSession.hasReport()) {
+            reportView.setText("Execute o inventário com sucesso antes de copiar.");
             return;
         }
         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (clipboard != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("AndroidCapabilityReport", latestReport));
+            clipboard.setPrimaryClip(ClipData.newPlainText(
+                    "AndroidCapabilityReport", reportSession.latestReport()));
             reportView.setText("Relatório copiado para a área de transferência. Nenhum upload foi feito.");
         }
     }
