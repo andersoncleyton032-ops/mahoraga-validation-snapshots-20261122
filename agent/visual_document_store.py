@@ -78,6 +78,10 @@ class VisualDocumentStore:
         db = self._connect()
         try:
             db.execute("PRAGMA journal_mode=WAL")
+            # SQLite DDL is transactional, but Python's legacy transaction
+            # mode does not implicitly BEGIN for DDL. Keep rename/create/copy/drop
+            # in one write transaction so an interrupted migration can be retried.
+            db.execute("BEGIN IMMEDIATE")
             existing = db.execute(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
                 ("visual_document_revisions",),
