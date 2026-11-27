@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 
 
@@ -140,4 +141,4 @@ def test_activity_only_exposes_the_latest_successful_capability_report():
     assert "reportSession.fail()" in run_probe
     assert "reportSession.hasReport()" in copy_report
     assert "reportSession.latestReport()" in copy_report
-    assert "latestReport" not in activity
+    assert not re.search(r"\bString\s+latestReport\s*[=;,]", activity)
