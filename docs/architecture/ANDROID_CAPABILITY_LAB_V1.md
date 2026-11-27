@@ -129,3 +129,10 @@ Os probes de câmera, microfone e Bluetooth distinguem `permission_declared` de 
 ### Semântica dos recursos
 
 O relatório deve declarar o escopo de cada valor: processadores lógicos visíveis ao runtime; RAM de dispositivo; armazenamento da partição de dados interna; estado térmico (categoria do PowerManager, não temperatura em graus). GPU permanece `NOT_PROBED` até haver contexto gráfico específico. Essas distinções evitam converter métricas do sistema em alegações sobre quota do processo ou temperatura de um sensor particular.
+
+
+## Report freshness and failed refreshes — 27/11/2026
+
+The Activity exposes only the latest successful observation. Starting a new probe invalidates the previous report before collection begins; a failed probe leaves the session empty, so the copy action cannot export stale device state. The small pure-Java `CapabilityReportSession` owns this transition and is covered by JVM tests for initial state, successful publication, invalidation, failure after a previous success, and rejection of empty reports.
+
+This state helper does not persist reports, start background work, or change the read-only probe contract. The report remains in Activity memory and is copied only after a successful current collection.
