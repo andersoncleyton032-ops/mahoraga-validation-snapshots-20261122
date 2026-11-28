@@ -1,0 +1,116 @@
+name: Mahoraga Core CI
+
+on:
+  # Working branches are validated by their pull_request event below.
+  # Keep push validation on main to avoid duplicate runs for every PR commit.
+  push:
+    branches:
+      - main
+      # Dedicated diagnostic branch: run the minimal probe on every workflow change.
+      - hardening/report-missing-resource-lease-20261124
+    paths:
+      - 'agent/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'docs/**'
+      - 'experiments/**'
+      - 'notebooks/**'
+      - 'pyproject.toml'
+      - 'pytest.ini'
+      - 'setup.cfg'
+      - 'tox.ini'
+      - 'requirements*.txt'
+  pull_request:
+    branches: ["feat/**", main, "work/**", "fix/**", "hardening/**", "research/**", "architecture/**", "implementation/**", "design/**", "cognition/**", "rebase/**", "docs/**", "implementation/persistent-lifecycle-state-20261122"]
+    paths:
+      - 'agent/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'docs/**'
+      - 'experiments/**'
+      - 'notebooks/**'
+      - 'pyproject.toml'
+      - 'pytest.ini'
+      - 'setup.cfg'
+      - 'tox.ini'
+      - 'requirements*.txt'
+  workflow_dispatch:
+    inputs:
+      runner_probe:
+        description: Run only the minimal hosted-runner diagnostic
+        required: false
+        default: false
+        type: boolean
+
+# New commits to the same PR supersede obsolete runs, conserving included Actions usage.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runner_diagnostic:
+    if: false # inert workflow fixture in the curated snapshot
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.runner_probe) || (github.event_name == 'push' && github.ref == 'refs/heads/hardening/report-missing-resource-lease-20261124') || (github.event_name == 'pull_request' && github.head_ref == 'hardening/report-missing-resource-lease-20261124') }}
+    name: Minimal hosted-runner probe (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 3
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04]
+    steps:
+      - name: Confirm runner allocation without checkout
+        shell: bash
+        run: |
+          set -eu
+          echo "RUNNER_DIAGNOSTIC=started"
+          echo "RUNNER_NAME=${RUNNER_NAME:-unknown}"
+          echo "RUNNER_OS=${RUNNER_OS:-unknown}"
+          echo "RUNNER_ARCH=${RUNNER_ARCH:-unknown}"
+          python --version
+          uname -a
+
+  test:
+    if: false # full-core workflow is not executable against a partial snapshot
+    if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.runner_probe) || (github.event_name == 'push' && github.ref == 'refs/heads/hardening/report-missing-resource-lease-20261124') || (github.event_name == 'pull_request' && github.head_ref == 'hardening/report-missing-resource-lease-20261124')) }}
+    # Use the explicit 24.04 image as a controlled alternate to ubuntu-latest,
+    # whose recent jobs failed before a hosted runner was allocated.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      # Stacked development PRs use the primary compatibility lane only.
+      # The final PR targeting main and manual dispatch run the full matrix.
+      matrix:
+        python-version: ${{ github.event_name == 'pull_request' && github.base_ref != 'main' && fromJSON('["3.12"]') || fromJSON('["3.12", "3.14"]') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: python -m pip install pytest numpy
+
+      - name: Run unified validation pipeline
+        run: >-
+          python scripts/validate_project.py
+          --profile ci
+          --output validation-report.json
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahoraga-validation-${{ matrix.python-version }}
+          path: |
+            validation-report.json
+            validation-report.junit.xml
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,42 @@
+name: Mahoraga Core Regression Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["feat/**", main, "integration/**", "hardening/**", "research/**", "architecture/**", "implementation/**", "cognition/**", "rebase/**", "docs/**", "work/**", "fix/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-tests:
+    if: false # full-core workflow is not executable against a partial snapshot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test runner
+        run: python -m pip install --upgrade pip pytest numpy
+
+      - name: Compile Python modules
+        run: python -m compileall -q agent
+
+      - name: Run complete regression suite
+        run: python -m pytest -q
