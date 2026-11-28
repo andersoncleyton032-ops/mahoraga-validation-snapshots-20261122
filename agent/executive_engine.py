@@ -1168,6 +1168,7 @@ class ExecutiveEngine:
         """
         safe_flags = {
             "autonomy_scope": "internal_only",
+            "tool_dispatch_allowed": False,
             "external_effects_allowed": False,
             "network_access_allowed": False,
             "external_effects_performed": False,

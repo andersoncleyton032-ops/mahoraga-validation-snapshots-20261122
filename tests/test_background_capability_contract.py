@@ -1,8 +1,13 @@
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from agent.background_capabilities import InternalBackgroundCapabilities
+from agent.capability_manifest import CapabilityManifest
+from agent.research_orchestrator import ResearchOrchestrator
+from agent.store import KnowledgeStore
 
 
 class FakeManifest:
@@ -43,14 +48,25 @@ class FakeManifest:
 
 
 class FakeOrchestrator:
-    def __init__(self, *, manifest=None, sync_status="synced", registration=None):
+    def __init__(self, *, manifest=None, sync_result=None, registration=None):
         self.capability_manifest = manifest or FakeManifest()
-        self.sync_status = sync_status
+        self.sync_result = sync_result
         self.registration = registration
         self.register_calls = []
 
     def sync_manifest_catalog(self):
-        return {"status": self.sync_status, "conflicts": []}
+        if self.sync_result is not None:
+            return self.sync_result
+        capability_id = InternalBackgroundCapabilities.CAPABILITY_ID
+        return {
+            "inserted": [capability_id],
+            "preserved_existing": [],
+            "conflicts": [],
+            "inserted_count": 1,
+            "preserved_count": 0,
+            "conflict_count": 0,
+            "executables_loaded": 0,
+        }
 
     def capability_descriptor(self, capability_id):
         return None
@@ -82,6 +98,7 @@ def safe_result(**overrides):
         "goal_id": None,
         "goal": {"goal_id": "goal-from-nested-object"},
         "execution_performed": False,
+        "tool_dispatch_allowed": False,
         "tool_dispatch_performed": False,
         "external_effects_allowed": False,
         "network_access_allowed": False,
@@ -91,10 +108,10 @@ def safe_result(**overrides):
     }
 
 
-def make_core(*, manifest=None, sync_status="synced", registration=None, result=None):
+def make_core(*, manifest=None, sync_result=None, registration=None, result=None):
     orchestrator = FakeOrchestrator(
         manifest=manifest,
-        sync_status=sync_status,
+        sync_result=sync_result,
         registration=registration,
     )
     executive = SimpleNamespace(
@@ -138,11 +155,11 @@ def test_manifest_preflight_rejects_scope_or_budget_expansion(manifest, reason):
     assert result["reason"] == reason
 
 
-def test_registration_requires_confirmed_manifest_sync_and_exact_registration():
-    core, orchestrator = make_core(sync_status="unavailable")
+def test_registration_rejects_invalid_manifest_sync_receipt_and_requires_exact_registration():
+    core, orchestrator = make_core(sync_result={"conflicts": []})
     result = InternalBackgroundCapabilities(core).register()
     assert result["status"] == "blocked"
-    assert result["reason"] == "manifest_catalog_sync_not_confirmed"
+    assert result["reason"] == "manifest_catalog_sync_invalid"
     assert orchestrator.register_calls == []
 
     core, orchestrator = make_core(
@@ -154,6 +171,58 @@ def test_registration_requires_confirmed_manifest_sync_and_exact_registration():
     result = InternalBackgroundCapabilities(core).register()
     assert result["status"] == "blocked"
     assert result["reason"] == "capability_registration_not_confirmed"
+
+
+class _AllowInternalDharma:
+    def evaluate(self, action, context=None):
+        return SimpleNamespace(
+            allowed=True,
+            risk_score=0,
+            category="internal_test",
+            reason="explicit test authorization",
+            discovery_allowed=False,
+            experiment_allowed=False,
+            promotion_allowed=False,
+        )
+
+
+def test_registration_accepts_real_capability_manifest_sync_receipt(tmp_path):
+    source = Path(__file__).resolve().parents[1] / "config" / "capability_manifest.json"
+    document = json.loads(source.read_text(encoding="utf-8"))
+    for definition in document["capabilities"]:
+        if definition["id"] == InternalBackgroundCapabilities.CAPABILITY_ID:
+            definition["enabled"] = True
+            break
+    else:
+        raise AssertionError("Capability interna ausente no manifesto de produção.")
+
+    manifest_path = tmp_path / "config" / "capability_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    manifest = CapabilityManifest(manifest_path)
+    assert manifest.valid is True, manifest.status()
+
+    store = KnowledgeStore(tmp_path / "memory.sqlite3")
+    cognitive = SimpleNamespace(store=store, dharma=_AllowInternalDharma())
+    orchestrator = ResearchOrchestrator(cognitive, capability_manifest=manifest)
+    core = SimpleNamespace(
+        research_orchestrator=orchestrator,
+        executive=SimpleNamespace(),
+    )
+
+    result = InternalBackgroundCapabilities(core).register()
+
+    assert result["status"] == "registered"
+    assert result["registered"] is True
+    assert result["capability_id"] == InternalBackgroundCapabilities.CAPABILITY_ID
+    descriptor = orchestrator.capability_descriptor(
+        InternalBackgroundCapabilities.CAPABILITY_ID
+    )
+    assert descriptor["id"] == InternalBackgroundCapabilities.CAPABILITY_ID
+    assert descriptor["tool_dispatch_allowed"] is False
 
 
 def test_registration_succeeds_only_after_sync_and_exact_id_confirmation():
@@ -178,6 +247,7 @@ def test_internal_adoption_extracts_goal_id_and_returns_checkpoint_receipt():
     assert result["external_effects_allowed"] is False
     assert result["network_access_allowed"] is False
     assert result["execution_performed"] is False
+    assert result["tool_dispatch_allowed"] is False
     assert result["tool_dispatch_performed"] is False
     assert result["external_effects_performed"] is False
     assert result["network_access_performed"] is False
@@ -190,6 +260,7 @@ def test_internal_adoption_extracts_goal_id_and_returns_checkpoint_receipt():
     [
         ({"execution_performed": True}, False),
         ({"tool_dispatch_performed": True}, False),
+        ({"tool_dispatch_allowed": True}, False),
         ({"external_effects_allowed": True}, False),
         ({"network_access_allowed": True}, False),
         ({"external_effects_performed": True}, False),
@@ -205,6 +276,26 @@ def test_internal_adoption_fails_closed_on_execution_or_ambiguous_flags(override
     core, _ = make_core(result=result)
 
     with pytest.raises(PermissionError):
+        InternalBackgroundCapabilities(core)._adopt_next_inquiry(FakeExecutionContext())
+
+
+def test_internal_adoption_rejects_missing_tool_dispatch_allowed():
+    result = safe_result()
+    result.pop("tool_dispatch_allowed")
+    core, _ = make_core(result=result)
+
+    with pytest.raises(PermissionError, match="tool_dispatch_allowed=false"):
+        InternalBackgroundCapabilities(core)._adopt_next_inquiry(FakeExecutionContext())
+
+
+def test_created_goal_rejects_conflicting_top_level_and_nested_ids():
+    result = safe_result(
+        goal_id="goal-top",
+        goal={"goal_id": "goal-nested"},
+    )
+    core, _ = make_core(result=result)
+
+    with pytest.raises(ValueError, match="goal_id diverge"):
         InternalBackgroundCapabilities(core)._adopt_next_inquiry(FakeExecutionContext())
 
 
