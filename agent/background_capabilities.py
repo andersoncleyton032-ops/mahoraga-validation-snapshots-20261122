@@ -110,30 +110,49 @@ class InternalBackgroundCapabilities:
                 "capability_id": self.CAPABILITY_ID,
                 "reason": "manifest_catalog_sync_invalid",
             }
+        inserted = sync_result.get("inserted")
+        preserved = sync_result.get("preserved_existing")
         conflicts = sync_result.get("conflicts")
-        if not isinstance(conflicts, list):
+        inserted_count = sync_result.get("inserted_count")
+        preserved_count = sync_result.get("preserved_count")
+        conflict_count = sync_result.get("conflict_count")
+        if (
+            not isinstance(inserted, list)
+            or not all(isinstance(item, str) and item for item in inserted)
+            or not isinstance(preserved, list)
+            or not all(isinstance(item, str) and item for item in preserved)
+            or not isinstance(conflicts, list)
+            or not all(
+                isinstance(item, dict)
+                and isinstance(item.get("id"), str)
+                and isinstance(item.get("fields"), list)
+                and all(isinstance(field, str) for field in item["fields"])
+                for item in conflicts
+            )
+            or type(inserted_count) is not int
+            or inserted_count != len(inserted)
+            or type(preserved_count) is not int
+            or preserved_count != len(preserved)
+            or type(conflict_count) is not int
+            or conflict_count != len(conflicts)
+            or len(set(inserted)) != len(inserted)
+            or len(set(preserved)) != len(preserved)
+            or type(sync_result.get("executables_loaded")) is not int
+            or sync_result.get("executables_loaded") != 0
+            or self.CAPABILITY_ID not in set(inserted).union(preserved)
+            or set(inserted).intersection(preserved)
+        ):
             return {
                 "status": "blocked", "registered": False,
                 "capability_id": self.CAPABILITY_ID,
                 "reason": "manifest_catalog_sync_invalid",
             }
-        if any(
-            isinstance(conflict, dict)
-            and conflict.get("id") == self.CAPABILITY_ID
-            for conflict in conflicts
-        ):
+        if any(conflict["id"] == self.CAPABILITY_ID for conflict in conflicts):
             return {
                 "status": "blocked",
                 "registered": False,
                 "capability_id": self.CAPABILITY_ID,
                 "reason": "manifest_catalog_conflict",
-            }
-
-        if sync_result.get("status") != "synced":
-            return {
-                "status": "blocked", "registered": False,
-                "capability_id": self.CAPABILITY_ID,
-                "reason": "manifest_catalog_sync_not_confirmed",
             }
 
         existing = orchestrator.capability_descriptor(self.CAPABILITY_ID)
@@ -231,8 +250,9 @@ class InternalBackgroundCapabilities:
             raise PermissionError("A capacidade interna exige escopo internal_only explícito.")
         for flag in (
             "execution_performed", "tool_dispatch_performed",
-            "external_effects_allowed", "network_access_allowed",
-            "external_effects_performed", "network_access_performed",
+            "tool_dispatch_allowed", "external_effects_allowed",
+            "network_access_allowed", "external_effects_performed",
+            "network_access_performed",
         ):
             if result.get(flag) is not False:
                 raise PermissionError(
@@ -243,8 +263,15 @@ class InternalBackgroundCapabilities:
             raise TypeError("A adoção precisa declarar goal_created como booleano.")
         goal = result.get("goal")
         goal_id = result.get("goal_id")
-        if goal_id is None and isinstance(goal, dict):
-            goal_id = goal.get("goal_id")
+        nested_goal_id = goal.get("goal_id") if isinstance(goal, dict) else None
+        if (
+            goal_id is not None
+            and nested_goal_id is not None
+            and goal_id != nested_goal_id
+        ):
+            raise ValueError("goal_id diverge entre o resultado e o objetivo aninhado.")
+        if goal_id is None:
+            goal_id = nested_goal_id
         if goal_created and (
             not isinstance(goal_id, str) or not goal_id.strip()
         ):
@@ -264,6 +291,7 @@ class InternalBackgroundCapabilities:
             "goal_created": goal_created,
             "goal_id": goal_id,
             "perception_reconciliation": perception_reconciliation,
+            "tool_dispatch_allowed": False,
             "tool_dispatch_performed": False,
             "external_effects_performed": False,
             "network_access_performed": False,
