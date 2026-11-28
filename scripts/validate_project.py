@@ -254,6 +254,27 @@ def _git_value(*args: str) -> str | None:
         return None
 
 
+def _validate_validation_checkout(
+    output: Path, junit_path: Path, source_snapshot: dict[str, Any],
+) -> None:
+    """Require an identified, clean checkout and report files outside it."""
+    commit = source_snapshot.get("git_commit")
+    if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("Visual/full-core exige HEAD Git válido e identificado.")
+    if source_snapshot.get("git_root") != str(ROOT.resolve()):
+        raise ValueError("Visual/full-core exige a raiz real do repositório Git.")
+    working_tree = source_snapshot.get("working_tree")
+    if not isinstance(working_tree, str) or working_tree:
+        raise ValueError("Visual/full-core exige working tree limpa.")
+    repository_root = ROOT.resolve()
+    for path in (output, junit_path):
+        if path.is_symlink():
+            raise ValueError("Relatórios de validação não podem ser links simbólicos.")
+        resolved = path.parent.resolve() / path.name
+        if resolved.is_relative_to(repository_root):
+            raise ValueError("Relatórios visual/full-core devem ficar fora do checkout.")
+
+
 def _fixture_fingerprints() -> dict[str, str | None]:
     result: dict[str, str | None] = {}
     for relative in FIXTURES:
@@ -516,8 +537,9 @@ def write_report(path: Path, report: dict[str, Any]) -> None:
 
 
 def run_validation(profile: str, output: Path) -> dict[str, Any]:
-    output = Path(output)
-    output.parent.mkdir(parents=True, exist_ok=True)
+    output = Path(output).expanduser()
+    if not output.is_absolute():
+        output = Path.cwd() / output
     junit_path = output.with_suffix(".junit.xml")
     plan = build_plan(profile, junit_path)
     started_at = datetime.now(timezone.utc).isoformat()
@@ -526,11 +548,15 @@ def run_validation(profile: str, output: Path) -> dict[str, Any]:
     current_stage: str | None = None
     current_stage_started_at: str | None = None
     source_snapshot = {
+        "git_root": _git_value("rev-parse", "--show-toplevel"),
         "git_commit": _git_value("rev-parse", "HEAD"),
         "git_branch": _git_value("branch", "--show-current"),
-        "working_tree": _git_value("status", "--short"),
+        "working_tree": _git_value("status", "--short", "--untracked-files=all"),
         "fixture_sha256": _fixture_fingerprints(),
     }
+    if profile in {"visual", "full-core"}:
+        _validate_validation_checkout(output, junit_path, source_snapshot)
+    output.parent.mkdir(parents=True, exist_ok=True)
     environment_snapshot = _resource_snapshot()
 
     def snapshot(final: bool) -> dict[str, Any]:
@@ -569,7 +595,9 @@ def run_validation(profile: str, output: Path) -> dict[str, Any]:
             "source": source_snapshot,
             "environment": environment_snapshot,
             "summary": {
-                "stage_count": len(plan),
+                "stage_count": len(plan) + (
+                    1 if profile in {"visual", "full-core"} else 0
+                ),
                 "stages_recorded": len(stages),
                 "passed": sum(item["status"] == "passed" for item in stages),
                 "failed": sum(item["status"] == "failed" for item in stages),
@@ -656,6 +684,36 @@ def run_validation(profile: str, output: Path) -> dict[str, Any]:
         current_stage_started_at = None
         write_report(output, snapshot(final=False))
 
+    if profile in {"visual", "full-core"}:
+        try:
+            commit_after = _git_value("rev-parse", "HEAD")
+            working_tree_after = _git_value(
+                "status", "--short", "--untracked-files=all"
+            )
+            source_snapshot["git_commit_after"] = commit_after
+            source_snapshot["working_tree_after"] = working_tree_after
+            integrity_ok = (
+                commit_after == source_snapshot["git_commit"]
+                and working_tree_after == ""
+            )
+            stages.append({
+                "id": "checkout_integrity",
+                "status": "passed" if integrity_ok else "failed",
+                "reason": None if integrity_ok else (
+                    "HEAD mudou ou working tree foi alterada durante a validação."
+                ),
+                "git_commit_after": commit_after,
+                "working_tree_after": working_tree_after,
+            })
+        except Exception as exc:
+            source_snapshot["git_commit_after"] = None
+            source_snapshot["working_tree_after"] = None
+            stages.append({
+                "id": "checkout_integrity",
+                "status": "execution_error",
+                "reason": str(exc),
+            })
+
     report = snapshot(final=True)
     write_report(output, report)
     return report
@@ -664,11 +722,16 @@ def run_validation(profile: str, output: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", choices=("ci", "device", "visual", "full-core"), default="ci")
-    parser.add_argument(
-        "--output", type=Path,
-        default=ROOT / "sandbox" / "validation" / "latest.json",
-    )
+    parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
+    if args.output is None:
+        if args.profile in {"visual", "full-core"}:
+            args.output = (
+                Path(tempfile.gettempdir()) / "mahoraga-validation"
+                / f"{args.profile}.json"
+            )
+        else:
+            args.output = ROOT / "sandbox" / "validation" / "latest.json"
     report = run_validation(args.profile, args.output)
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
     print(f"Relatório: {args.output}")
