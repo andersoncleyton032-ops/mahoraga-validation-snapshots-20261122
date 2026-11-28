@@ -87,3 +87,62 @@ def test_rejects_manifest_policy_violations(replacement, expected):
 
     with pytest.raises(ManifestPolicyError, match=expected):
         validate_manifest(xml)
+
+
+@pytest.mark.parametrize(
+    "query_child",
+    [
+        '<intent><action android:name="android.intent.action.VIEW" /></intent>',
+        '<provider android:authorities="com.example.provider" />',
+    ],
+)
+def test_rejects_non_package_queries_that_expand_package_visibility(query_child):
+    xml = valid_manifest().replace(
+        "</queries>",
+        query_child + "\n  </queries>",
+    )
+
+    with pytest.raises(ManifestPolicyError, match="queries may contain only package declarations"):
+        validate_manifest(xml)
+
+
+def test_rejects_duplicate_allowlisted_package_entries():
+    xml = valid_manifest().replace(
+        '<package android:name="com.termux" />',
+        '<package android:name="com.termux" />\n    <package android:name="com.termux" />',
+    )
+
+    with pytest.raises(ManifestPolicyError, match="exactly one declaration each"):
+        validate_manifest(xml)
+
+
+def test_rejects_duplicate_queries_sections():
+    xml = valid_manifest().replace(
+        "</queries>",
+        "</queries>\n  <queries><package android:name=\"com.termux\" /></queries>",
+    )
+
+    with pytest.raises(ManifestPolicyError, match="expected exactly one queries element"):
+        validate_manifest(xml)
+
+
+def test_rejects_non_manifest_xml_root():
+    xml = valid_manifest().replace("<manifest ", "<not-manifest ", 1).replace(
+        "</manifest>", "</not-manifest>", 1,
+    )
+
+    with pytest.raises(ManifestPolicyError, match="unexpected root element"):
+        validate_manifest(xml)
+
+
+def test_rejects_nested_elements_inside_package_query_declarations():
+    xml = valid_manifest().replace(
+        '<package android:name="com.termux" />',
+        '<package android:name="com.termux"><intent /></package>',
+    )
+
+    with pytest.raises(
+        ManifestPolicyError,
+        match="package query declarations must not contain nested elements",
+    ):
+        validate_manifest(xml)
