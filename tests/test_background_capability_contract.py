@@ -173,6 +173,10 @@ def test_internal_adoption_extracts_goal_id_and_returns_checkpoint_receipt():
 
     assert result["goal_created"] is True
     assert result["goal_id"] == "goal-from-nested-object"
+    assert result["capability_id"] == InternalBackgroundCapabilities.CAPABILITY_ID
+    assert result["autonomy_scope"] == "internal_only"
+    assert result["external_effects_allowed"] is False
+    assert result["network_access_allowed"] is False
     assert result["execution_performed"] is False
     assert result["tool_dispatch_performed"] is False
     assert result["external_effects_performed"] is False
