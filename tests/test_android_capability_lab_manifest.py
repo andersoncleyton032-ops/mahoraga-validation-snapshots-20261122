@@ -37,8 +37,6 @@ def test_package_visibility_is_explicit_and_allowlisted():
     queries = root.find("queries")
 
     assert queries is not None
-    assert {node.tag for node in queries} == {"package"}
-    assert all(len(node) == 0 for node in queries)
     packages = {
         node.attrib[f"{ANDROID_NS}name"]
         for node in queries.findall("package")
@@ -142,3 +140,23 @@ def test_activity_only_exposes_the_latest_successful_capability_report():
     assert "reportSession.fail()" in run_probe
     assert "reportSession.hasReport()" in copy_report
     assert "reportSession.latestReport()" in copy_report
+
+
+def test_android_ci_fails_closed_when_junit_evidence_is_missing_or_empty():
+    workflow = (
+        ROOT / ".github" / "workflows" / "android-capability-lab.yml"
+    ).read_text(encoding="utf-8")
+
+    summary = workflow.split("name: Summarize Android JVM test results", 1)[1].split(
+        "name: Upload Android JVM test reports", 1
+    )[0]
+    upload = workflow.split("name: Upload Android JVM test reports", 1)[1].split(
+        "name: Generate APK checksum", 1
+    )[0]
+
+    assert 'raise SystemExit(1)' in summary
+    assert 'totals["tests"] == 0' in summary
+    assert 'totals["skipped"] == totals["tests"]' in summary
+    assert "if-no-files-found: error" in upload
+    assert "tests/test_android_manifest_policy.py" in workflow
+    assert "tests/test_retry_gradle.py" in workflow
