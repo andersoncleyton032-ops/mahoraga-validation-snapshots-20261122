@@ -121,6 +121,30 @@ def test_goal_transition_review_uses_per_goal_history_after_1000_events(tmp_path
     assert review["memory_modified"] is False
 
 
+def test_numeric_goal_id_cannot_shadow_text_goal_id(tmp_path):
+    engine, store = _engine(tmp_path)
+    text_event = _record_goal(store, "1", 1, "active")
+    numeric_event = store.record_event(
+        ExecutiveEngine.GOAL_EVENT,
+        {"goal": {"goal_id": 1, "revision": 99, "status": "corrupt_numeric_id"}},
+    )
+
+    goals = engine._goals()
+    history = store.list_goal_events(ExecutiveEngine.GOAL_EVENT, "1", limit=10)
+
+    assert goals["1"]["revision"] == 1
+    assert [event["id"] for event in history] == [text_event]
+    assert numeric_event != text_event
+
+
+def test_goal_projection_index_is_installed(tmp_path):
+    _, store = _engine(tmp_path)
+    with store._reader() as db:
+        indexes = {row["name"] for row in db.execute("PRAGMA index_list(events)")}
+    assert "idx_events_type_goal_id" in indexes
+
+
+
 def test_concurrent_goal_creation_cannot_exceed_global_capacity(tmp_path):
     database = tmp_path / "executive-projection.sqlite3"
     store = KnowledgeStore(database)
@@ -159,4 +183,3 @@ def test_concurrent_goal_creation_cannot_exceed_global_capacity(tmp_path):
     assert sum("Limite de objetivos" in result for result in results) == 1
     final_engine = ExecutiveEngine(_CognitiveStub(KnowledgeStore(database)))
     assert len(final_engine._goals()) == ExecutiveEngine.MAX_GOALS
-
