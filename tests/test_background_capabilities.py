@@ -228,13 +228,13 @@ def test_production_manifest_declares_internal_background_capability_disabled():
     root = Path(__file__).resolve().parents[1]
     manifest = CapabilityManifest(root / "config" / "capability_manifest.json")
 
-    assert manifest.valid is True
+    assert manifest.valid is True, manifest.status()
     capability = manifest.get("internal.adopt_next_inquiry")
     assert capability is not None
     assert capability["enabled"] is False
     assert capability["risk"] == "local_compute"
     assert capability["metadata"]["writes_internal_state"] is True
-    assert manifest.status()["declared_count"] == 16
+    assert manifest.status()["declared_count"] == 17
     assert manifest.status()["enabled_count"] == 0
 
 
