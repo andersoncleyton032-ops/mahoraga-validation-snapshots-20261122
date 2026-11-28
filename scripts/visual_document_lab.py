@@ -28,6 +28,35 @@ from agent.visual_creation import (
 from agent.visual_scene_compiler import compile_visual_image_task
 
 
+def _resolve_database_path(root: Path, database: Path) -> Path:
+    """Resolve an explicit lab database while refusing the canonical core store."""
+    resolved_root = root.expanduser().resolve()
+    resolved_database = database.expanduser().resolve()
+    canonical_databases = {
+        (resolved_root / "memory" / "mahoraga.sqlite3").resolve(),
+        (_REPOSITORY_ROOT / "memory" / "mahoraga.sqlite3").resolve(),
+    }
+
+    aliases_canonical = resolved_database in canonical_databases
+    if not aliases_canonical and resolved_database.exists():
+        for canonical_database in canonical_databases:
+            if not canonical_database.exists():
+                continue
+            try:
+                if canonical_database.samefile(resolved_database):
+                    aliases_canonical = True
+                    break
+            except OSError:
+                continue
+
+    if aliases_canonical:
+        raise ValueError(
+            "VisualDocumentLab não pode abrir o banco canônico do Mahoraga; "
+            "use um SQLite isolado para o laboratório."
+        )
+    return resolved_database
+
+
 class VisualDocumentLab:
     """A thin orchestration harness over Mahoraga's existing shared components."""
 
@@ -235,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
     from agent.integration_core import IntegratedCore
     from agent.store import KnowledgeStore
     root = args.root.expanduser().resolve()
-    database = args.database.expanduser().resolve()
+    database = _resolve_database_path(root, args.database)
     core = IntegratedCore(root=root, store=KnowledgeStore(database))
     try:
         lab = VisualDocumentLab(core)

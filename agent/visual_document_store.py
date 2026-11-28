@@ -78,13 +78,39 @@ class VisualDocumentStore:
         db = self._connect()
         try:
             db.execute("PRAGMA journal_mode=WAL")
+            # SQLite DDL is transactional, but Python's legacy transaction
+            # mode does not implicitly BEGIN for DDL. Keep rename/create/copy/drop
+            # in one write transaction so an interrupted migration can be retried.
+            db.execute("BEGIN IMMEDIATE")
             existing = db.execute(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
                 ("visual_document_revisions",),
             ).fetchone()
             if existing is not None:
-                normalized_sql = "".join(str(existing["sql"]).upper().split())
-                if "UNIQUE(DOCUMENT_ID,SHA256)" in normalized_sql:
+                # Inspect SQLite's index metadata instead of parsing CREATE TABLE SQL.
+                # This also detects quoted constraints and separately declared unique
+                # indexes, whose SQL text does not match a single normalized spelling.
+                has_legacy_digest_uniqueness = False
+                for index in db.execute(
+                    "PRAGMA index_list('visual_document_revisions')"
+                ).fetchall():
+                    if not index["unique"]:
+                        continue
+                    index_name = str(index["name"]).replace('"', '""')
+                    indexed_columns = db.execute(
+                        f'PRAGMA index_info("{index_name}")'
+                    ).fetchall()
+                    column_names = {
+                        str(column["name"]).lower()
+                        for column in indexed_columns
+                        if column["name"] is not None
+                    }
+                    if len(indexed_columns) == 2 and column_names == {
+                        "document_id", "sha256"
+                    }:
+                        has_legacy_digest_uniqueness = True
+                        break
+                if has_legacy_digest_uniqueness:
                     db.execute(
                         "ALTER TABLE visual_document_revisions "
                         "RENAME TO visual_document_revisions_legacy_v1"
