@@ -262,3 +262,118 @@ def test_visual_document_store_migrates_legacy_unique_digest_schema(tmp_path):
     assert store.get(first.document_id, revision=1) is not None
     assert store.get(first.document_id, revision=2) is not None
     assert store.get(first.document_id, revision=3) is not None
+
+
+
+def test_visual_document_store_migration_rolls_back_schema_rename_on_failure(tmp_path):
+    database_path = tmp_path / "interrupted-legacy.sqlite3"
+    db = sqlite3.connect(str(database_path))
+    try:
+        # This legacy shape triggers the migration path but is incomplete.
+        # The failed copy must not leave a half-renamed schema behind.
+        db.execute(
+            """
+            CREATE TABLE visual_document_revisions (
+                document_id TEXT NOT NULL,
+                revision INTEGER NOT NULL CHECK(revision > 0),
+                schema TEXT NOT NULL,
+                sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
+                parent_sha256 TEXT,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(document_id, revision),
+                UNIQUE(document_id, sha256)
+            )
+            """
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    with pytest.raises(sqlite3.OperationalError, match="content_json"):
+        VisualDocumentStore(database_path)
+
+    check = sqlite3.connect(str(database_path))
+    try:
+        tables = {
+            row[0]
+            for row in check.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+    finally:
+        check.close()
+
+    assert "visual_document_revisions" in tables
+    assert "visual_document_revisions_legacy_v1" not in tables
+
+
+@pytest.mark.parametrize("legacy_unique_form", ["quoted_constraint", "separate_index", "reversed_index", "partial_index"])
+def test_visual_document_store_migrates_legacy_unique_digest_variants(
+    tmp_path, legacy_unique_form,
+):
+    import hashlib
+
+    database_path = tmp_path / f"legacy-{legacy_unique_form}.sqlite3"
+    first = sample_document()
+    second = replace(first, title="Versão legada dois")
+    db = sqlite3.connect(str(database_path))
+    try:
+        unique_clause = (
+            'UNIQUE("document_id", "sha256")'
+            if legacy_unique_form == "quoted_constraint"
+            else ""
+        )
+        db.execute(
+            f"""
+            CREATE TABLE visual_document_revisions (
+                document_id TEXT NOT NULL,
+                revision INTEGER NOT NULL CHECK(revision > 0),
+                schema TEXT NOT NULL,
+                sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
+                parent_sha256 TEXT,
+                content_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(document_id, revision)
+                {"," if unique_clause else ""} {unique_clause}
+            )
+            """
+        )
+        if legacy_unique_form in {"separate_index", "reversed_index", "partial_index"}:
+            indexed_columns = (
+                "sha256, document_id"
+                if legacy_unique_form == "reversed_index"
+                else "document_id, sha256"
+            )
+            partial_predicate = " WHERE revision > 0" if legacy_unique_form == "partial_index" else ""
+            db.execute(
+                "CREATE UNIQUE INDEX legacy_document_digest_uq "
+                f"ON visual_document_revisions ({indexed_columns}){partial_predicate}"
+            )
+        for revision, document, parent, created_at in (
+            (1, first, None, "2026-11-25T00:00:00+00:00"),
+            (2, second, first.sha256(), "2026-11-25T00:00:01+00:00"),
+        ):
+            db.execute(
+                "INSERT INTO visual_document_revisions VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    document.document_id,
+                    revision,
+                    "mahoraga.visual_document.v1",
+                    hashlib.sha256(document.to_json().encode("utf-8")).hexdigest(),
+                    parent,
+                    document.to_json(),
+                    created_at,
+                ),
+            )
+        db.commit()
+    finally:
+        db.close()
+
+    store = VisualDocumentStore(database_path)
+    reverted = store.save(first, expected_parent_sha256=second.sha256())
+
+    assert reverted.revision == 3
+    assert reverted.sha256 == first.sha256()
+    assert store.get(first.document_id, revision=1) is not None
+    assert store.get(first.document_id, revision=2) is not None
+    assert store.get(first.document_id, revision=3) is not None
