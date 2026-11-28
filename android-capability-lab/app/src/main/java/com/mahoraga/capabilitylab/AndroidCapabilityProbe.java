@@ -265,7 +265,7 @@ public final class AndroidCapabilityProbe {
                     == PackageManager.PERMISSION_GRANTED;
             return entry(CapabilityState.permission(true, declared, granted),
                     declared ? "Bluetooth presente; conexões não são inspecionadas nesta versão."
-                            : "BLUETOOTH_CONNECT não está declarado; nova versão autorizada do APK necessária.",
+                            : "BLUETOOTH_CONNECT não está declarado; recurso bloqueado pela política do manifesto atual.",
                     fields("permission", Manifest.permission.BLUETOOTH_CONNECT,
                             "permission_declared", declared, "permission_granted", granted));
         }
@@ -281,7 +281,7 @@ public final class AndroidCapabilityProbe {
                 == PackageManager.PERMISSION_GRANTED;
         return entry(CapabilityState.permission(feature, declared, granted),
                 declared ? "Somente consulta de feature/permissão; câmera nunca é aberta."
-                        : "CAMERA não está declarado no manifesto; nova versão autorizada do APK necessária.",
+                        : "CAMERA não está declarado; recurso bloqueado pela política do manifesto atual.",
                 fields("camera_feature", feature, "required_permission", Manifest.permission.CAMERA,
                         "permission_declared", declared, "permission_granted", granted));
     }
@@ -293,7 +293,7 @@ public final class AndroidCapabilityProbe {
                 == PackageManager.PERMISSION_GRANTED;
         return entry(CapabilityState.permission(feature, declared, granted),
                 declared ? "Somente consulta de feature/permissão; AudioRecord nunca é iniciado."
-                        : "RECORD_AUDIO não está declarado no manifesto; nova versão autorizada do APK necessária.",
+                        : "RECORD_AUDIO não está declarado; recurso bloqueado pela política do manifesto atual.",
                 fields("audio_record_class", AudioRecord.class.getName(),
                         "microphone_feature", feature, "required_permission", Manifest.permission.RECORD_AUDIO,
                         "permission_declared", declared, "permission_granted", granted));
