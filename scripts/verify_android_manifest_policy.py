@@ -61,6 +61,18 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
             violations.append("cleartext traffic must not be enabled")
 
     queries = root.find("queries")
+    query_entries = list(queries) if queries is not None else []
+    non_package_queries = [
+        element.tag for element in query_entries if element.tag != "package"
+    ]
+    if non_package_queries:
+        violations.append(
+            "only explicit package queries are allowed; "
+            f"found {non_package_queries}"
+        )
+    if any(list(element) for element in query_entries):
+        violations.append("package query entries must not contain nested elements")
+
     query_packages = sorted(
         element.get(ANDROID_NS + "name", "")
         for element in (queries.findall("package") if queries is not None else [])
@@ -109,6 +121,7 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
             if element.tag in FORBIDDEN_COMPONENT_TAGS
         ],
         "query_packages": query_packages,
+        "query_entry_types": [element.tag for element in query_entries],
         "activity_count": len(activities),
         "launcher_activity_count": len(launcher_activities),
         "violations": violations,
