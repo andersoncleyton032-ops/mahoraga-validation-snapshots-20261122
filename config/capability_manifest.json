@@ -1295,7 +1295,10 @@
       "metadata": {
         "binding_type": "explicit_trusted_runtime_registration",
         "checkpointable": true,
-        "writes_internal_state": true
+        "writes_internal_state": true,
+        "external_effects_allowed": false,
+        "network_access_allowed": false,
+        "tool_dispatch_allowed": false
       },
       "capability_class": "cognitive_process",
       "supported_intents": [
