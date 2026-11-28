@@ -137,7 +137,16 @@ class ExecutiveEngine:
             "history": [{"status": "planned", "at": now, "note": "goal_created"}],
             "execution_performed": False,
         }
-        self.store.record_event(self.GOAL_EVENT, {"goal": goal})
+        record_goal = getattr(self.store, "record_goal_snapshot_if_capacity", None)
+        if not callable(record_goal):
+            raise RuntimeError(
+                "KnowledgeStore sem limite atômico de objetivos; criação bloqueada."
+            )
+        record_goal(
+            self.GOAL_EVENT,
+            {"goal": goal},
+            max_goals=self.MAX_GOALS,
+        )
         return {"status": "created", "goal": goal, "execution_performed": False}
 
     @_synchronized
