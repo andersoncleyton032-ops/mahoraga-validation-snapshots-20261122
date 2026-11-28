@@ -140,4 +140,4 @@ def test_activity_only_exposes_the_latest_successful_capability_report():
     assert "reportSession.fail()" in run_probe
     assert "reportSession.hasReport()" in copy_report
     assert "reportSession.latestReport()" in copy_report
-    assert "latestReport" not in activity
+    assert "private String latestReport" not in activity
