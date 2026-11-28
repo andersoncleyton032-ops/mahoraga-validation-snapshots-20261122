@@ -30,6 +30,8 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
         raise ManifestPolicyError(f"Invalid manifest XML: {exc}") from exc
 
     violations: list[str] = []
+    if root.tag != "manifest":
+        violations.append(f"unexpected root element: {root.tag!r}")
     package = root.get("package")
     if package != EXPECTED_PACKAGE:
         violations.append(f"unexpected package: {package!r}")
@@ -60,14 +62,30 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
         if app.get(ANDROID_NS + "usesCleartextTraffic") == "true":
             violations.append("cleartext traffic must not be enabled")
 
-    queries = root.find("queries")
-    query_packages = sorted(
-        element.get(ANDROID_NS + "name", "")
-        for element in (queries.findall("package") if queries is not None else [])
-    )
-    if set(query_packages) != EXPECTED_QUERY_PACKAGES:
+    query_nodes = root.findall("queries")
+    if len(query_nodes) != 1:
+        violations.append(f"expected exactly one queries element, found {len(query_nodes)}")
+    queries = query_nodes[0] if len(query_nodes) == 1 else None
+    query_children = list(queries) if queries is not None else []
+    unexpected_query_elements = [
+        element.tag for element in query_children if element.tag != "package"
+    ]
+    if unexpected_query_elements:
         violations.append(
-            "package visibility must be limited to Termux and Shizuku; "
+            "queries may contain only package declarations; "
+            f"found {unexpected_query_elements}"
+        )
+    query_packages = sorted(
+        element.get(ANDROID_NS + "name", "") for element in query_children
+        if element.tag == "package"
+    )
+    if (
+        len(query_packages) != len(EXPECTED_QUERY_PACKAGES)
+        or set(query_packages) != EXPECTED_QUERY_PACKAGES
+    ):
+        violations.append(
+            "package visibility must contain exactly one declaration each for "
+            "Termux and Shizuku; "
             f"found {query_packages}"
         )
 
