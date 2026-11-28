@@ -198,11 +198,35 @@ class AdaptiveLearning:
         ).encode("utf-8")
         return hashlib.sha256(raw).hexdigest()
 
+    @classmethod
+    def _bounded_json_copy(cls, value: Any, max_bytes: int) -> dict | list | None:
+        """Validate and detach bounded JSON before passing persisted data to verifiers."""
+        try:
+            validate_json(value)
+            encoded = json.dumps(
+                value,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+            if len(encoded) > max_bytes:
+                return None
+            copied = json.loads(encoded.decode("utf-8"))
+            return copied if isinstance(copied, (dict, list)) else None
+        except (TypeError, ValueError, OverflowError, RecursionError, UnicodeError):
+            return None
+
     def _episode_is_independently_verified(self, episode: dict[str, Any]) -> bool:
         receipt = episode.get("evidence_verification")
         verifier = getattr(self.cognitive, "evidence_verifier", None)
         verify_receipt = getattr(verifier, "verify_receipt", None)
         if not isinstance(receipt, dict) or not callable(verify_receipt):
+            return False
+        bounded_receipt = self._bounded_json_copy(
+            receipt, self.MAX_EVIDENCE_RECEIPT_BYTES
+        )
+        if not isinstance(bounded_receipt, dict):
             return False
         subject = {
             key: value for key, value in episode.items()
@@ -211,19 +235,22 @@ class AdaptiveLearning:
         try:
             subject_sha256 = self._canonical_sha256(subject)
             if (
-                receipt.get("verified") is not True
-                or receipt.get("subject_sha256") != subject_sha256
-                or not isinstance(receipt.get("verifier_id"), str)
-                or not receipt["verifier_id"].strip()
-                or not isinstance(receipt.get("receipt_id"), str)
-                or not receipt["receipt_id"].strip()
-                or receipt.get("source_identity_verified") is not True
-                or not isinstance(receipt.get("source_id"), str)
-                or not receipt["source_id"].strip()
+                bounded_receipt.get("verified") is not True
+                or bounded_receipt.get("subject_sha256") != subject_sha256
+                or not isinstance(bounded_receipt.get("verifier_id"), str)
+                or not bounded_receipt["verifier_id"].strip()
+                or len(bounded_receipt["verifier_id"]) > 256
+                or not isinstance(bounded_receipt.get("receipt_id"), str)
+                or not bounded_receipt["receipt_id"].strip()
+                or len(bounded_receipt["receipt_id"]) > 256
+                or bounded_receipt.get("source_identity_verified") is not True
+                or not isinstance(bounded_receipt.get("source_id"), str)
+                or not bounded_receipt["source_id"].strip()
+                or len(bounded_receipt["source_id"]) > 256
             ):
                 return False
             return verify_receipt(
-                receipt=receipt,
+                receipt=bounded_receipt,
                 action="adaptive.record_experience",
                 subject_sha256=subject_sha256,
             ) is True
@@ -247,38 +274,31 @@ class AdaptiveLearning:
             )
         except Exception:
             return None
+        if not isinstance(receipt, dict):
+            return None
+        bounded_receipt = self._bounded_json_copy(
+            receipt, self.MAX_EVIDENCE_RECEIPT_BYTES
+        )
+        if not isinstance(bounded_receipt, dict):
+            return None
         if (
-            not isinstance(receipt, dict)
-            or receipt.get("verified") is not True
-            or receipt.get("subject_sha256") != subject_sha256
-            or receipt.get("source_identity_verified") is not True
-            or not isinstance(receipt.get("source_id"), str)
-            or not receipt["source_id"].strip()
-            or len(receipt["source_id"]) > 256
-            or not isinstance(receipt.get("verifier_id"), str)
-            or not receipt["verifier_id"].strip()
-            or len(receipt["verifier_id"]) > 256
-            or not isinstance(receipt.get("receipt_id"), str)
-            or not receipt["receipt_id"].strip()
-            or len(receipt["receipt_id"]) > 256
+            bounded_receipt.get("verified") is not True
+            or bounded_receipt.get("subject_sha256") != subject_sha256
+            or bounded_receipt.get("source_identity_verified") is not True
+            or not isinstance(bounded_receipt.get("source_id"), str)
+            or not bounded_receipt["source_id"].strip()
+            or len(bounded_receipt["source_id"]) > 256
+            or not isinstance(bounded_receipt.get("verifier_id"), str)
+            or not bounded_receipt["verifier_id"].strip()
+            or len(bounded_receipt["verifier_id"]) > 256
+            or not isinstance(bounded_receipt.get("receipt_id"), str)
+            or not bounded_receipt["receipt_id"].strip()
+            or len(bounded_receipt["receipt_id"]) > 256
         ):
             return None
-        try:
-            validate_json(receipt)
-            encoded = json.dumps(
-                receipt,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            ).encode("utf-8")
-            if len(encoded) > self.MAX_EVIDENCE_RECEIPT_BYTES:
-                return None
-            # Normalize to a detached JSON-only copy; preserve verifier fields
-            # (e.g. signatures) needed for later verify_receipt calls.
-            return json.loads(encoded.decode("utf-8"))
-        except (TypeError, ValueError, OverflowError, RecursionError, UnicodeError):
-            return None
+        # Preserve verifier-specific fields (e.g. signatures) in the bounded
+        # detached copy so the same receipt can be cryptographically rechecked.
+        return bounded_receipt
 
     def record_experience(
         self, task: str, action: str, outcome: str, source: str, *,
