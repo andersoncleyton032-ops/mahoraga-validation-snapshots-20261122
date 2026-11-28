@@ -109,7 +109,7 @@ jobs:
           reports = sorted(Path("android-capability-lab/app/build/test-results/testDebugUnitTest").glob("*.xml"))
           if not reports:
               print("JVM_TEST_REPORTS=0 (no XML report generated)")
-              raise SystemExit(0)
+              raise SystemExit(1)
           totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
           for report in reports:
               root = ET.parse(report).getroot()
@@ -118,6 +118,9 @@ jobs:
                   for key in totals:
                       totals[key] += int(suite.attrib.get(key, "0"))
           print("JVM_TESTS={tests} JVM_FAILURES={failures} JVM_ERRORS={errors} JVM_SKIPPED={skipped}".format(**totals))
+          if totals["tests"] == 0 or totals["skipped"] == totals["tests"]:
+              print("JVM_TESTS_NOT_EXECUTED_OR_ALL_SKIPPED")
+              sys.exit(1)
           if totals["failures"] or totals["errors"]:
               sys.exit(1)
           PY
@@ -127,7 +130,7 @@ jobs:
         with:
           name: mahoraga-capability-lab-test-results
           path: android-capability-lab/app/build/test-results/testDebugUnitTest/*.xml
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
       - name: Generate APK checksum
         run: sha256sum android-capability-lab/app/build/outputs/apk/debug/app-debug.apk > android-capability-lab/app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -159,7 +162,7 @@ jobs:
           reports = sorted(Path("android-shizuku-probe/app/build/test-results/testDebugUnitTest").glob("*.xml"))
           if not reports:
               print("SHIZUKU_JVM_TEST_REPORTS=0 (no XML report generated)")
-              raise SystemExit(0)
+              raise SystemExit(1)
           totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
           for report in reports:
               root = ET.parse(report).getroot()
@@ -168,6 +171,9 @@ jobs:
                   for key in totals:
                       totals[key] += int(suite.attrib.get(key, "0"))
           print("SHIZUKU_JVM_TESTS={tests} SHIZUKU_JVM_FAILURES={failures} SHIZUKU_JVM_ERRORS={errors} SHIZUKU_JVM_SKIPPED={skipped}".format(**totals))
+          if totals["tests"] == 0 or totals["skipped"] == totals["tests"]:
+              print("JVM_TESTS_NOT_EXECUTED_OR_ALL_SKIPPED")
+              sys.exit(1)
           if totals["failures"] or totals["errors"]:
               sys.exit(1)
           PY
@@ -177,7 +183,7 @@ jobs:
         with:
           name: mahoraga-shizuku-probe-alpha1-test-results
           path: android-shizuku-probe/app/build/test-results/testDebugUnitTest/*.xml
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
       - name: Generate Shizuku Probe APK checksum
         run: sha256sum android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk > android-shizuku-probe/app/build/outputs/apk/debug/app-debug.apk.sha256
