@@ -128,6 +128,9 @@ class InternalBackgroundCapabilities:
                 existing.get("risk") != "local_compute"
                 or existing.get("checkpointable") is not True
                 or existing.get("writes_internal_state") is not True
+                or existing.get("external_effects_allowed") is not False
+                or existing.get("network_access_allowed") is not False
+                or existing.get("tool_dispatch_allowed") is not False
                 or existing.get("estimated_runtime_seconds") != self.ESTIMATED_RUNTIME_SECONDS
                 or existing.get("estimated_ram_mb") != self.ESTIMATED_RAM_MB
             ):
@@ -149,6 +152,9 @@ class InternalBackgroundCapabilities:
             estimated_ram_mb=self.ESTIMATED_RAM_MB,
             checkpointable=True,
             writes_internal_state=True,
+            external_effects_allowed=False,
+            network_access_allowed=False,
+            tool_dispatch_allowed=False,
         )
         return {
             **registered,
