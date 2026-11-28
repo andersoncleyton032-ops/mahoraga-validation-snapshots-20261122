@@ -61,6 +61,20 @@ class InternalBackgroundCapabilities:
                 "capability_id": self.CAPABILITY_ID,
                 "reason": "capability_internal_write_scope_mismatch",
             }
+        if any(
+            metadata.get(flag) is not False
+            for flag in (
+                "external_effects_allowed",
+                "network_access_allowed",
+                "tool_dispatch_allowed",
+            )
+        ):
+            return {
+                "status": "blocked",
+                "registered": False,
+                "capability_id": self.CAPABILITY_ID,
+                "reason": "capability_side_effect_contract_mismatch",
+            }
         resources = declared.get("resource_requirements")
         if (
             not isinstance(resources, dict)
@@ -176,6 +190,10 @@ class InternalBackgroundCapabilities:
             raise TypeError("A adoção de iniciativa precisa retornar um dicionário.")
         if result.get("tool_dispatch_performed") is True:
             raise PermissionError("A capacidade interna não pode despachar ferramentas.")
+        if result.get("external_effects_performed") is True:
+            raise PermissionError("A capacidade interna não pode executar efeitos externos.")
+        if result.get("network_access_performed") is True:
+            raise PermissionError("A capacidade interna não pode acessar a rede.")
         check()
         checkpoint({
             "phase": "after_review",
@@ -188,5 +206,7 @@ class InternalBackgroundCapabilities:
             "goal_id": result.get("goal_id"),
             "perception_reconciliation": perception_reconciliation,
             "tool_dispatch_performed": False,
+            "external_effects_performed": False,
+            "network_access_performed": False,
             "execution_performed": result.get("execution_performed") is True,
         }
