@@ -257,6 +257,10 @@ class InternalBackgroundCapabilities:
         })
         return {
             "status": str(result.get("status", "unknown"))[:80],
+            "capability_id": self.CAPABILITY_ID,
+            "autonomy_scope": "internal_only",
+            "external_effects_allowed": False,
+            "network_access_allowed": False,
             "goal_created": goal_created,
             "goal_id": goal_id,
             "perception_reconciliation": perception_reconciliation,
