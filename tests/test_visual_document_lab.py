@@ -403,6 +403,39 @@ def test_visual_lab_refuses_repository_store_even_with_custom_root(tmp_path, mon
     assert canonical.stat().st_size == 0
 
 
+
+def test_visual_lab_cli_rejects_canonical_database_before_opening_core(
+    tmp_path, monkeypatch,
+):
+    canonical = tmp_path / "memory" / "mahoraga.sqlite3"
+    canonical.parent.mkdir(parents=True)
+    sentinel = b"canonical-store-must-remain-untouched"
+    canonical.write_bytes(sentinel)
+
+    class ForbiddenCore:
+        def __init__(self, *args, **kwargs):
+            pytest.fail("IntegratedCore must not open the canonical lab database")
+
+    integration_module = ModuleType("agent.integration_core")
+    integration_module.IntegratedCore = ForbiddenCore
+    monkeypatch.setitem(sys.modules, "agent.integration_core", integration_module)
+    monkeypatch.setattr(
+        "agent.store.KnowledgeStore",
+        lambda database: pytest.fail("KnowledgeStore must not open the canonical database"),
+    )
+
+    argv = [
+        "--root", str(tmp_path),
+        "--database", str(canonical),
+        "inspect",
+        "--document-id", "must.not.open",
+    ]
+    with pytest.raises(ValueError, match="banco canônico"):
+        visual_lab_main(argv)
+
+    assert canonical.read_bytes() == sentinel
+
+
 def test_visual_lab_cli_refuses_canonical_database_before_store_or_core_initialization(
     tmp_path, monkeypatch,
 ):
