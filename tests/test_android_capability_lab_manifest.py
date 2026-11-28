@@ -37,6 +37,8 @@ def test_package_visibility_is_explicit_and_allowlisted():
     queries = root.find("queries")
 
     assert queries is not None
+    assert {node.tag for node in queries} == {"package"}
+    assert all(len(node) == 0 for node in queries)
     packages = {
         node.attrib[f"{ANDROID_NS}name"]
         for node in queries.findall("package")
