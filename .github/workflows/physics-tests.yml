@@ -51,6 +51,7 @@ concurrency:
 
 jobs:
   runner_diagnostic:
+    if: false # inert workflow fixture in the curated snapshot
     if: ${{ (github.event_name == 'workflow_dispatch' && inputs.runner_probe) || (github.event_name == 'push' && github.ref == 'refs/heads/hardening/report-missing-resource-lease-20261124') || (github.event_name == 'pull_request' && github.head_ref == 'hardening/report-missing-resource-lease-20261124') }}
     name: Minimal hosted-runner probe (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
@@ -73,6 +74,7 @@ jobs:
           uname -a
 
   test:
+    if: false # full-core workflow is not executable against a partial snapshot
     if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.runner_probe) || (github.event_name == 'push' && github.ref == 'refs/heads/hardening/report-missing-resource-lease-20261124') || (github.event_name == 'pull_request' && github.head_ref == 'hardening/report-missing-resource-lease-20261124')) }}
     # Use the explicit 24.04 image as a controlled alternate to ubuntu-latest,
     # whose recent jobs failed before a hosted runner was allocated.
