@@ -463,7 +463,7 @@ class PersistentBackgroundWorkQueue:
         worker = self._text(worker_id, "worker_id", 80)
         note = self._text(summary, "summary", 240)
         snapshot = self._read()
-        self._claimed_item(snapshot, task, worker)
+        self._claimed_item(snapshot, task, worker, now=now)
         self._remember_finished(snapshot, task, "completed", note)
         revision = self._commit(
             snapshot, "completed", task,
@@ -477,7 +477,7 @@ class PersistentBackgroundWorkQueue:
         worker = self._text(worker_id, "worker_id", 80)
         why = self._text(reason, "reason", 240)
         snapshot = self._read()
-        self._claimed_item(snapshot, task, worker)
+        self._claimed_item(snapshot, task, worker, now=now)
         self._remember_finished(snapshot, task, "failed", why)
         revision = self._commit(
             snapshot, "failed", task,
@@ -490,7 +490,7 @@ class PersistentBackgroundWorkQueue:
         worker = self._text(worker_id, "worker_id", 80)
         why = self._text(reason, "reason", 240)
         snapshot = self._read()
-        item = dict(self._claimed_item(snapshot, task, worker))
+        item = dict(self._claimed_item(snapshot, task, worker, now=now))
         if item["attempts"] >= item["max_attempts"]:
             self._remember_finished(snapshot, task, "failed", why)
             status = "failed"
