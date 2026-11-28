@@ -30,6 +30,8 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
         raise ManifestPolicyError(f"Invalid manifest XML: {exc}") from exc
 
     violations: list[str] = []
+    if root.tag != "manifest":
+        violations.append(f"unexpected root element: {root.tag!r}")
     package = root.get("package")
     if package != EXPECTED_PACKAGE:
         violations.append(f"unexpected package: {package!r}")
@@ -60,26 +62,40 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
         if app.get(ANDROID_NS + "usesCleartextTraffic") == "true":
             violations.append("cleartext traffic must not be enabled")
 
-    queries = root.find("queries")
-    query_entries = list(queries) if queries is not None else []
-    non_package_queries = [
-        element.tag for element in query_entries if element.tag != "package"
+    query_nodes = root.findall("queries")
+    if len(query_nodes) != 1:
+        violations.append(f"expected exactly one queries element, found {len(query_nodes)}")
+    queries = query_nodes[0] if len(query_nodes) == 1 else None
+    query_children = list(queries) if queries is not None else []
+    unexpected_query_elements = [
+        element.tag for element in query_children if element.tag != "package"
     ]
-    if non_package_queries:
+    if unexpected_query_elements:
         violations.append(
-            "only explicit package queries are allowed; "
-            f"found {non_package_queries}"
+            "queries may contain only package declarations; "
+            f"found {unexpected_query_elements}"
         )
-    if any(list(element) for element in query_entries):
-        violations.append("package query entries must not contain nested elements")
-
     query_packages = sorted(
-        element.get(ANDROID_NS + "name", "")
-        for element in (queries.findall("package") if queries is not None else [])
+        element.get(ANDROID_NS + "name", "") for element in query_children
+        if element.tag == "package"
     )
-    if set(query_packages) != EXPECTED_QUERY_PACKAGES:
+    nested_query_packages = [
+        element.get(ANDROID_NS + "name", "")
+        for element in query_children
+        if element.tag == "package" and list(element)
+    ]
+    if nested_query_packages:
         violations.append(
-            "package visibility must be limited to Termux and Shizuku; "
+            "package query declarations must not contain nested elements; "
+            f"found {nested_query_packages}"
+        )
+    if (
+        len(query_packages) != len(EXPECTED_QUERY_PACKAGES)
+        or set(query_packages) != EXPECTED_QUERY_PACKAGES
+    ):
+        violations.append(
+            "package visibility must contain exactly one declaration each for "
+            "Termux and Shizuku; "
             f"found {query_packages}"
         )
 
@@ -121,7 +137,6 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
             if element.tag in FORBIDDEN_COMPONENT_TAGS
         ],
         "query_packages": query_packages,
-        "query_entry_types": [element.tag for element in query_entries],
         "activity_count": len(activities),
         "launcher_activity_count": len(launcher_activities),
         "violations": violations,
