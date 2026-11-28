@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from types import SimpleNamespace
 
 import pytest
@@ -117,3 +119,44 @@ def test_goal_transition_review_uses_per_goal_history_after_1000_events(tmp_path
     assert review["history_may_be_incomplete"] is True
     assert review["execution_performed"] is False
     assert review["memory_modified"] is False
+
+
+def test_concurrent_goal_creation_cannot_exceed_global_capacity(tmp_path):
+    database = tmp_path / "executive-projection.sqlite3"
+    store = KnowledgeStore(database)
+    for index in range(ExecutiveEngine.MAX_GOALS - 1):
+        _record_goal(store, f"existing-{index:03d}", 0)
+
+    engines = [
+        ExecutiveEngine(_CognitiveStub(KnowledgeStore(database))),
+        ExecutiveEngine(_CognitiveStub(KnowledgeStore(database))),
+    ]
+    both_read_capacity = Barrier(2)
+    for engine in engines:
+        original_goals = engine._goals
+
+        def gated_goals(original=original_goals):
+            snapshot = original()
+            both_read_capacity.wait(timeout=10)
+            return snapshot
+
+        engine._goals = gated_goals
+
+    def create(engine, title):
+        try:
+            engine.create_goal(title, "concurrent capacity check")
+            return "created"
+        except ValueError as exc:
+            return str(exc)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(
+            lambda item: create(*item),
+            zip(engines, ("last-slot-a", "last-slot-b")),
+        ))
+
+    assert results.count("created") == 1
+    assert sum("Limite de objetivos" in result for result in results) == 1
+    final_engine = ExecutiveEngine(_CognitiveStub(KnowledgeStore(database)))
+    assert len(final_engine._goals()) == ExecutiveEngine.MAX_GOALS
+
