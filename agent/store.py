@@ -135,6 +135,7 @@ class KnowledgeStore:
                     updated_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_events_type_time ON events(event_type, created_at);
+                CREATE INDEX IF NOT EXISTS idx_events_type_goal_id ON events(event_type, json_extract(payload_json, '$.goal.goal_id'), id DESC);
                 CREATE TABLE IF NOT EXISTS observations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     category TEXT NOT NULL,
@@ -1070,6 +1071,82 @@ class KnowledgeStore:
                 rows = db.execute("SELECT * FROM events ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [{"id": r["id"], "event_type": r["event_type"], "severity": r["severity"],
                  "payload": json.loads(r["payload_json"]), "created_at": r["created_at"]} for r in rows]
+
+    def list_latest_goal_snapshots(
+        self, event_type: str, *, limit: int = 1000
+    ) -> list[dict]:
+        """Return the latest event snapshot for each goal_id in an event stream.
+
+        This is a keyed projection over the append-only log, not a recent-event
+        window. The expression index keeps lookups stable as one goal accumulates
+        many transitions.
+        """
+        if not isinstance(event_type, str) or not event_type.strip() or len(event_type) > 120:
+            raise ValueError("event_type deve ser texto não vazio.")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise ValueError("limit deve ser um inteiro entre 1 e 1000.")
+        with self._reader() as db:
+            rows = db.execute(
+                """
+                SELECT event.*
+                FROM events AS event
+                WHERE event.event_type=?
+                  AND json_type(event.payload_json, '$.goal.goal_id')='text'
+                  AND event.id=(
+                      SELECT MAX(latest.id)
+                      FROM events AS latest
+                      WHERE latest.event_type=event.event_type
+                        AND json_extract(latest.payload_json, '$.goal.goal_id')
+                            = json_extract(event.payload_json, '$.goal.goal_id')
+                  )
+                ORDER BY event.id DESC
+                LIMIT ?
+                """,
+                (event_type.strip(), limit),
+            ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "event_type": row["event_type"],
+                "severity": row["severity"],
+                "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def list_goal_events(
+        self, event_type: str, goal_id: str, *, limit: int = 10
+    ) -> list[dict]:
+        """Return a goal's own recent snapshots, independent of global log volume."""
+        if not isinstance(event_type, str) or not event_type.strip() or len(event_type) > 120:
+            raise ValueError("event_type deve ser texto não vazio.")
+        if not isinstance(goal_id, str) or not goal_id.strip() or len(goal_id) > 512:
+            raise ValueError("goal_id deve ser texto não vazio.")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("limit deve ser um inteiro entre 1 e 100.")
+        with self._reader() as db:
+            rows = db.execute(
+                """
+                SELECT *
+                FROM events
+                WHERE event_type=?
+                  AND json_extract(payload_json, '$.goal.goal_id')=?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (event_type.strip(), goal_id.strip(), limit),
+            ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "event_type": row["event_type"],
+                "severity": row["severity"],
+                "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     def find_events_by_payload_value(
         self,
