@@ -372,3 +372,17 @@ def test_run_validation_marks_all_skipped_visual_suite_inconclusive(monkeypatch,
 
     assert report["stages"][-1]["status"] == "inconclusive"
     assert report["summary"]["overall"] == "inconclusive"
+
+
+def test_pytest_terminal_counts_normalizes_error_and_rejects_unexpected_passes():
+    counts = validate_project._pytest_terminal_counts(
+        "1 error, 2 xpassed in 0.2s"
+    )
+    assert counts is not None
+    assert counts["errors"] == 1
+    assert counts["xpassed"] == 2
+    assert validate_project._pytest_execution_evidence({
+        "status": "passed",
+        "stdout_tail": "1 error, 2 xpassed in 0.2s",
+        "stderr_tail": "",
+    })[0] == "failed"
