@@ -161,6 +161,9 @@ class ResearchOrchestrator:
         estimated_ram_mb: float | None = None,
         checkpointable: bool = False,
         writes_internal_state: bool = False,
+        external_effects_allowed: bool = False,
+        network_access_allowed: bool = False,
+        tool_dispatch_allowed: bool = False,
     ) -> dict:
         """Register a trusted internal function for controlled research use.
 
@@ -183,6 +186,13 @@ class ResearchOrchestrator:
             raise ValueError("checkpointable precisa ser booleano.")
         if not isinstance(writes_internal_state, bool):
             raise ValueError("writes_internal_state precisa ser booleano.")
+        for flag, value in (
+            ("external_effects_allowed", external_effects_allowed),
+            ("network_access_allowed", network_access_allowed),
+            ("tool_dispatch_allowed", tool_dispatch_allowed),
+        ):
+            if not isinstance(value, bool):
+                raise ValueError(f"{flag} precisa ser booleano.")
         if writes_internal_state and (risk != "local_compute" or checkpointable is not True):
             raise PermissionError(
                 "Gravações internas exigem local_compute e capacidade checkpointable."
@@ -267,6 +277,15 @@ class ResearchOrchestrator:
                     raise PermissionError(
                         f"Escopo de gravação interna incompatível com o manifesto: {capability_id}"
                     )
+                for flag, value in (
+                    ("external_effects_allowed", external_effects_allowed),
+                    ("network_access_allowed", network_access_allowed),
+                    ("tool_dispatch_allowed", tool_dispatch_allowed),
+                ):
+                    if declared_metadata.get(flag, False) is not value:
+                        raise PermissionError(
+                            f"Contrato de efeitos incompatível com o manifesto: {capability_id}"
+                        )
 
                 if existing is None:
                     raise PermissionError(
@@ -292,6 +311,15 @@ class ResearchOrchestrator:
                     raise PermissionError(
                         f"Escopo de gravação interna incompatível com o catálogo: {capability_id}"
                     )
+                for flag, value in (
+                    ("external_effects_allowed", external_effects_allowed),
+                    ("network_access_allowed", network_access_allowed),
+                    ("tool_dispatch_allowed", tool_dispatch_allowed),
+                ):
+                    if existing_metadata.get(flag, False) is not value:
+                        raise PermissionError(
+                            f"Contrato de efeitos incompatível com o catálogo: {capability_id}"
+                        )
             else:
                 definition = {
                     "name": capability_id,
@@ -325,6 +353,9 @@ class ResearchOrchestrator:
                         "callable_name": getattr(function, "__name__", None),
                         "checkpointable": checkpointable,
                         "writes_internal_state": writes_internal_state,
+                        "external_effects_allowed": external_effects_allowed,
+                        "network_access_allowed": network_access_allowed,
+                        "tool_dispatch_allowed": tool_dispatch_allowed,
                     },
                 }
                 self.store.upsert_capability(capability_id, definition)
@@ -337,6 +368,9 @@ class ResearchOrchestrator:
                 "estimated_ram_mb": float(estimated_ram_mb),
                 "checkpointable": checkpointable,
                 "writes_internal_state": writes_internal_state,
+                "external_effects_allowed": external_effects_allowed,
+                "network_access_allowed": network_access_allowed,
+                "tool_dispatch_allowed": tool_dispatch_allowed,
             }
 
         return {
@@ -361,6 +395,9 @@ class ResearchOrchestrator:
                 "estimated_ram_mb": capability["estimated_ram_mb"],
                 "checkpointable": capability["checkpointable"],
                 "writes_internal_state": capability["writes_internal_state"],
+                "external_effects_allowed": capability["external_effects_allowed"],
+                "network_access_allowed": capability["network_access_allowed"],
+                "tool_dispatch_allowed": capability["tool_dispatch_allowed"],
             }
 
     def _validate_task(self, task: dict) -> dict:
@@ -441,6 +478,9 @@ class ResearchOrchestrator:
             "estimated_ram_mb": capability["estimated_ram_mb"],
             "checkpointable": capability["checkpointable"],
             "writes_internal_state": capability["writes_internal_state"],
+            "external_effects_allowed": capability["external_effects_allowed"],
+            "network_access_allowed": capability["network_access_allowed"],
+            "tool_dispatch_allowed": capability["tool_dispatch_allowed"],
         }
 
     @staticmethod
@@ -463,6 +503,9 @@ class ResearchOrchestrator:
                 "name": task["name"],
                 "capability": task["capability"],
                 "risk": task["risk"],
+                "external_effects_allowed": task["external_effects_allowed"],
+                "network_access_allowed": task["network_access_allowed"],
+                "tool_dispatch_allowed": task["tool_dispatch_allowed"],
                 "status": "completed",
                 "duration_seconds": round(perf_counter() - started, 6),
                 "result": result,
