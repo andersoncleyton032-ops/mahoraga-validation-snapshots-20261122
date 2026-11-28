@@ -252,7 +252,8 @@ def test_ci_job_timeout_covers_declared_sequential_stage_budgets():
     workflow = (ROOT / ".github" / "workflows" / "physics-tests.yml").read_text(
         encoding="utf-8"
     )
-    timeout_match = re.search(r"timeout-minutes:\s*(\d+)", workflow)
+    test_job = workflow.split("  test:", 1)[1]
+    timeout_match = re.search(r"timeout-minutes:\s*(\d+)", test_job)
     assert timeout_match is not None
     job_budget = int(timeout_match.group(1)) * 60
 
