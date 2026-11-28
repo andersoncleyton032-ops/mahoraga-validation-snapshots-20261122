@@ -92,6 +92,7 @@ class ExecutiveEngine:
                 latest[goal_id] = goal
         return latest
 
+
     @_synchronized
     def create_goal(
         self,
@@ -436,6 +437,7 @@ class ExecutiveEngine:
             "autonomous_internal_inquiry_goal_creation": True,
             "execution_performed": False,
         }
+
 
     @_synchronized
     def snapshot(self) -> dict:
@@ -1164,10 +1166,17 @@ class ExecutiveEngine:
         capability changes, strategy updates or tool actions. It creates an
         investigation objective only; execution still needs a Governor permit.
         """
+        safe_flags = {
+            "autonomy_scope": "internal_only",
+            "external_effects_allowed": False,
+            "network_access_allowed": False,
+            "external_effects_performed": False,
+            "network_access_performed": False,
+        }
         self._authorize("record_observation")
         review = self.review_initiatives()
         if not isinstance(review, dict) or review.get("status") != "reviewed":
-            return {
+            return {**safe_flags,
                 "status": "initiative_review_unavailable",
                 "goal_created": False,
                 "execution_performed": False,
@@ -1177,7 +1186,7 @@ class ExecutiveEngine:
         goals = self._goals()
         adoption_prefix = "autonomous_internal_inquiry:"
         if len(goals) >= self.MAX_GOALS:
-            return {
+            return {**safe_flags,
                 "status": "executive_goal_capacity_reached",
                 "goal_created": False,
                 "execution_performed": False,
@@ -1191,7 +1200,7 @@ class ExecutiveEngine:
             and goal["status"] in {"planned", "active", "blocked", "suspended"}
         ]
         if len(active_auto) >= self.MAX_AUTONOMOUS_INTERNAL_GOALS:
-            return {
+            return {**safe_flags,
                 "status": "autonomous_internal_goal_capacity_reached",
                 "active_internal_goal_count": len(active_auto),
                 "max_active_internal_goals": self.MAX_AUTONOMOUS_INTERNAL_GOALS,
@@ -1212,7 +1221,7 @@ class ExecutiveEngine:
         candidates = []
         review_candidates = review.get("candidates", [])
         if not isinstance(review_candidates, list):
-            return {
+            return {**safe_flags,
                 "status": "initiative_review_unavailable",
                 "goal_created": False,
                 "execution_performed": False,
@@ -1265,7 +1274,7 @@ class ExecutiveEngine:
             )
         )
         if not candidates:
-            return {
+            return {**safe_flags,
                 "status": "no_new_safe_internal_inquiry",
                 "candidate_count": 0,
                 "goal_created": False,
@@ -1277,7 +1286,7 @@ class ExecutiveEngine:
         candidate_id = candidate["candidate_id"]
         reservation = self._reserve_autonomous_internal_inquiry_slot(candidate_id)
         if reservation["status"] == "capacity_reached":
-            return {
+            return {**safe_flags,
                 "status": "autonomous_internal_goal_capacity_reached",
                 "active_internal_goal_count": reservation["active_count"],
                 "pending_internal_goal_reservations": reservation["pending_count"],
@@ -1287,7 +1296,7 @@ class ExecutiveEngine:
                 "tool_dispatch_performed": False,
             }
         if reservation["status"] == "already_reserved":
-            return {
+            return {**safe_flags,
                 "status": "internal_inquiry_reservation_pending",
                 "candidate_id": candidate_id,
                 "goal_created": False,
@@ -1295,7 +1304,7 @@ class ExecutiveEngine:
                 "tool_dispatch_performed": False,
             }
         if reservation["status"] == "already_adopted":
-            return {
+            return {**safe_flags,
                 "status": "internal_inquiry_already_adopted",
                 "candidate_id": candidate_id,
                 "goal_created": False,
@@ -1331,6 +1340,9 @@ class ExecutiveEngine:
             "goal_type": "internal_inquiry",
             "autonomy_scope": "internal_only",
             "external_effects_allowed": False,
+            "network_access_allowed": False,
+            "external_effects_performed": False,
+            "network_access_performed": False,
             "epistemic_state": "open_question",
             "initiative_evidence": {
                 "candidate_id": candidate_id,
@@ -1382,11 +1394,12 @@ class ExecutiveEngine:
         else:
             status = "autonomous_internal_inquiry_adopted"
 
-        return {
+        return {**safe_flags,
             "status": status,
             "candidate_id": candidate_id,
             "goal": goal,
             "goal_created": bool(recorded["created"]),
+            "goal_id": goal["goal_id"],
             "goal_status": goal["status"],
             "autonomy_scope": "internal_only",
             "external_effects_allowed": False,
