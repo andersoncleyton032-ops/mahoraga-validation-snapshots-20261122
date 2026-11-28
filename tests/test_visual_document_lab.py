@@ -359,3 +359,46 @@ def test_visual_lab_cli_reports_cleanup_failure_without_masking_command_failure(
         )
 
     assert len(instances) == 1
+
+
+
+@pytest.mark.parametrize("alias_kind", ["direct", "symlink", "hardlink"])
+def test_visual_lab_cli_refuses_canonical_knowledge_database_alias(
+    tmp_path, alias_kind,
+):
+    from scripts.visual_document_lab import _resolve_database_path
+
+    canonical = tmp_path / "memory" / "mahoraga.sqlite3"
+    canonical.parent.mkdir(parents=True)
+    canonical.touch()
+
+    if alias_kind == "direct":
+        candidate = canonical
+    else:
+        candidate = tmp_path / f"{alias_kind}.sqlite3"
+        if alias_kind == "symlink":
+            candidate.symlink_to(canonical)
+        else:
+            candidate.hardlink_to(canonical)
+
+    with pytest.raises(ValueError, match="banco canônico"):
+        _resolve_database_path(tmp_path, candidate)
+
+    # The safety check is read-only: it neither opens nor modifies the store.
+    assert canonical.stat().st_size == 0
+
+
+
+def test_visual_lab_refuses_repository_store_even_with_custom_root(tmp_path, monkeypatch):
+    import scripts.visual_document_lab as visual_lab_module
+
+    repository_root = tmp_path / "repository"
+    canonical = repository_root / "memory" / "mahoraga.sqlite3"
+    canonical.parent.mkdir(parents=True)
+    canonical.touch()
+    monkeypatch.setattr(visual_lab_module, "_REPOSITORY_ROOT", repository_root)
+
+    with pytest.raises(ValueError, match="banco canônico"):
+        visual_lab_module._resolve_database_path(tmp_path / "custom-root", canonical)
+
+    assert canonical.stat().st_size == 0
