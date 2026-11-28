@@ -264,13 +264,12 @@ def test_visual_document_store_migrates_legacy_unique_digest_schema(tmp_path):
     assert store.get(first.document_id, revision=3) is not None
 
 
-
 def test_visual_document_store_migration_rolls_back_schema_rename_on_failure(tmp_path):
     database_path = tmp_path / "interrupted-legacy.sqlite3"
     db = sqlite3.connect(str(database_path))
     try:
-        # This legacy shape triggers the migration path but is incomplete.
-        # The failed copy must not leave a half-renamed schema behind.
+        # Trigger the legacy migration with an incomplete schema. A failed copy
+        # must not leave the original table renamed or a partial replacement.
         db.execute(
             """
             CREATE TABLE visual_document_revisions (
