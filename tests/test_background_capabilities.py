@@ -408,7 +408,12 @@ def test_registration_with_real_manifest_and_orchestrator_is_explicit_and_bounde
                 "max_ram_mb": 64,
                 "checkpointable": True,
             },
-            "metadata": {"writes_internal_state": True},
+            "metadata": {
+                "writes_internal_state": True,
+                "external_effects_allowed": False,
+                "network_access_allowed": False,
+                "tool_dispatch_allowed": False,
+            },
             "enabled": True,
         }],
     }), encoding="utf-8")
@@ -440,8 +445,63 @@ def test_registration_with_real_manifest_and_orchestrator_is_explicit_and_bounde
     assert descriptor["estimated_ram_mb"] == 64
     assert descriptor["checkpointable"] is True
     assert descriptor["writes_internal_state"] is True
+    assert descriptor["external_effects_allowed"] is False
+    assert descriptor["network_access_allowed"] is False
+    assert descriptor["tool_dispatch_allowed"] is False
     assert orchestrator.status()["runtime_bound_count"] == 1
 
+
+
+def test_orchestrator_rejects_side_effect_contract_mismatch(tmp_path):
+    manifest_path = tmp_path / "config" / "capability_manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps({
+        "schema": "mahoraga.capability_manifest",
+        "version": "1.0.0",
+        "capabilities": [{
+            "id": "internal.adopt_next_inquiry",
+            "name": "Adotar consulta interna",
+            "purpose": "Adotar no máximo uma consulta interna.",
+            "risk": "local_compute",
+            "maturity_state": "implemented",
+            "resource_requirements": {
+                "max_runtime_seconds": 8,
+                "max_ram_mb": 64,
+                "checkpointable": True,
+            },
+            "metadata": {
+                "writes_internal_state": True,
+                "external_effects_allowed": True,
+                "network_access_allowed": False,
+                "tool_dispatch_allowed": False,
+            },
+            "enabled": True,
+        }],
+    }), encoding="utf-8")
+    manifest = CapabilityManifest(manifest_path)
+    assert manifest.valid is True, manifest.status()
+    store = KnowledgeStore(tmp_path / "side-effect-mismatch.sqlite3")
+    cognitive = SimpleNamespace(store=store, dharma=Dharma(tmp_path))
+    orchestrator = ResearchOrchestrator(
+        cognitive,
+        capability_manifest=manifest,
+    )
+    orchestrator.sync_manifest_catalog()
+
+    with pytest.raises(PermissionError, match="Contrato de efeitos"):
+        orchestrator.register_capability(
+            "internal.adopt_next_inquiry",
+            lambda execution_context: {},
+            risk="local_compute",
+            description="Internal-only test capability",
+            estimated_runtime_seconds=8,
+            estimated_ram_mb=64,
+            checkpointable=True,
+            writes_internal_state=True,
+            external_effects_allowed=False,
+            network_access_allowed=False,
+            tool_dispatch_allowed=False,
+        )
 
 
 def test_registration_blocks_capability_without_declared_internal_write_scope():
