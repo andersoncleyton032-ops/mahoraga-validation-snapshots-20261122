@@ -17,11 +17,15 @@ class FakeManifest:
 
     def __init__(
         self, *, enabled=True, risk="local_compute", resources=None,
-        writes_internal_state=True,
+        writes_internal_state=True, external_effects_allowed=False,
+        network_access_allowed=False, tool_dispatch_allowed=False,
     ):
         self.enabled = enabled
         self.risk = risk
         self.writes_internal_state = writes_internal_state
+        self.external_effects_allowed = external_effects_allowed
+        self.network_access_allowed = network_access_allowed
+        self.tool_dispatch_allowed = tool_dispatch_allowed
         self.resources = resources or {
             "max_runtime_seconds": 8,
             "max_ram_mb": 64,
@@ -36,7 +40,12 @@ class FakeManifest:
             "enabled": self.enabled,
             "risk": self.risk,
             "resource_requirements": self.resources,
-            "metadata": {"writes_internal_state": self.writes_internal_state},
+            "metadata": {
+                "writes_internal_state": self.writes_internal_state,
+                "external_effects_allowed": self.external_effects_allowed,
+                "network_access_allowed": self.network_access_allowed,
+                "tool_dispatch_allowed": self.tool_dispatch_allowed,
+            },
         }
 
 
@@ -44,12 +53,17 @@ class FakeOrchestrator:
     def __init__(
         self, *, enabled=True, risk="local_compute", manifest=True,
         resources=None, sync_conflict=False, writes_internal_state=True,
+        external_effects_allowed=False, network_access_allowed=False,
+        tool_dispatch_allowed=False,
     ):
         self.registered = []
         self.capability_manifest = (
             FakeManifest(
                 enabled=enabled, risk=risk, resources=resources,
                 writes_internal_state=writes_internal_state,
+                external_effects_allowed=external_effects_allowed,
+                network_access_allowed=network_access_allowed,
+                tool_dispatch_allowed=tool_dispatch_allowed,
             )
             if manifest else None
         )
@@ -106,6 +120,9 @@ def test_registers_only_checkpointable_local_internal_capability():
     assert metadata["risk"] == "local_compute"
     assert metadata["checkpointable"] is True
     assert metadata["writes_internal_state"] is True
+    assert metadata["external_effects_allowed"] is False
+    assert metadata["network_access_allowed"] is False
+    assert metadata["tool_dispatch_allowed"] is False
     assert metadata["estimated_runtime_seconds"] == 8
     assert metadata["estimated_ram_mb"] == 64
 
@@ -114,6 +131,8 @@ def test_registers_only_checkpointable_local_internal_capability():
     assert outcome["goal_created"] is True
     assert outcome["goal_id"] == "goal-1"
     assert outcome["tool_dispatch_performed"] is False
+    assert outcome["external_effects_performed"] is False
+    assert outcome["network_access_performed"] is False
     assert context.checks == 4
     assert len(context.checkpoints) == 4
 
@@ -125,6 +144,52 @@ def test_rejects_internal_capability_if_it_dispatches_tools():
             "status": "invalid", "goal_created": False,
             "tool_dispatch_performed": True,
         }),
+    )
+    function = InternalBackgroundCapabilities(core)._adopt_next_inquiry
+
+    with pytest.raises(PermissionError):
+        function(FakeExecutionContext())
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "external_effects_allowed",
+        "network_access_allowed",
+        "tool_dispatch_allowed",
+    ],
+)
+def test_registration_fails_closed_when_manifest_allows_side_effects(flag):
+    orchestrator = FakeOrchestrator(**{flag: True})
+    core = SimpleNamespace(
+        research_orchestrator=orchestrator,
+        executive=SimpleNamespace(),
+    )
+
+    result = InternalBackgroundCapabilities(core).register()
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "capability_side_effect_contract_mismatch"
+    assert orchestrator.registered == []
+    assert orchestrator.sync_calls == 0
+
+
+@pytest.mark.parametrize(
+    "side_effect",
+    ["external_effects_performed", "network_access_performed"],
+)
+def test_handler_rejects_external_or_network_side_effects(side_effect):
+    result = {
+        "status": "invalid",
+        "goal_created": False,
+        "tool_dispatch_performed": False,
+        side_effect: True,
+    }
+    core = SimpleNamespace(
+        research_orchestrator=FakeOrchestrator(),
+        executive=SimpleNamespace(
+            adopt_next_internal_inquiry=lambda: result,
+        ),
     )
     function = InternalBackgroundCapabilities(core)._adopt_next_inquiry
 
@@ -234,6 +299,9 @@ def test_production_manifest_declares_internal_background_capability_disabled():
     assert capability["enabled"] is False
     assert capability["risk"] == "local_compute"
     assert capability["metadata"]["writes_internal_state"] is True
+    assert capability["metadata"]["external_effects_allowed"] is False
+    assert capability["metadata"]["network_access_allowed"] is False
+    assert capability["metadata"]["tool_dispatch_allowed"] is False
     assert manifest.status()["declared_count"] == 17
     assert manifest.status()["enabled_count"] == 0
 
