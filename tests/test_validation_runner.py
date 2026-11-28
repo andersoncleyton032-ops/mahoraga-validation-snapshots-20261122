@@ -387,3 +387,27 @@ def test_pytest_terminal_counts_normalizes_error_and_rejects_unexpected_passes()
         "stdout_tail": "1 error, 2 xpassed in 0.2s",
         "stderr_tail": "",
     })[0] == "failed"
+
+
+def test_cli_accepts_full_core_profile(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_run_validation(profile, output):
+        captured["profile"] = profile
+        captured["output"] = output
+        return {"summary": {"overall": "passed"}}
+
+    monkeypatch.setattr(validate_project, "run_validation", fake_run_validation)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validate_project",
+            "--profile", "full-core",
+            "--output", str(tmp_path / "full-core.json"),
+        ],
+    )
+
+    assert validate_project.main() == 0
+    assert captured["profile"] == "full-core"
+    assert captured["output"] == tmp_path / "full-core.json"
