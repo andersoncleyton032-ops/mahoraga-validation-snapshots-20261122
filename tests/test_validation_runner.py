@@ -11,6 +11,21 @@ from scripts import validate_project
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _clean_git_value(*args):
+    if args == ("rev-parse", "--show-toplevel"):
+        return str(validate_project.ROOT.resolve())
+    if args == ("rev-parse", "HEAD"):
+        return "a" * 40
+    if args == ("branch", "--show-current"):
+        return "validation-test"
+    if args in {
+        ("status", "--short"),
+        ("status", "--short", "--untracked-files=all"),
+    }:
+        return ""
+    return None
+
+
 def test_build_plan_is_fixed_sequential_and_contains_all_quality_gates(tmp_path):
     plan = validate_project.build_plan("ci", tmp_path / "tests.xml")
     ids = [item["id"] for item in plan]
@@ -155,7 +170,7 @@ def test_run_validation_checkpoints_each_stage_and_marks_completion(monkeypatch,
         }
 
     monkeypatch.setattr(validate_project, "_run_stage", fake_stage)
-    monkeypatch.setattr(validate_project, "_git_value", lambda *args: "fixture")
+    monkeypatch.setattr(validate_project, "_git_value", _clean_git_value)
     monkeypatch.setattr(validate_project, "_fixture_fingerprints", lambda: {})
     monkeypatch.setattr(validate_project, "_resource_snapshot", lambda: {})
     output = tmp_path / "reports" / "result.json"
@@ -315,7 +330,7 @@ def test_run_validation_blocks_visual_execution_when_collection_fails(monkeypatc
         }
 
     monkeypatch.setattr(validate_project, "_run_stage", fake_stage)
-    monkeypatch.setattr(validate_project, "_git_value", lambda *args: "fixture")
+    monkeypatch.setattr(validate_project, "_git_value", _clean_git_value)
     monkeypatch.setattr(validate_project, "_fixture_fingerprints", lambda: {})
     monkeypatch.setattr(validate_project, "_resource_snapshot", lambda: {})
     report = validate_project.run_validation("visual", tmp_path / "blocked.json")
@@ -323,8 +338,9 @@ def test_run_validation_blocks_visual_execution_when_collection_fails(monkeypatc
     assert len(calls) == 2
     assert report["summary"]["pytest_collection_status"] == "failed"
     assert report["summary"]["overall"] == "failed"
-    assert report["stages"][-1]["id"] == "pytest_visual"
-    assert report["stages"][-1]["status"] == "blocked"
+    visual_stage = next(stage for stage in report["stages"] if stage["id"] == "pytest_visual")
+    assert visual_stage["status"] == "blocked"
+    assert report["stages"][-1]["id"] == "checkout_integrity"
 
 
 def test_run_validation_blocks_visual_execution_when_collection_count_is_unknown(
@@ -341,7 +357,7 @@ def test_run_validation_blocks_visual_execution_when_collection_count_is_unknown
         }
 
     monkeypatch.setattr(validate_project, "_run_stage", fake_stage)
-    monkeypatch.setattr(validate_project, "_git_value", lambda *args: "fixture")
+    monkeypatch.setattr(validate_project, "_git_value", _clean_git_value)
     monkeypatch.setattr(validate_project, "_fixture_fingerprints", lambda: {})
     monkeypatch.setattr(validate_project, "_resource_snapshot", lambda: {})
     report = validate_project.run_validation("visual", tmp_path / "unknown.json")
@@ -349,7 +365,8 @@ def test_run_validation_blocks_visual_execution_when_collection_count_is_unknown
     assert len(calls) == 2
     assert report["summary"]["pytest_collection_status"] == "inconclusive"
     assert report["summary"]["overall"] == "inconclusive"
-    assert report["stages"][-1]["status"] == "blocked"
+    visual_stage = next(stage for stage in report["stages"] if stage["id"] == "pytest_visual")
+    assert visual_stage["status"] == "blocked"
 
 
 def test_run_validation_marks_all_skipped_visual_suite_inconclusive(monkeypatch, tmp_path):
@@ -366,13 +383,15 @@ def test_run_validation_marks_all_skipped_visual_suite_inconclusive(monkeypatch,
         }
 
     monkeypatch.setattr(validate_project, "_run_stage", fake_stage)
-    monkeypatch.setattr(validate_project, "_git_value", lambda *args: "fixture")
+    monkeypatch.setattr(validate_project, "_git_value", _clean_git_value)
     monkeypatch.setattr(validate_project, "_fixture_fingerprints", lambda: {})
     monkeypatch.setattr(validate_project, "_resource_snapshot", lambda: {})
     report = validate_project.run_validation("visual", tmp_path / "skipped.json")
 
-    assert report["stages"][-1]["status"] == "inconclusive"
+    visual_stage = next(stage for stage in report["stages"] if stage["id"] == "pytest_visual")
+    assert visual_stage["status"] == "inconclusive"
     assert report["summary"]["overall"] == "inconclusive"
+    assert report["stages"][-1]["id"] == "checkout_integrity"
 
 
 def test_pytest_terminal_counts_normalizes_error_and_rejects_unexpected_passes():
@@ -387,3 +406,102 @@ def test_pytest_terminal_counts_normalizes_error_and_rejects_unexpected_passes()
         "stdout_tail": "1 error, 2 xpassed in 0.2s",
         "stderr_tail": "",
     })[0] == "failed"
+
+
+def test_cli_accepts_full_core_profile(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_run_validation(profile, output):
+        captured["profile"] = profile
+        captured["output"] = output
+        return {"summary": {"overall": "passed"}}
+
+    monkeypatch.setattr(validate_project, "run_validation", fake_run_validation)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "validate_project",
+            "--profile", "full-core",
+            "--output", str(tmp_path / "full-core.json"),
+        ],
+    )
+
+    assert validate_project.main() == 0
+    assert captured["profile"] == "full-core"
+    assert captured["output"] == tmp_path / "full-core.json"
+
+
+
+def test_visual_profile_rejects_dirty_checkout_before_running_stages(monkeypatch, tmp_path):
+    def dirty_git(*args):
+        if args == ("rev-parse", "--show-toplevel"):
+            return str(validate_project.ROOT.resolve())
+        if args == ("rev-parse", "HEAD"):
+            return "b" * 40
+        if args == ("branch", "--show-current"):
+            return "validation-test"
+        if args == ("status", "--short", "--untracked-files=all"):
+            return "?? untracked.py"
+        return None
+
+    monkeypatch.setattr(validate_project, "_git_value", dirty_git)
+    monkeypatch.setattr(
+        validate_project, "_run_stage",
+        lambda *args: pytest.fail("no stage should run for a dirty checkout"),
+    )
+    with pytest.raises(ValueError, match="working tree limpa"):
+        validate_project.run_validation("visual", tmp_path / "dirty.json")
+
+
+def test_visual_profile_rejects_report_path_inside_checkout():
+    source = {
+        "git_root": str(validate_project.ROOT.resolve()),
+        "git_commit": "c" * 40,
+        "working_tree": "",
+    }
+    output = validate_project.ROOT / "validation-report.json"
+    with pytest.raises(ValueError, match="fora do checkout"):
+        validate_project._validate_validation_checkout(
+            output, output.with_suffix(".junit.xml"), source
+        )
+
+
+def test_visual_profile_detects_post_run_checkout_mutation(monkeypatch, tmp_path):
+    status_calls = 0
+
+    def changing_git(*args):
+        nonlocal status_calls
+        if args == ("rev-parse", "--show-toplevel"):
+            return str(validate_project.ROOT.resolve())
+        if args == ("rev-parse", "HEAD"):
+            return "d" * 40
+        if args == ("branch", "--show-current"):
+            return "validation-test"
+        if args == ("status", "--short", "--untracked-files=all"):
+            status_calls += 1
+            return "" if status_calls == 1 else " M agent/visual_document_store.py"
+        return None
+
+    def fake_stage(command, timeout):
+        if "--collect-only" in command:
+            output = "1 test collected in 0.1s"
+        elif "pytest" in command:
+            output = "1 passed in 0.1s"
+        else:
+            output = ""
+        return {
+            "status": "passed", "returncode": 0, "duration_seconds": 0.01,
+            "stdout_tail": output, "stderr_tail": "", "timed_out": False,
+        }
+
+    monkeypatch.setattr(validate_project, "_git_value", changing_git)
+    monkeypatch.setattr(validate_project, "_run_stage", fake_stage)
+    monkeypatch.setattr(validate_project, "_fixture_fingerprints", lambda: {})
+    monkeypatch.setattr(validate_project, "_resource_snapshot", lambda: {})
+    report = validate_project.run_validation("visual", tmp_path / "mutated.json")
+
+    assert report["summary"]["overall"] == "failed"
+    assert report["stages"][-1]["id"] == "checkout_integrity"
+    assert report["stages"][-1]["status"] == "failed"
+    assert report["source"]["working_tree_after"] == " M agent/visual_document_store.py"
