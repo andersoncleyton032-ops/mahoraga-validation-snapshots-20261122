@@ -78,6 +78,9 @@ class VisualDocumentStore:
         db = self._connect()
         try:
             db.execute("PRAGMA journal_mode=WAL")
+            # Python sqlite3 legacy transaction mode does not implicitly begin
+            # transactions for DDL. Keep the complete schema migration atomic.
+            db.execute("BEGIN IMMEDIATE")
             existing = db.execute(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
                 ("visual_document_revisions",),

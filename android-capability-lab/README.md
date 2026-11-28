@@ -22,6 +22,7 @@ The app emits `mahoraga.android_capability_report.v1` with device API metadata a
 - `AVAILABLE`
 - `REQUIRES_PERMISSION`
 - `REQUIRES_USER_ACTION`
+- `BLOCKED_BY_MANIFEST`
 - `TEMPORARILY_UNAVAILABLE`
 - `UNSUPPORTED`
 - `FAILED`
@@ -30,7 +31,7 @@ The report is displayed locally and may be copied by the user. It is not uploade
 
 ## Read-only boundary
 
-The manifest intentionally requests **no permissions**. It has no INTERNET permission, no camera/microphone/storage/Bluetooth permissions, no foreground service, no receiver and no background worker.
+The manifest intentionally requests **no permissions**. Features that require an undeclared permission are reported as `BLOCKED_BY_MANIFEST`, not as a user-grantable runtime permission. It has no INTERNET permission, no camera/microphone/storage/Bluetooth permissions, no foreground service, no receiver and no background worker.
 
 Probes are limited to:
 - Android API/build metadata and package presence for Termux and Shizuku;

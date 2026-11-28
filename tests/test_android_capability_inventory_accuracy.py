@@ -19,7 +19,7 @@ def test_permission_evidence_distinguishes_manifest_declaration_and_grant():
     assert "permission_declared" in source
     assert "permission_granted" in source
     assert "permissionDeclared" in state
-    assert "Status.REQUIRES_USER_ACTION" in state
+    assert "Status.BLOCKED_BY_MANIFEST" in state
 
 
 def test_resource_inventory_is_read_only_and_explicit_about_unknown_gpu():

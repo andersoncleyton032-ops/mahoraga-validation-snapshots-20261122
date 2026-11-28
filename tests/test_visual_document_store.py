@@ -262,3 +262,45 @@ def test_visual_document_store_migrates_legacy_unique_digest_schema(tmp_path):
     assert store.get(first.document_id, revision=1) is not None
     assert store.get(first.document_id, revision=2) is not None
     assert store.get(first.document_id, revision=3) is not None
+
+
+def test_visual_document_store_migration_rolls_back_schema_rename_on_failure(tmp_path):
+    database_path = tmp_path / "interrupted-legacy.sqlite3"
+    db = sqlite3.connect(str(database_path))
+    try:
+        # Trigger the legacy migration with an incomplete schema. A failed copy
+        # must not leave the original table renamed or a partial replacement.
+        db.execute(
+            """
+            CREATE TABLE visual_document_revisions (
+                document_id TEXT NOT NULL,
+                revision INTEGER NOT NULL CHECK(revision > 0),
+                schema TEXT NOT NULL,
+                sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
+                parent_sha256 TEXT,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(document_id, revision),
+                UNIQUE(document_id, sha256)
+            )
+            """
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    with pytest.raises(sqlite3.OperationalError, match="content_json"):
+        VisualDocumentStore(database_path)
+
+    check = sqlite3.connect(str(database_path))
+    try:
+        tables = {
+            row[0]
+            for row in check.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+    finally:
+        check.close()
+
+    assert "visual_document_revisions" in tables
+    assert "visual_document_revisions_legacy_v1" not in tables
