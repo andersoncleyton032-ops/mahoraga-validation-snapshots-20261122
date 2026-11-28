@@ -1089,12 +1089,16 @@ class AdaptiveLearning:
                     "Memória consolidada diverge do evento canônico; recuperação bloqueada."
                 )
 
+        event_created = saved.get("created") is True
+        operation_created = event_created or memory_created
         return {
-            "status": "consolidated" if memory_created else "already_consolidated",
+            "status": "consolidated" if operation_created else "already_consolidated",
             "memory_key": key,
             "candidate_id": candidate_id,
             "event_id": saved["event_id"],
-            "duplicate": not memory_created,
+            "event_created": event_created,
+            "memory_created": memory_created,
+            "duplicate": not operation_created,
             "approval_request_id": approval_request_id,
             "neural_training_performed": False,
         }
