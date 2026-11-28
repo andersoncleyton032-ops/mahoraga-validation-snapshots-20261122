@@ -79,12 +79,22 @@ def inspect_manifest(xml_text: str) -> dict[str, object]:
         element.get(ANDROID_NS + "name", "") for element in query_children
         if element.tag == "package"
     )
+    nested_query_packages = [
+        element.get(ANDROID_NS + "name", "")
+        for element in query_children
+        if element.tag == "package" and list(element)
+    ]
+    if nested_query_packages:
+        violations.append(
+            "package query declarations must not contain nested elements; "
+            f"found {nested_query_packages}"
+        )
     if (
         len(query_packages) != len(EXPECTED_QUERY_PACKAGES)
         or set(query_packages) != EXPECTED_QUERY_PACKAGES
     ):
         violations.append(
-            "package visibility must contain exactly one declaration each for "
+            "package visibility must be limited to exactly one declaration each for "
             "Termux and Shizuku; "
             f"found {query_packages}"
         )
