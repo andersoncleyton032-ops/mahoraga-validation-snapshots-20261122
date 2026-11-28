@@ -38,8 +38,8 @@ public final class CapabilityStateTest {
     }
 
     @Test
-    public void undeclaredPermissionRequiresManifestActionBeforeRuntimeGrant() {
-        assertEquals(CapabilityState.Status.REQUIRES_USER_ACTION,
+    public void undeclaredPermissionIsBlockedByManifestPolicy() {
+        assertEquals(CapabilityState.Status.BLOCKED_BY_MANIFEST,
                 CapabilityState.permission(true, false, false));
     }
 
