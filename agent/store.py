@@ -770,6 +770,71 @@ class KnowledgeStore:
                                 (event_type, severity, _json(payload or {}), utc_now()))
             return int(cursor.lastrowid)
 
+    def record_goal_snapshot_if_capacity(
+        self,
+        event_type: str,
+        payload: dict,
+        *,
+        max_goals: int,
+        severity: str = "info",
+    ) -> int:
+        """Atomically enforce the global goal-identity cap and append a snapshot.
+
+        The count and insert share one BEGIN IMMEDIATE transaction, so separate
+        ExecutiveEngine/KnowledgeStore instances cannot both consume the last
+        goal slot after observing the same previous count.
+        """
+        if not isinstance(event_type, str) or not event_type.strip() or len(event_type) > 120:
+            raise ValueError("Tipo de evento inválido.")
+        if not isinstance(severity, str) or not severity.strip() or len(severity) > 20:
+            raise ValueError("severity inválida.")
+        if not isinstance(payload, dict):
+            raise ValueError("payload deve ser um dicionário.")
+        if (
+            isinstance(max_goals, bool)
+            or not isinstance(max_goals, int)
+            or not 1 <= max_goals <= 1000
+        ):
+            raise ValueError("max_goals deve ser um inteiro entre 1 e 1000.")
+        goal = payload.get("goal")
+        goal_id = goal.get("goal_id") if isinstance(goal, dict) else None
+        if not isinstance(goal_id, str) or not goal_id.strip() or len(goal_id) > 128:
+            raise ValueError("payload deve conter goal.goal_id válido.")
+
+        normalized_type = event_type.strip()
+        if normalized_type != "executive.goal.snapshot":
+            raise ValueError("event_type deve ser executive.goal.snapshot.")
+        normalized_severity = severity.strip()
+        payload_json = _json(payload)
+        now = utc_now()
+        with self._transaction() as db:
+            existing = db.execute(
+                """SELECT 1 FROM events
+                   WHERE event_type=?
+                     AND json_extract(payload_json, '$.goal.goal_id')=?
+                   LIMIT 1""",
+                (normalized_type, goal_id),
+            ).fetchone()
+            if existing is not None:
+                raise ValueError("goal_id já possui snapshot registrado.")
+
+            row = db.execute(
+                """SELECT COUNT(DISTINCT json_extract(payload_json, '$.goal.goal_id'))
+                   AS goal_count
+                   FROM events
+                   WHERE event_type=?
+                     AND json_type(payload_json, '$.goal.goal_id')='text'""",
+                (normalized_type,),
+            ).fetchone()
+            if int(row["goal_count"]) >= max_goals:
+                raise ValueError("Limite de objetivos ativos/históricos atingido.")
+
+            cursor = db.execute(
+                "INSERT INTO events(event_type,severity,payload_json,created_at) VALUES(?,?,?,?)",
+                (normalized_type, normalized_severity, payload_json, now),
+            )
+            return int(cursor.lastrowid)
+
     def record_versioned_event(
         self,
         event_type: str,
