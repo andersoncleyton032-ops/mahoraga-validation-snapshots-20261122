@@ -6,8 +6,9 @@ import pytest
 from scripts.visual_document_lab import main as visual_lab_main
 
 
-def test_visual_lab_cli_refuses_canonical_database_before_store_or_core_initialization(
-    tmp_path, monkeypatch,
+@pytest.mark.parametrize("alias_kind", ["direct", "symlink", "hardlink"])
+def test_visual_lab_cli_refuses_canonical_database_alias_before_initialization(
+    tmp_path, monkeypatch, alias_kind,
 ):
     import scripts.visual_document_lab as visual_lab_module
 
@@ -16,6 +17,15 @@ def test_visual_lab_cli_refuses_canonical_database_before_store_or_core_initiali
     canonical.parent.mkdir(parents=True)
     canonical.touch()
     monkeypatch.setattr(visual_lab_module, "_REPOSITORY_ROOT", repository_root)
+
+    if alias_kind == "direct":
+        candidate = canonical
+    else:
+        candidate = tmp_path / f"{alias_kind}.sqlite3"
+        if alias_kind == "symlink":
+            candidate.symlink_to(canonical)
+        else:
+            candidate.hardlink_to(canonical)
 
     class ForbiddenCore:
         def __init__(self, *args, **kwargs):
@@ -32,7 +42,7 @@ def test_visual_lab_cli_refuses_canonical_database_before_store_or_core_initiali
     with pytest.raises(ValueError, match="banco canônico"):
         visual_lab_main([
             "--root", str(tmp_path / "custom-root"),
-            "--database", str(canonical),
+            "--database", str(candidate),
             "inspect", "--document-id", "lab.guard.test",
         ])
 
