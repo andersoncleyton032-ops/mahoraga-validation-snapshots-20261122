@@ -41,7 +41,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "9.5.2"
+          gradle-version: "9.6.0"
       - name: Accept Android SDK licenses and install API 36
         shell: bash
         run: |
